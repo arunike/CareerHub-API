@@ -1,0 +1,4864 @@
+[
+{
+  "model": "career.company",
+  "pk": 1,
+  "fields": {
+    "name": "Google",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T08:36:37.212Z",
+    "updated_at": "2026-01-31T08:36:37.212Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 2,
+  "fields": {
+    "name": "DataCo",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T09:01:17.273Z",
+    "updated_at": "2026-01-31T09:01:17.273Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 3,
+  "fields": {
+    "name": "Meta",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T09:12:42.712Z",
+    "updated_at": "2026-01-31T09:12:42.712Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 4,
+  "fields": {
+    "name": "Amazon",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T09:13:15.617Z",
+    "updated_at": "2026-01-31T09:13:15.617Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 5,
+  "fields": {
+    "name": "dfsfsd",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T09:41:16.475Z",
+    "updated_at": "2026-01-31T09:41:16.475Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 6,
+  "fields": {
+    "name": "342424",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T09:41:22.076Z",
+    "updated_at": "2026-01-31T09:41:22.076Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 7,
+  "fields": {
+    "name": "Activision",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.910Z",
+    "updated_at": "2026-01-31T21:31:25.910Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 8,
+  "fields": {
+    "name": "Addison Group",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.912Z",
+    "updated_at": "2026-01-31T21:31:25.912Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 9,
+  "fields": {
+    "name": "Adobe",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.913Z",
+    "updated_at": "2026-01-31T21:31:25.913Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 10,
+  "fields": {
+    "name": "AeroVironment ",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.915Z",
+    "updated_at": "2026-01-31T21:31:25.915Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 11,
+  "fields": {
+    "name": "Affirm",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.916Z",
+    "updated_at": "2026-01-31T21:31:25.916Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 12,
+  "fields": {
+    "name": "AIDA",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.920Z",
+    "updated_at": "2026-01-31T21:31:25.920Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 13,
+  "fields": {
+    "name": "Air Apps",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.922Z",
+    "updated_at": "2026-01-31T21:31:25.922Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 14,
+  "fields": {
+    "name": "Aircall",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.924Z",
+    "updated_at": "2026-01-31T21:31:25.924Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 15,
+  "fields": {
+    "name": "Amae Health",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.926Z",
+    "updated_at": "2026-01-31T21:31:25.926Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 16,
+  "fields": {
+    "name": "Amplitude",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.928Z",
+    "updated_at": "2026-01-31T21:31:25.928Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 17,
+  "fields": {
+    "name": "Anara",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.929Z",
+    "updated_at": "2026-01-31T21:31:25.929Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 18,
+  "fields": {
+    "name": "Artemis",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.930Z",
+    "updated_at": "2026-01-31T21:31:25.931Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 19,
+  "fields": {
+    "name": "Atomic Semi",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.932Z",
+    "updated_at": "2026-01-31T21:31:25.932Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 20,
+  "fields": {
+    "name": "Aurora",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.933Z",
+    "updated_at": "2026-01-31T21:31:25.933Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 21,
+  "fields": {
+    "name": "Basic Capital",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.934Z",
+    "updated_at": "2026-01-31T21:31:25.934Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 22,
+  "fields": {
+    "name": "Benchling",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.936Z",
+    "updated_at": "2026-01-31T21:31:25.936Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 23,
+  "fields": {
+    "name": "Blackhawk Network",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.937Z",
+    "updated_at": "2026-01-31T21:31:25.937Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 24,
+  "fields": {
+    "name": "BlackRock",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.938Z",
+    "updated_at": "2026-01-31T21:31:25.938Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 25,
+  "fields": {
+    "name": "Bobyard",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.940Z",
+    "updated_at": "2026-01-31T21:31:25.940Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 26,
+  "fields": {
+    "name": "Cadence",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.941Z",
+    "updated_at": "2026-01-31T21:31:25.941Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 27,
+  "fields": {
+    "name": "Cartesia",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.942Z",
+    "updated_at": "2026-01-31T21:31:25.943Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 28,
+  "fields": {
+    "name": "Chicago Trading",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.944Z",
+    "updated_at": "2026-01-31T21:31:25.944Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 29,
+  "fields": {
+    "name": "Cleric",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.945Z",
+    "updated_at": "2026-01-31T21:31:25.945Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 30,
+  "fields": {
+    "name": "Coders Connect",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.946Z",
+    "updated_at": "2026-01-31T21:31:25.946Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 31,
+  "fields": {
+    "name": "Codes Health",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.947Z",
+    "updated_at": "2026-01-31T21:31:25.947Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 32,
+  "fields": {
+    "name": "Cohere",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.948Z",
+    "updated_at": "2026-01-31T21:31:25.948Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 33,
+  "fields": {
+    "name": "Comcast",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.950Z",
+    "updated_at": "2026-01-31T21:31:25.950Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 34,
+  "fields": {
+    "name": "ComfyUI",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.951Z",
+    "updated_at": "2026-01-31T21:31:25.951Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 35,
+  "fields": {
+    "name": "Company 3",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.952Z",
+    "updated_at": "2026-01-31T21:31:25.952Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 36,
+  "fields": {
+    "name": "Conduit",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.954Z",
+    "updated_at": "2026-01-31T21:31:25.954Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 37,
+  "fields": {
+    "name": "Cribl",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.955Z",
+    "updated_at": "2026-01-31T21:31:25.955Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 38,
+  "fields": {
+    "name": "Crunchyroll",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.956Z",
+    "updated_at": "2026-01-31T21:31:25.956Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 39,
+  "fields": {
+    "name": "Datasite",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.957Z",
+    "updated_at": "2026-01-31T21:31:25.957Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 40,
+  "fields": {
+    "name": "Dstillery",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.958Z",
+    "updated_at": "2026-01-31T21:31:25.958Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 41,
+  "fields": {
+    "name": "Eclipse Fulfillment",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.960Z",
+    "updated_at": "2026-01-31T21:31:25.960Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 42,
+  "fields": {
+    "name": "Emonics",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.961Z",
+    "updated_at": "2026-01-31T21:31:25.961Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 43,
+  "fields": {
+    "name": "Esri",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.962Z",
+    "updated_at": "2026-01-31T21:31:25.962Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 44,
+  "fields": {
+    "name": "Etsy",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.963Z",
+    "updated_at": "2026-01-31T21:31:25.963Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 45,
+  "fields": {
+    "name": "FICO",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.964Z",
+    "updated_at": "2026-01-31T21:31:25.964Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 46,
+  "fields": {
+    "name": "Fieldguide",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.966Z",
+    "updated_at": "2026-01-31T21:31:25.966Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 47,
+  "fields": {
+    "name": "Figma",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.967Z",
+    "updated_at": "2026-01-31T21:31:25.967Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 48,
+  "fields": {
+    "name": "First Street",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.968Z",
+    "updated_at": "2026-01-31T21:31:25.968Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 49,
+  "fields": {
+    "name": "Front",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.970Z",
+    "updated_at": "2026-01-31T21:31:25.970Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 50,
+  "fields": {
+    "name": "Genius Sports",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.971Z",
+    "updated_at": "2026-01-31T21:31:25.971Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 51,
+  "fields": {
+    "name": "Glean",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.972Z",
+    "updated_at": "2026-01-31T21:31:25.972Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 52,
+  "fields": {
+    "name": "Hadrian",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.974Z",
+    "updated_at": "2026-01-31T21:31:25.974Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 53,
+  "fields": {
+    "name": "Intuit",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.975Z",
+    "updated_at": "2026-01-31T21:31:25.975Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 54,
+  "fields": {
+    "name": "KAYAK",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.977Z",
+    "updated_at": "2026-01-31T21:31:25.977Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 55,
+  "fields": {
+    "name": "Klaviyo",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.978Z",
+    "updated_at": "2026-01-31T21:31:25.978Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 56,
+  "fields": {
+    "name": "LinkedIn",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.979Z",
+    "updated_at": "2026-01-31T21:31:25.979Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 57,
+  "fields": {
+    "name": "Linkedin",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.980Z",
+    "updated_at": "2026-01-31T21:31:25.980Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 58,
+  "fields": {
+    "name": "LinkSquares",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.982Z",
+    "updated_at": "2026-01-31T21:31:25.982Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 59,
+  "fields": {
+    "name": "Luma",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.984Z",
+    "updated_at": "2026-01-31T21:31:25.984Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 60,
+  "fields": {
+    "name": "Lyft",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.985Z",
+    "updated_at": "2026-01-31T21:31:25.985Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 61,
+  "fields": {
+    "name": "Mashgin",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.987Z",
+    "updated_at": "2026-01-31T21:31:25.987Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 62,
+  "fields": {
+    "name": "maxRTE",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.988Z",
+    "updated_at": "2026-01-31T21:31:25.988Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 63,
+  "fields": {
+    "name": "Mercor",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.989Z",
+    "updated_at": "2026-01-31T21:31:25.989Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 64,
+  "fields": {
+    "name": "Microsoft",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.990Z",
+    "updated_at": "2026-01-31T21:31:25.990Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 65,
+  "fields": {
+    "name": "Millennium",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.992Z",
+    "updated_at": "2026-01-31T21:31:25.992Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 66,
+  "fields": {
+    "name": "Monogram",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.993Z",
+    "updated_at": "2026-01-31T21:31:25.993Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 67,
+  "fields": {
+    "name": "MSC",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.994Z",
+    "updated_at": "2026-01-31T21:31:25.994Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 68,
+  "fields": {
+    "name": "Netflix",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.995Z",
+    "updated_at": "2026-01-31T21:31:25.995Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 69,
+  "fields": {
+    "name": "Notion",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.997Z",
+    "updated_at": "2026-01-31T21:31:25.997Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 70,
+  "fields": {
+    "name": "OCC",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.998Z",
+    "updated_at": "2026-01-31T21:31:25.998Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 71,
+  "fields": {
+    "name": "Otter",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:25.999Z",
+    "updated_at": "2026-01-31T21:31:25.999Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 72,
+  "fields": {
+    "name": "Pallet",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.000Z",
+    "updated_at": "2026-01-31T21:31:26.000Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 73,
+  "fields": {
+    "name": "Paraform",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.002Z",
+    "updated_at": "2026-01-31T21:31:26.002Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 74,
+  "fields": {
+    "name": "Phia",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.003Z",
+    "updated_at": "2026-01-31T21:31:26.003Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 75,
+  "fields": {
+    "name": "Picnic",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.004Z",
+    "updated_at": "2026-01-31T21:31:26.004Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 76,
+  "fields": {
+    "name": "Plaid",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.005Z",
+    "updated_at": "2026-01-31T21:31:26.005Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 77,
+  "fields": {
+    "name": "PlayStation",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.007Z",
+    "updated_at": "2026-01-31T21:31:26.007Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 78,
+  "fields": {
+    "name": "Potion Factory",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.008Z",
+    "updated_at": "2026-01-31T21:31:26.008Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 79,
+  "fields": {
+    "name": "Primis",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.009Z",
+    "updated_at": "2026-01-31T21:31:26.009Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 80,
+  "fields": {
+    "name": "PromptArmor",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.011Z",
+    "updated_at": "2026-01-31T21:31:26.011Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 81,
+  "fields": {
+    "name": "Pylon",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.012Z",
+    "updated_at": "2026-01-31T21:31:26.012Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 82,
+  "fields": {
+    "name": "Qumulo",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.013Z",
+    "updated_at": "2026-01-31T21:31:26.013Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 83,
+  "fields": {
+    "name": "Redfin",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.015Z",
+    "updated_at": "2026-01-31T21:31:26.015Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 84,
+  "fields": {
+    "name": "Replica",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.016Z",
+    "updated_at": "2026-01-31T21:31:26.016Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 85,
+  "fields": {
+    "name": "Replit",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.018Z",
+    "updated_at": "2026-01-31T21:31:26.018Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 86,
+  "fields": {
+    "name": "Robinhood",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.019Z",
+    "updated_at": "2026-01-31T21:31:26.019Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 87,
+  "fields": {
+    "name": "Salesforce",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.021Z",
+    "updated_at": "2026-01-31T21:31:26.021Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 88,
+  "fields": {
+    "name": "ServiceNow",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.023Z",
+    "updated_at": "2026-01-31T21:31:26.023Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 89,
+  "fields": {
+    "name": "SharkNinja",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.024Z",
+    "updated_at": "2026-01-31T21:31:26.024Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 90,
+  "fields": {
+    "name": "Snowflake",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.026Z",
+    "updated_at": "2026-01-31T21:31:26.026Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 91,
+  "fields": {
+    "name": "Sortie",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.028Z",
+    "updated_at": "2026-01-31T21:31:26.028Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 92,
+  "fields": {
+    "name": "Spotify",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.029Z",
+    "updated_at": "2026-01-31T21:31:26.029Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 93,
+  "fields": {
+    "name": "SpruceID",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.032Z",
+    "updated_at": "2026-01-31T21:31:26.032Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 94,
+  "fields": {
+    "name": "Strada",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.033Z",
+    "updated_at": "2026-01-31T21:31:26.033Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 95,
+  "fields": {
+    "name": "Subsplash",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.034Z",
+    "updated_at": "2026-01-31T21:31:26.034Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 96,
+  "fields": {
+    "name": "Supermicro",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.035Z",
+    "updated_at": "2026-01-31T21:31:26.035Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 97,
+  "fields": {
+    "name": "Tenkara",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.037Z",
+    "updated_at": "2026-01-31T21:31:26.037Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 98,
+  "fields": {
+    "name": "TextNow",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.038Z",
+    "updated_at": "2026-01-31T21:31:26.038Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 99,
+  "fields": {
+    "name": "ThinKom Solutions",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.039Z",
+    "updated_at": "2026-01-31T21:31:26.039Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 100,
+  "fields": {
+    "name": "Ticketmaster",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.040Z",
+    "updated_at": "2026-01-31T21:31:26.040Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 101,
+  "fields": {
+    "name": "True Anomaly",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.041Z",
+    "updated_at": "2026-01-31T21:31:26.041Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 102,
+  "fields": {
+    "name": "Two Dots",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.042Z",
+    "updated_at": "2026-01-31T21:31:26.042Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 103,
+  "fields": {
+    "name": "Valon",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.043Z",
+    "updated_at": "2026-01-31T21:31:26.043Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 104,
+  "fields": {
+    "name": "Waystar",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.044Z",
+    "updated_at": "2026-01-31T21:31:26.044Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 105,
+  "fields": {
+    "name": "Yahoo",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.045Z",
+    "updated_at": "2026-01-31T21:31:26.045Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 106,
+  "fields": {
+    "name": "Zip",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-01-31T21:31:26.046Z",
+    "updated_at": "2026-01-31T21:31:26.046Z"
+  }
+},
+{
+  "model": "career.company",
+  "pk": 107,
+  "fields": {
+    "name": "TikTok",
+    "website": null,
+    "industry": "",
+    "created_at": "2026-02-01T03:30:01.255Z",
+    "updated_at": "2026-02-01T03:30:01.255Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1471,
+  "fields": {
+    "company": 7,
+    "role_title": "Backend Engineer, Activision Blizzard Media",
+    "job_link": null,
+    "status": "ONSITE",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 135000",
+    "location": "San Francisco, CA",
+    "notes": "1st Round (Phone Screen), 2nd Round (Hackerrank), 3rd Round (Video Interview),",
+    "current_round": 3,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.661Z",
+    "updated_at": "2026-01-31T22:19:55.661Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1472,
+  "fields": {
+    "company": 8,
+    "role_title": "Backend Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "230000 - 275000",
+    "location": "San Jose, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.662Z",
+    "updated_at": "2026-01-31T22:19:55.662Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1473,
+  "fields": {
+    "company": 9,
+    "role_title": "Full Stack Engineer",
+    "job_link": "",
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "159200 - 301600",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.663Z",
+    "updated_at": "2026-02-01T01:30:05.363Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1474,
+  "fields": {
+    "company": 10,
+    "role_title": "Software Engineer I, Applications",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "79037 - 112035",
+    "location": "Simi Valley, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.664Z",
+    "updated_at": "2026-01-31T22:19:55.664Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1475,
+  "fields": {
+    "company": 11,
+    "role_title": "Software Engineer, Early Career",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "130000 - 170000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.664Z",
+    "updated_at": "2026-01-31T22:19:55.664Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1476,
+  "fields": {
+    "company": 11,
+    "role_title": "Software Engineer, Backend (Marketplace Experience)",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "130000 - 170000",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.665Z",
+    "updated_at": "2026-01-31T22:19:55.665Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1477,
+  "fields": {
+    "company": 11,
+    "role_title": "Software Engineer II, Backend (Identity Decisioning)",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "160000 - 210000",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.666Z",
+    "updated_at": "2026-01-31T22:19:55.666Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1478,
+  "fields": {
+    "company": 11,
+    "role_title": "Software Engineer II, Backend (Credit Decisioning)",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "142000 - 210000",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.666Z",
+    "updated_at": "2026-01-31T22:19:55.666Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1479,
+  "fields": {
+    "company": 12,
+    "role_title": "Frontend / Fullstack Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Palo Alto, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.667Z",
+    "updated_at": "2026-01-31T22:19:55.667Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1480,
+  "fields": {
+    "company": 13,
+    "role_title": "Backend Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "80000 - 160000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.668Z",
+    "updated_at": "2026-01-31T22:19:55.668Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1481,
+  "fields": {
+    "company": 14,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 190000",
+    "location": "Bellevue, WA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.668Z",
+    "updated_at": "2026-01-31T22:19:55.668Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1482,
+  "fields": {
+    "company": 15,
+    "role_title": "Associate Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "115000 - 155000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.669Z",
+    "updated_at": "2026-01-31T22:19:55.669Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1483,
+  "fields": {
+    "company": 15,
+    "role_title": "Associate Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "115000 - 155000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.670Z",
+    "updated_at": "2026-01-31T22:19:55.670Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1484,
+  "fields": {
+    "company": 16,
+    "role_title": "Software Engineer I, Data Pipeline",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "134000 - 201000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.671Z",
+    "updated_at": "2026-01-31T22:19:55.671Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1485,
+  "fields": {
+    "company": 17,
+    "role_title": "Software Engineer, Backend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 200000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.671Z",
+    "updated_at": "2026-01-31T22:19:55.671Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1486,
+  "fields": {
+    "company": 18,
+    "role_title": "Software Engineer, Backend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 190000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.672Z",
+    "updated_at": "2026-01-31T22:19:55.672Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1487,
+  "fields": {
+    "company": 19,
+    "role_title": "Frontend Software Engineer, Fab",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "135000 - 150000",
+    "location": "San Francisco, CA",
+    "notes": "1st Round (Phone Screen)",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.672Z",
+    "updated_at": "2026-01-31T22:19:55.672Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1488,
+  "fields": {
+    "company": 20,
+    "role_title": "Software Engineer I",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "116000 - 174000",
+    "location": "Mountain View, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.673Z",
+    "updated_at": "2026-01-31T22:19:55.673Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1489,
+  "fields": {
+    "company": 21,
+    "role_title": "Full Stack Software Engineer, Product",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "180000 - 275000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.674Z",
+    "updated_at": "2026-01-31T22:19:55.674Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1490,
+  "fields": {
+    "company": 22,
+    "role_title": "Software Engineer, Schemas & Object Framework",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "129938 - 190906",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.674Z",
+    "updated_at": "2026-01-31T22:19:55.674Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1491,
+  "fields": {
+    "company": 23,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Coppell, TX",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.675Z",
+    "updated_at": "2026-01-31T22:19:55.675Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1492,
+  "fields": {
+    "company": 24,
+    "role_title": "Associate, Full Stack Engineer",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.675Z",
+    "updated_at": "2026-01-31T22:19:55.675Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1493,
+  "fields": {
+    "company": 24,
+    "role_title": "Associate, Software Engineer, Applications",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "146800 - 162000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.676Z",
+    "updated_at": "2026-01-31T22:19:55.676Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1494,
+  "fields": {
+    "company": 25,
+    "role_title": "Full Stack Engineer",
+    "job_link": null,
+    "status": "ONSITE",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 150000",
+    "location": "San Francisco, CA",
+    "notes": "1st Round (Video Interview), 2nd (Take Home Project), 3rd Round (Tech Interview),",
+    "current_round": 3,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.677Z",
+    "updated_at": "2026-01-31T22:19:55.677Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1495,
+  "fields": {
+    "company": 26,
+    "role_title": "Application Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "74200 - 137800",
+    "location": "San Jose, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.677Z",
+    "updated_at": "2026-01-31T22:19:55.677Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1496,
+  "fields": {
+    "company": 27,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "180000 - 250000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.678Z",
+    "updated_at": "2026-01-31T22:19:55.678Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1497,
+  "fields": {
+    "company": 28,
+    "role_title": "Full Stack Software Engineer - Risk",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 225000",
+    "location": "Chicago, IL",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.678Z",
+    "updated_at": "2026-01-31T22:19:55.678Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1498,
+  "fields": {
+    "company": 29,
+    "role_title": "Software Engineer, Backend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.679Z",
+    "updated_at": "2026-01-31T22:19:55.679Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1499,
+  "fields": {
+    "company": 30,
+    "role_title": "Backend Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.680Z",
+    "updated_at": "2026-01-31T22:19:55.680Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1500,
+  "fields": {
+    "company": 31,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 200000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.680Z",
+    "updated_at": "2026-01-31T22:19:55.680Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1501,
+  "fields": {
+    "company": 32,
+    "role_title": "Software Engineer, Evaluation Frontend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.681Z",
+    "updated_at": "2026-01-31T22:19:55.681Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1502,
+  "fields": {
+    "company": 33,
+    "role_title": "Front End Software Engineer 2",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "93022 - 139534",
+    "location": "Chicago, IL",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.681Z",
+    "updated_at": "2026-01-31T22:19:55.681Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1503,
+  "fields": {
+    "company": 34,
+    "role_title": "Software Engineer, Frontend",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.682Z",
+    "updated_at": "2026-01-31T22:19:55.682Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1504,
+  "fields": {
+    "company": 35,
+    "role_title": "Software Developer, Back End",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "94000 - 141000",
+    "location": "Santa Monica, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.682Z",
+    "updated_at": "2026-01-31T22:19:55.682Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1505,
+  "fields": {
+    "company": 36,
+    "role_title": "Backend Infrastructure Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.683Z",
+    "updated_at": "2026-01-31T22:19:55.683Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1506,
+  "fields": {
+    "company": 37,
+    "role_title": "Software Engineer, Core Platform",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 150000",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.684Z",
+    "updated_at": "2026-01-31T22:19:55.684Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1507,
+  "fields": {
+    "company": 38,
+    "role_title": "Software Engineer ",
+    "job_link": null,
+    "status": "ONSITE",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 175000",
+    "location": "",
+    "notes": "1st Round (Phone Screen), 2nd Round (Tech Interview),",
+    "current_round": 2,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.684Z",
+    "updated_at": "2026-01-31T22:19:55.684Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1508,
+  "fields": {
+    "company": 39,
+    "role_title": "Software Engineer, Back End",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "100600 - 169800",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.685Z",
+    "updated_at": "2026-01-31T22:19:55.685Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1509,
+  "fields": {
+    "company": 40,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.685Z",
+    "updated_at": "2026-01-31T22:19:55.685Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1510,
+  "fields": {
+    "company": 41,
+    "role_title": "Full Stack Developer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "180000",
+    "location": "Bothell, WA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.686Z",
+    "updated_at": "2026-01-31T22:19:55.686Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1511,
+  "fields": {
+    "company": 42,
+    "role_title": "Software Engineer - Entry Level",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Los Angeles, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.687Z",
+    "updated_at": "2026-01-31T22:19:55.687Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1512,
+  "fields": {
+    "company": 43,
+    "role_title": "Software Developer I - Python API",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "79040 - 129792",
+    "location": "Redlands, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.687Z",
+    "updated_at": "2026-01-31T22:19:55.687Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1513,
+  "fields": {
+    "company": 44,
+    "role_title": "Software Engineer I, Core Data",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "116000 - 150000",
+    "location": "Brooklyn, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.688Z",
+    "updated_at": "2026-01-31T22:19:55.688Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1514,
+  "fields": {
+    "company": 45,
+    "role_title": "Software Engineer, Java/ Spring Boot/ Kubernetes/AWS",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.689Z",
+    "updated_at": "2026-01-31T22:19:55.689Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1515,
+  "fields": {
+    "company": 46,
+    "role_title": "Software Engineer, Deployed",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "160000 - 215000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.689Z",
+    "updated_at": "2026-01-31T22:19:55.689Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1516,
+  "fields": {
+    "company": 47,
+    "role_title": "Software Engineer, Full Stack",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "149000 - 350000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.690Z",
+    "updated_at": "2026-01-31T22:19:55.690Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1517,
+  "fields": {
+    "company": 48,
+    "role_title": "Software Engineer, Fullstack",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.690Z",
+    "updated_at": "2026-01-31T22:19:55.690Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1518,
+  "fields": {
+    "company": 49,
+    "role_title": "Backend Engineer, Infrastructure",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "180000 - 210000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.691Z",
+    "updated_at": "2026-01-31T22:19:55.691Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1519,
+  "fields": {
+    "company": 50,
+    "role_title": "Software Engineer, Data, Ad-Tech",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "145000 - 200000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.691Z",
+    "updated_at": "2026-01-31T22:19:55.691Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1520,
+  "fields": {
+    "company": 51,
+    "role_title": "Software Engineer, Product Backend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 265000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.693Z",
+    "updated_at": "2026-01-31T22:19:55.693Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1521,
+  "fields": {
+    "company": 1,
+    "role_title": "Software Engineer II, Site Reliability",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "118000 - 170000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.693Z",
+    "updated_at": "2026-01-31T22:19:55.693Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1522,
+  "fields": {
+    "company": 52,
+    "role_title": "Backend Software Engineer",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 250000",
+    "location": "Los Angeles, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.694Z",
+    "updated_at": "2026-01-31T22:19:55.694Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1523,
+  "fields": {
+    "company": 53,
+    "role_title": "Software Engineer 1, CRM",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "110400 - 149760",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.695Z",
+    "updated_at": "2026-01-31T22:19:55.695Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1524,
+  "fields": {
+    "company": 54,
+    "role_title": "Frontend Software Engineer, Stays",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "105000 - 110000",
+    "location": "Concord, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.695Z",
+    "updated_at": "2026-01-31T22:19:55.695Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1525,
+  "fields": {
+    "company": 55,
+    "role_title": "Software Engineer I",
+    "job_link": "",
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "104000 - 156000",
+    "location": "Boston, MA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.696Z",
+    "updated_at": "2026-02-01T01:29:43.527Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1526,
+  "fields": {
+    "company": 56,
+    "role_title": "Software Engineer, Frontend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "102000 - 167000",
+    "location": "Mountain View, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.697Z",
+    "updated_at": "2026-01-31T22:19:55.697Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1527,
+  "fields": {
+    "company": 57,
+    "role_title": "Software Engineer, AI Platform",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "114000 - 189000",
+    "location": "Mountain View, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.697Z",
+    "updated_at": "2026-01-31T22:19:55.697Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1528,
+  "fields": {
+    "company": 56,
+    "role_title": "Software Engineer, Frontend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "102000 - 167000",
+    "location": "Mountain View, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.698Z",
+    "updated_at": "2026-01-31T22:19:55.698Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1529,
+  "fields": {
+    "company": 58,
+    "role_title": "Full-Stack Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "110000 - 155000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.699Z",
+    "updated_at": "2026-01-31T22:19:55.699Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1530,
+  "fields": {
+    "company": 59,
+    "role_title": "Software Engineer, Backend Systems",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "170000 - 360000",
+    "location": "Palo Alto, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.699Z",
+    "updated_at": "2026-01-31T22:19:55.699Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1531,
+  "fields": {
+    "company": 60,
+    "role_title": "Software Engineer, Driver Earnings",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "99360 - 124200",
+    "location": "Seattle, WA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.700Z",
+    "updated_at": "2026-01-31T22:19:55.700Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1532,
+  "fields": {
+    "company": 60,
+    "role_title": "Software Engineer, Server",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "108000 - 135000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.701Z",
+    "updated_at": "2026-01-31T22:19:55.701Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1533,
+  "fields": {
+    "company": 61,
+    "role_title": "Software Engineer, Frontend",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 210000",
+    "location": "Palo Alto, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.701Z",
+    "updated_at": "2026-01-31T22:19:55.701Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1534,
+  "fields": {
+    "company": 62,
+    "role_title": "Software Engineer I",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.702Z",
+    "updated_at": "2026-01-31T22:19:55.702Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1535,
+  "fields": {
+    "company": 63,
+    "role_title": "Software Engineer, Frontend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "130000 - 500000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.703Z",
+    "updated_at": "2026-01-31T22:19:55.703Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1536,
+  "fields": {
+    "company": 64,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "84200 - 165200",
+    "location": "Redmond, WA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.703Z",
+    "updated_at": "2026-01-31T22:19:55.703Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1537,
+  "fields": {
+    "company": 65,
+    "role_title": "Full Stack Engineer, Core AI Team",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "175000 - 250000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.704Z",
+    "updated_at": "2026-01-31T22:19:55.704Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1538,
+  "fields": {
+    "company": 66,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 200000",
+    "location": "San Mateo, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.705Z",
+    "updated_at": "2026-01-31T22:19:55.705Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1539,
+  "fields": {
+    "company": 67,
+    "role_title": "Software Developer, full stack",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "115000 - 150000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.705Z",
+    "updated_at": "2026-01-31T22:19:55.705Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1540,
+  "fields": {
+    "company": 68,
+    "role_title": "Software Engineer L4, Ads Engineering",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "170000 - 720000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.706Z",
+    "updated_at": "2026-01-31T22:19:55.706Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1541,
+  "fields": {
+    "company": 69,
+    "role_title": "Software Engineer, Developer Experience",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 250000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.707Z",
+    "updated_at": "2026-01-31T22:19:55.707Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1542,
+  "fields": {
+    "company": 70,
+    "role_title": "Software Engineering Associate",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "77600 - 122200",
+    "location": "Chicago, IL",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.707Z",
+    "updated_at": "2026-01-31T22:19:55.707Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1543,
+  "fields": {
+    "company": 71,
+    "role_title": "Backend Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "137000 - 173750",
+    "location": "Mountain View, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.708Z",
+    "updated_at": "2026-01-31T22:19:55.708Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1544,
+  "fields": {
+    "company": 72,
+    "role_title": "Software Engineer, Platform",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "195000 - 265000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.709Z",
+    "updated_at": "2026-01-31T22:19:55.709Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1545,
+  "fields": {
+    "company": 73,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 230000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.709Z",
+    "updated_at": "2026-01-31T22:19:55.709Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1546,
+  "fields": {
+    "company": 74,
+    "role_title": "Full Stack Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "170000 - 210000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.710Z",
+    "updated_at": "2026-01-31T22:19:55.710Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1547,
+  "fields": {
+    "company": 75,
+    "role_title": "Backend Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Mountain View, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.711Z",
+    "updated_at": "2026-01-31T22:19:55.711Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1548,
+  "fields": {
+    "company": 76,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "148800 - 223200",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.711Z",
+    "updated_at": "2026-01-31T22:19:55.711Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1549,
+  "fields": {
+    "company": 76,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "148800 - 223200",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.712Z",
+    "updated_at": "2026-01-31T22:19:55.712Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1550,
+  "fields": {
+    "company": 77,
+    "role_title": "Software Engineer I",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "137300 - 205900",
+    "location": "San Mateo, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.712Z",
+    "updated_at": "2026-01-31T22:19:55.712Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1551,
+  "fields": {
+    "company": 78,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.713Z",
+    "updated_at": "2026-01-31T22:19:55.713Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1552,
+  "fields": {
+    "company": 79,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "175000 - 225000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.714Z",
+    "updated_at": "2026-01-31T22:19:55.714Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1553,
+  "fields": {
+    "company": 80,
+    "role_title": "Software Engineer, Product",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 180000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.714Z",
+    "updated_at": "2026-01-31T22:19:55.715Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1554,
+  "fields": {
+    "company": 81,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "180000 - 300000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.715Z",
+    "updated_at": "2026-01-31T22:19:55.715Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1555,
+  "fields": {
+    "company": 82,
+    "role_title": "Software Development Engineer - Entry-Level",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "127000 - 191000",
+    "location": "Seattle, WA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.716Z",
+    "updated_at": "2026-01-31T22:19:55.716Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1556,
+  "fields": {
+    "company": 83,
+    "role_title": "Software Developer I",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "107400 - 145200",
+    "location": "Seattle, WA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.717Z",
+    "updated_at": "2026-01-31T22:19:55.717Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1557,
+  "fields": {
+    "company": 84,
+    "role_title": "Software Engineer, Applications",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "120000 - 220000",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.717Z",
+    "updated_at": "2026-01-31T22:19:55.717Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1558,
+  "fields": {
+    "company": 85,
+    "role_title": "Software Engineer, Enterprise",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "180000 - 250000",
+    "location": "Foster City, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.718Z",
+    "updated_at": "2026-01-31T22:19:55.718Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1559,
+  "fields": {
+    "company": 86,
+    "role_title": "Software Backend Engineer, Credit Cards & Banking Platform",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "157000 - 185000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.718Z",
+    "updated_at": "2026-01-31T22:19:55.718Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1560,
+  "fields": {
+    "company": 87,
+    "role_title": "AI Forward Deployed Engineer - Early Career",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "93000 - 153400",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.719Z",
+    "updated_at": "2026-01-31T22:19:55.719Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1561,
+  "fields": {
+    "company": 87,
+    "role_title": "Software Engineering SMTS",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "114200 - 236500",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.720Z",
+    "updated_at": "2026-01-31T22:19:55.720Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1562,
+  "fields": {
+    "company": 88,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "125700 - 194800",
+    "location": "Santa Clara, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.721Z",
+    "updated_at": "2026-01-31T22:19:55.721Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1563,
+  "fields": {
+    "company": 89,
+    "role_title": "Cloud Software Engineers",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "94800 - 145400",
+    "location": "Needham, MA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.722Z",
+    "updated_at": "2026-01-31T22:19:55.722Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1564,
+  "fields": {
+    "company": 90,
+    "role_title": "Software Engineer, Customer Experience Engineering",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "176000 - 253000",
+    "location": "Menlo Park, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.723Z",
+    "updated_at": "2026-01-31T22:19:55.723Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1565,
+  "fields": {
+    "company": 90,
+    "role_title": "Software Engineer - SnowConvert AI",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "160000 - 230000",
+    "location": "Menlo Park, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.723Z",
+    "updated_at": "2026-01-31T22:19:55.723Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1566,
+  "fields": {
+    "company": 91,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "125000 - 145000",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.724Z",
+    "updated_at": "2026-01-31T22:19:55.724Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1567,
+  "fields": {
+    "company": 92,
+    "role_title": "Fullstack Engineer, Subscriptions",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "143499 - 179374",
+    "location": "New York, NY",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.724Z",
+    "updated_at": "2026-01-31T22:19:55.724Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1568,
+  "fields": {
+    "company": 92,
+    "role_title": "Backend Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "125562 - 179374",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.725Z",
+    "updated_at": "2026-01-31T22:19:55.725Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1569,
+  "fields": {
+    "company": 92,
+    "role_title": "Backend Engineer, Personalization",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "125561 - 179374",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.726Z",
+    "updated_at": "2026-01-31T22:19:55.726Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1570,
+  "fields": {
+    "company": 93,
+    "role_title": "Full-Stack Software Engineer - New Grad",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "110000 - 150000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.726Z",
+    "updated_at": "2026-01-31T22:19:55.726Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1571,
+  "fields": {
+    "company": 94,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "110000 - 140000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.727Z",
+    "updated_at": "2026-01-31T22:19:55.727Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1572,
+  "fields": {
+    "company": 95,
+    "role_title": "SDE I, Front-end",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "100000 - 115000",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.728Z",
+    "updated_at": "2026-01-31T22:19:55.728Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1573,
+  "fields": {
+    "company": 96,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "84000 - 134000",
+    "location": "San Jose, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.728Z",
+    "updated_at": "2026-01-31T22:19:55.728Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1574,
+  "fields": {
+    "company": 97,
+    "role_title": "Software Integration Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 160000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.729Z",
+    "updated_at": "2026-01-31T22:19:55.729Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1575,
+  "fields": {
+    "company": 98,
+    "role_title": "Software Developer, Backend",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "136300 - 273900",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.730Z",
+    "updated_at": "2026-01-31T22:19:55.730Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1576,
+  "fields": {
+    "company": 99,
+    "role_title": "Software Engineer API/Backend",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "110000 - 150000",
+    "location": "Hawthorne, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.730Z",
+    "updated_at": "2026-01-31T22:19:55.730Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1577,
+  "fields": {
+    "company": 100,
+    "role_title": "Software Engineer I",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Reston, VA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.731Z",
+    "updated_at": "2026-01-31T22:19:55.731Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1578,
+  "fields": {
+    "company": 101,
+    "role_title": "Software Engineer I, Elixir",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "95000 - 125000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.731Z",
+    "updated_at": "2026-01-31T22:19:55.731Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1579,
+  "fields": {
+    "company": 102,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 275000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.732Z",
+    "updated_at": "2026-01-31T22:19:55.732Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1580,
+  "fields": {
+    "company": 103,
+    "role_title": "Software Engineer",
+    "job_link": null,
+    "status": "APPLIED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "140000 - 200000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.732Z",
+    "updated_at": "2026-01-31T22:19:55.732Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1581,
+  "fields": {
+    "company": 104,
+    "role_title": "Application Engineer",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "",
+    "location": "Atlanta, GA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.733Z",
+    "updated_at": "2026-01-31T22:19:55.733Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1582,
+  "fields": {
+    "company": 105,
+    "role_title": "Software Dev Engineer I",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "88500 - 184375",
+    "location": "Remote",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.734Z",
+    "updated_at": "2026-01-31T22:19:55.734Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1583,
+  "fields": {
+    "company": 106,
+    "role_title": "Software Engineer, Identity",
+    "job_link": null,
+    "status": "REJECTED",
+    "rto_policy": "UNKNOWN",
+    "salary_range": "150000 - 180000",
+    "location": "San Francisco, CA",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-01-31",
+    "created_at": "2026-01-31T22:19:55.734Z",
+    "updated_at": "2026-01-31T22:19:55.734Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1585,
+  "fields": {
+    "company": 107,
+    "role_title": "Software Engineer",
+    "job_link": "",
+    "status": "ACCEPTED",
+    "rto_policy": "ONSITE",
+    "salary_range": "144000",
+    "location": "San Jose, CA",
+    "notes": "",
+    "current_round": 5,
+    "date_applied": "2024-08-05",
+    "created_at": "2026-02-01T03:30:01.256Z",
+    "updated_at": "2026-02-01T05:21:51.293Z"
+  }
+},
+{
+  "model": "career.application",
+  "pk": 1587,
+  "fields": {
+    "company": 9,
+    "role_title": "Software Engineer1123",
+    "job_link": "",
+    "status": "OFFER",
+    "rto_policy": "HYBRID",
+    "salary_range": "100000",
+    "location": "",
+    "notes": "",
+    "current_round": 0,
+    "date_applied": "2026-02-01",
+    "created_at": "2026-02-01T04:10:36.240Z",
+    "updated_at": "2026-02-01T04:12:49.163Z"
+  }
+},
+{
+  "model": "career.offer",
+  "pk": 1,
+  "fields": {
+    "application": 1585,
+    "base_salary": "144000.00",
+    "bonus": "36000.00",
+    "equity": "12800.00",
+    "sign_on": "0.00",
+    "benefits_value": "0.00",
+    "pto_days": 17,
+    "is_current": true,
+    "created_at": "2026-02-01T03:30:01.265Z",
+    "updated_at": "2026-02-01T05:21:51.309Z"
+  }
+},
+{
+  "model": "career.offer",
+  "pk": 2,
+  "fields": {
+    "application": 1587,
+    "base_salary": "120000.00",
+    "bonus": "0.00",
+    "equity": "0.00",
+    "sign_on": "0.00",
+    "benefits_value": "0.00",
+    "pto_days": 15,
+    "is_current": false,
+    "created_at": "2026-02-01T04:11:20.894Z",
+    "updated_at": "2026-02-01T04:12:27.268Z"
+  }
+},
+{
+  "model": "availability.eventcategory",
+  "pk": 2,
+  "fields": {
+    "name": "meeting",
+    "color": "#3b82f6",
+    "icon": "👥"
+  }
+},
+{
+  "model": "availability.eventcategory",
+  "pk": 3,
+  "fields": {
+    "name": "personal",
+    "color": "#10b981",
+    "icon": "🏠"
+  }
+},
+{
+  "model": "availability.eventcategory",
+  "pk": 5,
+  "fields": {
+    "name": "work",
+    "color": "#f59e0b",
+    "icon": "💻"
+  }
+},
+{
+  "model": "availability.eventcategory",
+  "pk": 6,
+  "fields": {
+    "name": "other",
+    "color": "#6b7280",
+    "icon": "📌"
+  }
+},
+{
+  "model": "availability.eventcategory",
+  "pk": 8,
+  "fields": {
+    "name": "Urgent",
+    "color": "#6366f1",
+    "icon": "tag"
+  }
+},
+{
+  "model": "availability.eventcategory",
+  "pk": 9,
+  "fields": {
+    "name": "Interview",
+    "color": "#f59e0b",
+    "icon": "briefcase"
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 5,
+  "fields": {
+    "date": "2026-02-27",
+    "description": "PTO",
+    "is_recurring": false
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 6,
+  "fields": {
+    "date": "2026-03-03",
+    "description": "PTO",
+    "is_recurring": false
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 7,
+  "fields": {
+    "date": "2026-02-26",
+    "description": "PTO",
+    "is_recurring": false
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 8,
+  "fields": {
+    "date": "2026-03-01",
+    "description": "PTO",
+    "is_recurring": false
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 9,
+  "fields": {
+    "date": "2026-03-02",
+    "description": "PTO",
+    "is_recurring": false
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 11,
+  "fields": {
+    "date": "2026-02-28",
+    "description": "Richie Birthday",
+    "is_recurring": true
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 12,
+  "fields": {
+    "date": "2026-03-20",
+    "description": "Mia's Birthday",
+    "is_recurring": true
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 13,
+  "fields": {
+    "date": "2026-02-07",
+    "description": "Anniversary",
+    "is_recurring": true
+  }
+},
+{
+  "model": "availability.customholiday",
+  "pk": 16,
+  "fields": {
+    "date": "2026-02-06",
+    "description": "Anniversary Celebration",
+    "is_recurring": false
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 1,
+  "fields": {
+    "name": "Tool Software Engineer Intern (TikTok Effect House) - 1st Round Technical Interview",
+    "date": "2024-10-24",
+    "start_time": "16:00:00",
+    "end_time": "16:45:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 2,
+  "fields": {
+    "name": "Phone Interview: New York Life Summer 2025 Technology Internship; Engineer",
+    "date": "2024-10-28",
+    "start_time": "11:30:00",
+    "end_time": "12:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 3,
+  "fields": {
+    "name": "Lumen Interview: Richie Zhou (Software Developer II)",
+    "date": "2024-10-29",
+    "start_time": "16:00:00",
+    "end_time": "16:45:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 4,
+  "fields": {
+    "name": "Software Engineer Graduate (Advertisement Team) - HR Call",
+    "date": "2024-10-31",
+    "start_time": "11:00:00",
+    "end_time": "11:30:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 5,
+  "fields": {
+    "name": "Invitation: Yujian Zhou and Stephanie Ladjevardi",
+    "date": "2024-11-04",
+    "start_time": "14:30:00",
+    "end_time": "15:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 6,
+  "fields": {
+    "name": "Yujian Zhou and Lilly Raftopoulos",
+    "date": "2024-11-07",
+    "start_time": "12:30:00",
+    "end_time": "13:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 7,
+  "fields": {
+    "name": "Medtronic Preview: Your Path to Round Two",
+    "date": "2024-11-08",
+    "start_time": "13:00:00",
+    "end_time": "14:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 8,
+  "fields": {
+    "name": "Software Engineer Graduate (Advertisement Team) - Offer Call",
+    "date": "2024-11-08",
+    "start_time": "22:00:00",
+    "end_time": "23:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 9,
+  "fields": {
+    "name": "Elevance Health, Inc. Interview: 15 minute phone meeting",
+    "date": "2024-11-11",
+    "start_time": "15:30:00",
+    "end_time": "15:45:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 10,
+  "fields": {
+    "name": "Tool Software Engineer Intern (TikTok Effect House) - Final Round Technical Interview",
+    "date": "2024-11-11",
+    "start_time": "16:00:00",
+    "end_time": "16:45:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 12,
+  "fields": {
+    "name": "Elevance Health Digital Platforms & AI Org Engineer (Graduate) JR129192 Internship Interview with Sanjay Yermalkar/Richie Zhou",
+    "date": "2024-11-15",
+    "start_time": "11:30:00",
+    "end_time": "12:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 13,
+  "fields": {
+    "name": "Medtronic Interview: Richie Zhou",
+    "date": "2024-11-15",
+    "start_time": "11:30:00",
+    "end_time": "12:15:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 18,
+  "fields": {
+    "name": "Yujian Zhou 9241 IT Winter Intern - Software Developer 1st Interview",
+    "date": "2024-11-26",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 19,
+  "fields": {
+    "name": "Smurfit-Westrock - Informational Open House on the Technology Leadership Development Program",
+    "date": "2024-12-03",
+    "start_time": "23:00:00",
+    "end_time": "12:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 20,
+  "fields": {
+    "name": "Richie Zhou - Software Operations Internship Interview",
+    "date": "2024-12-06",
+    "start_time": "15:00:00",
+    "end_time": "15:45:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 21,
+  "fields": {
+    "name": "Flight to San Jose",
+    "date": "2024-12-16",
+    "start_time": "11:00:00",
+    "end_time": "20:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 22,
+  "fields": {
+    "name": "Scheduled Video Interview with ICE - Summer Internship Program 2025 - Software Engineer, Trading Web Applications Intern 2024-9281 - Yujian Zhou",
+    "date": "2024-12-23",
+    "start_time": "14:00:00",
+    "end_time": "15:00:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 23,
+  "fields": {
+    "name": "Interview with DriveWealth",
+    "date": "2025-01-02",
+    "start_time": "14:00:00",
+    "end_time": "14:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 24,
+  "fields": {
+    "name": "Video Interview with ICE - Summer Internship Program 2025 - Software Engineer, Trading Web Applications Intern 2024-9281 - Yujian Zhou",
+    "date": "2025-01-03",
+    "start_time": "13:00:00",
+    "end_time": "14:30:00",
+    "timezone": "ET",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 25,
+  "fields": {
+    "name": "Yujian Zhou and Cassady Rogers AT&T Interview",
+    "date": "2025-01-24",
+    "start_time": "08:00:00",
+    "end_time": "08:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 26,
+  "fields": {
+    "name": "Interview for Intern - Full Stack, Software Engineering, Summer 2025",
+    "date": "2025-02-03",
+    "start_time": "10:00:00",
+    "end_time": "10:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 27,
+  "fields": {
+    "name": "AT&T TDP Software Engineer Technical Interview (New Jersey): Yujian Zhou, Shannen Yang & Partner",
+    "date": "2025-02-07",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 28,
+  "fields": {
+    "name": "Pinterest Chat | Yujian & Crystal",
+    "date": "2025-02-07",
+    "start_time": "11:00:00",
+    "end_time": "11:20:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 29,
+  "fields": {
+    "name": "Interview with SpaceX",
+    "date": "2025-02-10",
+    "start_time": "15:30:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 30,
+  "fields": {
+    "name": "Phone Interview with Deanna Benson",
+    "date": "2025-02-12",
+    "start_time": "09:30:00",
+    "end_time": "10:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 31,
+  "fields": {
+    "name": "Invitation to Recruiter Screen - TechOps Engineering Intern Role",
+    "date": "2025-02-12",
+    "start_time": "14:15:00",
+    "end_time": "14:30:00",
+    "timezone": "CT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 32,
+  "fields": {
+    "name": "Interview: Yujian Zhou",
+    "date": "2025-02-13",
+    "start_time": "08:00:00",
+    "end_time": "09:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 33,
+  "fields": {
+    "name": "📌 Pinterest - Technical Phone Interview - Yujian Zhou - Software Engineer I, Fullstack",
+    "date": "2025-02-18",
+    "start_time": "15:00:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 34,
+  "fields": {
+    "name": "Yujian (Richie) Zhou: Hiring Manager Interview for Software Developer 1 role @ Charles Schwab",
+    "date": "2025-02-18",
+    "start_time": "22:05:00",
+    "end_time": "22:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 35,
+  "fields": {
+    "name": "Yujian (Richie) Zhou: Technical Panel Interview for Software Developer 1 role @ Charles Schwab",
+    "date": "2025-02-19",
+    "start_time": "11:05:00",
+    "end_time": "12:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 36,
+  "fields": {
+    "name": "Technical Interview Interview (2nd Round) - TechOps Engineer Intern Summer 2025",
+    "date": "2025-02-19",
+    "start_time": "15:30:00",
+    "end_time": "16:15:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 37,
+  "fields": {
+    "name": "Behavior Interview Interview (3rd Round) - TechOps Engineer Intern Summer 2025",
+    "date": "2025-02-24",
+    "start_time": "10:30:00",
+    "end_time": "11:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 38,
+  "fields": {
+    "name": "Video Call with Yujian and Adam (Pinterest Recruiter)",
+    "date": "2025-02-25",
+    "start_time": "09:30:00",
+    "end_time": "09:55:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 39,
+  "fields": {
+    "name": "Wisk Phone Interview",
+    "date": "2025-02-27",
+    "start_time": "15:30:00",
+    "end_time": "15:50:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 40,
+  "fields": {
+    "name": "📌 Pinterest Virtual Technical Interview 1 - Yujian Zhou - Software Engineer I, Fullstack",
+    "date": "2025-03-04",
+    "start_time": "10:00:00",
+    "end_time": "10:45:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 41,
+  "fields": {
+    "name": "📌 Pinterest Virtual Technical Interview 2 - Yujian Zhou - Software Engineer I, Fullstack",
+    "date": "2025-03-05",
+    "start_time": "10:00:00",
+    "end_time": "10:45:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 42,
+  "fields": {
+    "name": "📌 Pinterest Virtual  Behavior Interview - Yujian Zhou - Software Engineer I, Fullstack",
+    "date": "2025-03-06",
+    "start_time": "10:00:00",
+    "end_time": "10:45:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 43,
+  "fields": {
+    "name": "📌 Pinterest Virtual Technical Interview  3 - Yujian Zhou - Software Engineer I, Fullstack",
+    "date": "2025-03-07",
+    "start_time": "10:00:00",
+    "end_time": "10:45:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 44,
+  "fields": {
+    "name": "Wisk Google Meet Interview with Adam Pann",
+    "date": "2025-03-10",
+    "start_time": "16:30:00",
+    "end_time": "17:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 45,
+  "fields": {
+    "name": "Interview with Wisk Aero",
+    "date": "2025-03-20",
+    "start_time": "10:00:00",
+    "end_time": "10:45:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 46,
+  "fields": {
+    "name": "Stanford Health Care intern interview with Richie Zhou",
+    "date": "2025-03-31",
+    "start_time": "15:15:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 47,
+  "fields": {
+    "name": "Yujian Zhou and Riley Nelligan - Assort Health",
+    "date": "2025-05-05",
+    "start_time": "17:15:00",
+    "end_time": "17:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 48,
+  "fields": {
+    "name": "Recruiter/Sourcer Screen with Coinbase",
+    "date": "2025-05-07",
+    "start_time": "11:00:00",
+    "end_time": "11:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 49,
+  "fields": {
+    "name": "Yujian Zhou and Bradley Callahan - <Mochi",
+    "date": "2025-05-07",
+    "start_time": "15:15:00",
+    "end_time": "15:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 50,
+  "fields": {
+    "name": "Commure + Athelas Recruiter Phone Screen Confirmation - Frontend Engineer, EHR",
+    "date": "2025-06-17",
+    "start_time": "14:00:00",
+    "end_time": "14:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 51,
+  "fields": {
+    "name": "Yujian Zhou and Alejandra Cañizares - Pave",
+    "date": "2025-07-31",
+    "start_time": "14:00:00",
+    "end_time": "14:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 52,
+  "fields": {
+    "name": "Pave - Hiring Manager Screen",
+    "date": "2025-08-12",
+    "start_time": "15:30:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 53,
+  "fields": {
+    "name": "1st Round of Interview with Uber for Graduate 2025 Software Engineer I, US",
+    "date": "2025-08-27",
+    "start_time": "15:00:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 54,
+  "fields": {
+    "name": "Virtual Onsite (1/3) of Interview with Uber for Graduate 2025 Software Engineer I, US",
+    "date": "2025-09-05",
+    "start_time": "16:00:00",
+    "end_time": "17:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 55,
+  "fields": {
+    "name": "Virtual Onsite (2/3) of Interview with Uber for Graduate 2025 Software Engineer I, US",
+    "date": "2025-09-08",
+    "start_time": "15:00:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 56,
+  "fields": {
+    "name": "Virtual Onsite (3/3) of Interview with Uber for Graduate 2025 Software Engineer I, US",
+    "date": "2025-09-09",
+    "start_time": "09:00:00",
+    "end_time": "10:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 57,
+  "fields": {
+    "name": "Interview with Verse Medical",
+    "date": "2025-09-09",
+    "start_time": "13:00:00",
+    "end_time": "13:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 58,
+  "fields": {
+    "name": "Richie Zhou + Activision",
+    "date": "2025-12-04",
+    "start_time": "15:00:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 59,
+  "fields": {
+    "name": "Interview with Kapwing",
+    "date": "2025-12-08",
+    "start_time": "15:00:00",
+    "end_time": "15:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 60,
+  "fields": {
+    "name": "Bobyard Next Steps",
+    "date": "2026-01-07",
+    "start_time": "15:00:00",
+    "end_time": "15:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 61,
+  "fields": {
+    "name": "Interview with Atomic Semi",
+    "date": "2026-01-13",
+    "start_time": "15:00:00",
+    "end_time": "15:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 62,
+  "fields": {
+    "name": "Yujian Zhou and Gabriella Domanski",
+    "date": "2026-01-27",
+    "start_time": "15:30:00",
+    "end_time": "16:00:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 63,
+  "fields": {
+    "name": "Bobyard Next Steps (Tech Interview)",
+    "date": "2026-01-30",
+    "start_time": "16:00:00",
+    "end_time": "16:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.event",
+  "pk": 66,
+  "fields": {
+    "name": "Interview: Richie Zhou + Activision Blizzard King",
+    "date": "2026-02-12",
+    "start_time": "13:30:00",
+    "end_time": "14:30:00",
+    "timezone": "PT",
+    "category": 9,
+    "color": null,
+    "location_type": "virtual",
+    "location": "",
+    "meeting_link": "",
+    "is_recurring": false,
+    "recurrence_rule": null,
+    "parent_event": null,
+    "application": null,
+    "notes": "",
+    "reminder_minutes": 15,
+    "created_at": "2026-01-31T03:52:27.395Z",
+    "updated_at": "2026-01-31T03:52:27.408Z"
+  }
+},
+{
+  "model": "availability.usersettings",
+  "pk": 1,
+  "fields": {
+    "work_start_time": "15:00:00",
+    "work_end_time": "17:00:00",
+    "work_days": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "default_event_duration": 30,
+    "buffer_time": 5,
+    "primary_timezone": "America/Los_Angeles",
+    "theme": "auto",
+    "notification_preferences": {},
+    "global_availability": {},
+    "ghosting_threshold_days": 30,
+    "created_at": "2026-01-31T05:10:29.966Z",
+    "updated_at": "2026-02-01T01:55:26.333Z"
+  }
+},
+{
+  "model": "availability.availabilitysetting",
+  "pk": 1,
+  "fields": {
+    "key": "default_availability_range",
+    "value": "3:00 PM - 5:00 PM"
+  }
+}
+]
