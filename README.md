@@ -189,6 +189,10 @@ backend/
 - `GET /api/settings/1/` - Retrieve user settings
 - `PUT /api/settings/1/` - Update settings (ghosting threshold, timezone)
 
+## 🔗 Frontend
+
+- **Frontend**: [WorkOps API](https://github.com/arunike/CareerHub-Frontend)
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) file for details.
