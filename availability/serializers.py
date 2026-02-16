@@ -64,6 +64,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'id', 'work_start_time', 'work_end_time', 'work_days',
             'default_event_duration', 'buffer_time', 'primary_timezone',
             'theme', 'notification_preferences', 'global_availability',
+            'ghosting_threshold_days', 'default_event_category',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
