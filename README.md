@@ -202,5 +202,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE.txt) 
 **Richie Zhou**
 
 - GitHub: [@arunike](https://github.com/arunike)
-
-- GitHub: [@arunike](https://github.com/arunike)
