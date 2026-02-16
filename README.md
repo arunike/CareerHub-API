@@ -76,7 +76,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 1. **Navigate to backend directory**
    ```bash
-   cd backend
+   cd api
    ```
 
 2. **Install Dependencies**
