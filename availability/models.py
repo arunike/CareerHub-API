@@ -1,5 +1,6 @@
 from django.db import models
 import json
+from django.utils import timezone
 
 class EventCategory(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -113,9 +114,32 @@ class ShareLink(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
     
     def __str__(self):
         return f"Share Link: {self.title}"
+
+
+class PublicBooking(models.Model):
+    share_link = models.ForeignKey(ShareLink, on_delete=models.CASCADE, related_name='bookings')
+    name = models.CharField(max_length=120)
+    email = models.EmailField()
+    date = models.DateField()
+    start_time = models.CharField(max_length=20)
+    end_time = models.CharField(max_length=20)
+    timezone = models.CharField(max_length=2, default='PT')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'start_time']
+        unique_together = ('share_link', 'date', 'start_time', 'end_time')
+
+    def __str__(self):
+        return f"{self.name} booking on {self.date} {self.start_time}-{self.end_time}"
 
 class AvailabilityOverride(models.Model):
     date = models.DateField(unique=True)

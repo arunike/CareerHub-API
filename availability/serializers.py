@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink
+from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink, PublicBooking
 from career.models import Application
 
 class EventCategorySerializer(serializers.ModelSerializer):
@@ -79,7 +79,27 @@ class ConflictAlertSerializer(serializers.ModelSerializer):
         read_only_fields = ['detected_at']
 
 class ShareLinkSerializer(serializers.ModelSerializer):
+    is_expired = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = ShareLink
-        fields = ['id', 'uuid', 'title', 'duration_days', 'created_at', 'expires_at', 'is_active']
+        fields = ['id', 'uuid', 'title', 'duration_days', 'created_at', 'expires_at', 'is_active', 'is_expired']
+        read_only_fields = ['created_at', 'is_expired']
+
+
+class PublicBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PublicBooking
+        fields = [
+            'id',
+            'share_link',
+            'name',
+            'email',
+            'date',
+            'start_time',
+            'end_time',
+            'timezone',
+            'notes',
+            'created_at',
+        ]
         read_only_fields = ['created_at']

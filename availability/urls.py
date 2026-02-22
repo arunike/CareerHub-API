@@ -9,11 +9,14 @@ router.register(r'overrides', views.AvailabilityOverrideViewSet, basename='overr
 router.register(r'settings', views.AvailabilitySettingViewSet, basename='setting')
 router.register(r'import', views.ImportViewSet, basename='import')
 router.register(r'availability', views.AvailabilityViewSet, basename='availability')
+router.register(r'share-links', views.ShareLinkViewSet, basename='share-link')
 
 router.register(r'categories', views.EventCategoryViewSet, basename='category')
 router.register(r'user-settings', views.UserSettingsViewSet, basename='user-settings')
 router.register(r'conflicts', views.ConflictAlertViewSet, basename='conflict')
 
 urlpatterns = [
+    path('booking/<str:uuid>/slots/', views.PublicBookingSlotsView.as_view(), name='booking-slots'),
+    path('booking/<str:uuid>/book/', views.PublicBookingCreateView.as_view(), name='booking-create'),
     path('', include(router.urls)),
 ]
