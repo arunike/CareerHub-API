@@ -16,7 +16,7 @@ class DocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'title', 'file', 'document_type', 'application', 'application_details', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'file', 'document_type', 'application', 'application_details', 'is_locked', 'created_at', 'updated_at']
 
     def get_application_details(self, obj):
         if not obj.application:
@@ -33,7 +33,7 @@ class DocumentExportSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Document
-        fields = ['id', 'title', 'document_type', 'file', 'application_role', 'application_company', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'document_type', 'file', 'application_role', 'application_company', 'is_locked', 'created_at', 'updated_at']
 
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)

@@ -82,6 +82,7 @@ class Document(models.Model):
     file = models.FileField(upload_to='documents/')
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default='RESUME')
     application = models.ForeignKey(Application, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
+    is_locked = models.BooleanField(default=False, help_text="Locked documents cannot be deleted")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

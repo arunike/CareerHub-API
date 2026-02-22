@@ -14,11 +14,20 @@ class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_locked:
+            return Response(
+                {"error": "This document is locked and cannot be deleted. Unlock it first."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = Document.objects.all().delete()
+        count, _ = Document.objects.filter(is_locked=False).delete()
         return Response(
-            {"message": f"Deleted {count} documents."},
+            {"message": f"Deleted {count} documents. Locked documents were preserved."},
             status=status.HTTP_200_OK
         )
 
