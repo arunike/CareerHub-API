@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db.models import Q
 from .models import Company, Application, Offer, Document, Task
 
 class CompanySerializer(serializers.ModelSerializer):
@@ -13,10 +14,36 @@ class OfferSerializer(serializers.ModelSerializer):
 
 class DocumentSerializer(serializers.ModelSerializer):
     application_details = serializers.SerializerMethodField(read_only=True)
+    version_count = serializers.SerializerMethodField(read_only=True)
+    root_document_id = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Document
-        fields = ['id', 'title', 'file', 'document_type', 'application', 'application_details', 'is_locked', 'created_at', 'updated_at']
+        fields = [
+            'id',
+            'title',
+            'file',
+            'document_type',
+            'application',
+            'application_details',
+            'root_document',
+            'root_document_id',
+            'version_number',
+            'version_count',
+            'is_current',
+            'is_locked',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'root_document',
+            'root_document_id',
+            'version_number',
+            'version_count',
+            'is_current',
+            'created_at',
+            'updated_at',
+        ]
 
     def get_application_details(self, obj):
         if not obj.application:
@@ -27,13 +54,34 @@ class DocumentSerializer(serializers.ModelSerializer):
             'company': obj.application.company.name,
         }
 
+    def get_root_document_id(self, obj):
+        return obj.root_document_id or obj.id
+
+    def get_version_count(self, obj):
+        root_id = obj.root_document_id or obj.id
+        return Document.objects.filter(
+            Q(id=root_id) | Q(root_document_id=root_id)
+        ).count()
+
 class DocumentExportSerializer(serializers.ModelSerializer):
     application_role = serializers.CharField(source='application.role_title', read_only=True)
     application_company = serializers.CharField(source='application.company.name', read_only=True)
 
     class Meta:
         model = Document
-        fields = ['id', 'title', 'document_type', 'file', 'application_role', 'application_company', 'is_locked', 'created_at', 'updated_at']
+        fields = [
+            'id',
+            'title',
+            'document_type',
+            'file',
+            'application_role',
+            'application_company',
+            'version_number',
+            'is_current',
+            'is_locked',
+            'created_at',
+            'updated_at',
+        ]
 
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)
