@@ -106,12 +106,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
    
    This will automatically create the `db.sqlite3` database file with all necessary tables.
 
-4. **Load Sample Data (Optional)**
-   ```bash
-   python manage.py loaddata fixtures/sample_data.json
-   ```
-
-5. **Start the Development Server**
+4. **Start the Development Server**
    ```bash
    python manage.py runserver
    ```
@@ -157,9 +152,6 @@ backend/
 │   ├── serializers.py        # DRF serializers with auto company creation
 │   ├── views.py              # API ViewSets + auto-offer creation logic
 │   └── urls.py               # URL routing
-│
-├── fixtures/                 # Sample data for quick setup
-│   └── sample_data.json      # Django fixture with demo data
 │
 ├── availability_manager/     # Django project settings
 │   ├── settings.py           # Configuration (CORS, DRF, database)
