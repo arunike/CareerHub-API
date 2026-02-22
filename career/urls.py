@@ -1,5 +1,5 @@
 from rest_framework.routers import DefaultRouter
-from .views import CompanyViewSet, ApplicationViewSet, ImportApplicationsView, OfferViewSet, DocumentViewSet
+from .views import CompanyViewSet, ApplicationViewSet, ImportApplicationsView, OfferViewSet, DocumentViewSet, TaskViewSet
 from django.urls import path
 
 router = DefaultRouter()
@@ -7,6 +7,7 @@ router.register(r'companies', CompanyViewSet)
 router.register(r'applications', ApplicationViewSet)
 router.register(r'offers', OfferViewSet)
 router.register(r'documents', DocumentViewSet)
+router.register(r'tasks', TaskViewSet)
 
 urlpatterns = [
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),
