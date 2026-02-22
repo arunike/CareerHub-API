@@ -31,6 +31,11 @@ class Application(models.Model):
         ('ONSITE', 'Onsite'),
         ('UNKNOWN', 'Unknown'),
     ]
+    VALUE_FREQUENCY_CHOICES = [
+        ('DAILY', 'Daily'),
+        ('MONTHLY', 'Monthly'),
+        ('YEARLY', 'Yearly'),
+    ]
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='applications')
     role_title = models.CharField(max_length=255)
@@ -40,6 +45,14 @@ class Application(models.Model):
     # Details
     rto_policy = models.CharField(max_length=20, choices=RTO_CHOICES, default='UNKNOWN')
     rto_days_per_week = models.PositiveSmallIntegerField(default=0)
+    commute_cost_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    commute_cost_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='MONTHLY')
+    free_food_perk_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    free_food_perk_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='YEARLY')
+    tax_base_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    tax_bonus_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    tax_equity_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    monthly_rent_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     salary_range = models.CharField(max_length=100, blank=True, help_text="e.g. $150k - $180k")
     location = models.CharField(max_length=100, blank=True)
     
@@ -60,9 +73,13 @@ class Offer(models.Model):
     base_salary = models.DecimalField(max_digits=12, decimal_places=2, help_text="Annual Base Salary")
     bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Annual Target Bonus")
     equity = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Annualized Equity Value")
+    equity_total_grant = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Total equity grant value")
+    equity_vesting_percent = models.DecimalField(max_digits=5, decimal_places=2, default=25, help_text="Annual vesting percent used for annualized equity")
     sign_on = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Sign On Bonus")
     benefits_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Estimated Annual Benefits Value")
+    benefit_items = models.JSONField(default=list, blank=True, help_text="Benefit item breakdown used to derive annual benefits value")
     pto_days = models.IntegerField(default=15)
+    holiday_days = models.IntegerField(default=11)
     is_current = models.BooleanField(default=False, help_text="Is this your current role?")
     
     created_at = models.DateTimeField(auto_now_add=True)
