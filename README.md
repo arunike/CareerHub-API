@@ -56,8 +56,11 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
 - **Holiday Detection**: Automatically populate U.S. federal holidays for the current year
-- **Day Availability**: Mark specific dates as available/unavailable for interviews
-- **Weekly View**: API endpoint to fetch a week's worth of availability data
+- **Availability Generation**: Generate availability text from work settings, holidays, and event conflicts
+- **Public Booking Links**:
+  - generate/deactivate share links
+  - public slots endpoint returns only available slots (no private event/holiday details)
+  - public booking endpoint creates a locked internal event to block the booked slot
 
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model for ghosting threshold and timezone
@@ -230,10 +233,14 @@ Base prefix: `/api/career/`
 - `POST /api/holidays/` - Create a custom holiday
 - `GET /api/holidays/export/?fmt=csv` - Export holidays
 
-#### Day Availability
-- `GET /api/availability/` - List day availability records
-- `POST /api/availability/` - Mark a day as available/unavailable
-- `GET /api/availability/week/?start=YYYY-MM-DD` - Get week view
+#### Availability / Booking
+- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT` - Generate availability text rows
+- `POST /api/overrides/` - Override a specific date's availability text
+- `GET /api/share-links/current/` - Get active booking share link (if any)
+- `POST /api/share-links/generate/` - Generate a new booking share link
+- `POST /api/share-links/deactivate/` - Deactivate current booking share links
+- `GET /api/booking/{uuid}/slots/?date=YYYY-MM-DD&timezone=PT` - Public endpoint to fetch bookable slots
+- `POST /api/booking/{uuid}/book/` - Public endpoint to submit a booking
 
 #### Settings
 - `GET /api/settings/1/` - Retrieve user settings
