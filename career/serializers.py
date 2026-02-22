@@ -90,7 +90,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Application
-        fields = ['id', 'company_name', 'company_details', 'role_title', 'status', 'job_link', 'rto_policy', 'salary_range', 'location', 'notes', 'current_round', 'is_locked', 'date_applied', 'offer', 'created_at']
+        fields = ['id', 'company_name', 'company_details', 'role_title', 'status', 'job_link', 'rto_policy', 'rto_days_per_week', 'salary_range', 'location', 'notes', 'current_round', 'is_locked', 'date_applied', 'offer', 'created_at']
         extra_kwargs = {
             'company': {'required': False}
         }
@@ -117,7 +117,7 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Application
-        fields = ['id', 'company', 'role_title', 'status', 'rto_policy', 'current_round', 'job_link', 'salary_range', 'location', 'notes', 'date_applied', 'created_at', 'updated_at']
+        fields = ['id', 'company', 'role_title', 'status', 'rto_policy', 'rto_days_per_week', 'current_round', 'job_link', 'salary_range', 'location', 'notes', 'date_applied', 'created_at', 'updated_at']
 
 
 class TaskSerializer(serializers.ModelSerializer):

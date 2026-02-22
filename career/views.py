@@ -8,6 +8,165 @@ from datetime import datetime
 from django.db.models import Q, Max
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
+import pandas as pd
+import os
+import json
+from urllib.parse import quote
+from urllib.request import urlopen, Request
+from urllib.error import URLError, HTTPError
+from django.utils import timezone
+
+MARITAL_STATUS_OPTIONS = [
+    {"code": "SINGLE", "label": "Single"},
+    {"code": "MARRIED_FILING_JOINTLY", "label": "Married Filing Jointly"},
+    {"code": "MARRIED_FILING_SEPARATELY", "label": "Married Filing Separately"},
+    {"code": "HEAD_OF_HOUSEHOLD", "label": "Head of Household"},
+]
+
+CITY_COST_OF_LIVING = {
+    "San Francisco, CA": 168,
+    "San Jose, CA": 156,
+    "Seattle, WA": 132,
+    "New York, NY": 154,
+    "Austin, TX": 111,
+    "Chicago, IL": 117,
+    "Boston, MA": 148,
+    "Los Angeles, CA": 149,
+    "Atlanta, GA": 104,
+    "Denver, CO": 121,
+    "Remote / National Average": 100,
+}
+
+STATE_COL_BASE = {
+    "AL": 89, "AK": 128, "AZ": 104, "AR": 88, "CA": 134, "CO": 112, "CT": 115, "DE": 103, "FL": 102, "GA": 97,
+    "HI": 186, "ID": 101, "IL": 101, "IN": 90, "IA": 89, "KS": 90, "KY": 91, "LA": 92, "ME": 108, "MD": 112,
+    "MA": 123, "MI": 92, "MN": 98, "MS": 86, "MO": 90, "MT": 101, "NE": 92, "NV": 105, "NH": 111, "NJ": 118,
+    "NM": 94, "NY": 123, "NC": 95, "ND": 95, "OH": 91, "OK": 89, "OR": 113, "PA": 99, "RI": 109, "SC": 94,
+    "SD": 94, "TN": 91, "TX": 97, "UT": 104, "VT": 110, "VA": 105, "WA": 114, "WV": 89, "WI": 95, "WY": 97, "DC": 152,
+}
+
+STATE_TAX_RATE = {
+    "AK": 0, "FL": 0, "NV": 0, "SD": 0, "TN": 0, "TX": 0, "WA": 0, "WY": 0, "NH": 0, "AL": 4.5, "AZ": 2.5,
+    "AR": 4.4, "CA": 8.5, "CO": 4.4, "CT": 5.0, "DE": 5.0, "GA": 5.2, "HI": 7.0, "ID": 5.8, "IL": 4.95,
+    "IN": 3.15, "IA": 4.5, "KS": 5.2, "KY": 4.0, "LA": 3.5, "ME": 6.0, "MD": 5.0, "MA": 5.0, "MI": 4.25,
+    "MN": 6.2, "MS": 4.7, "MO": 4.9, "MT": 5.5, "NE": 5.8, "NJ": 6.0, "NM": 4.7, "NY": 6.8, "NC": 4.5,
+    "ND": 2.5, "OH": 3.5, "OK": 4.8, "OR": 7.8, "PA": 3.07, "RI": 5.0, "SC": 5.4, "UT": 4.85, "VT": 6.0,
+    "VA": 4.8, "WV": 4.5, "WI": 5.1, "DC": 7.0,
+}
+
+STATE_NAME_TO_ABBR = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR", "California": "CA",
+    "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE", "Florida": "FL", "Georgia": "GA",
+    "Hawaii": "HI", "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD", "Massachusetts": "MA",
+    "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS", "Missouri": "MO", "Montana": "MT",
+    "Nebraska": "NE", "Nevada": "NV", "New Hampshire": "NH", "New Jersey": "NJ",
+    "New Mexico": "NM", "New York": "NY", "North Carolina": "NC", "North Dakota": "ND",
+    "Ohio": "OH", "Oklahoma": "OK", "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
+    "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+    "Vermont": "VT", "Virginia": "VA", "Washington": "WA", "West Virginia": "WV", "Wisconsin": "WI",
+    "Wyoming": "WY", "District of Columbia": "DC",
+}
+
+HUD_FMR_BASE_URL = "https://www.huduser.gov/hudapi/public/fmr"
+
+
+def _parse_city_state(raw_city: str):
+    if not raw_city:
+        return "", ""
+    normalized = raw_city.replace(", United States", "").strip()
+    parts = [p.strip() for p in normalized.split(",") if p.strip()]
+    if len(parts) >= 2:
+        return parts[0], parts[1].upper()
+    return normalized, ""
+
+
+def _fallback_rent_payload(city_query: str, state_abbr: str, reason: str):
+    state_col = STATE_COL_BASE.get(state_abbr, 100)
+    # Lightweight fallback heuristic when HUD cannot be queried.
+    monthly_rent = int(round(900 + state_col * 12))
+    if "remote" in city_query.lower():
+        monthly_rent = 2200
+
+    return {
+        "provider": "Fallback Estimate",
+        "city": city_query,
+        "state": state_abbr or "",
+        "matched_area": f"{state_abbr or 'US'} fallback",
+        "monthly_rent_estimate": monthly_rent,
+        "fmr_year": None,
+        "last_updated": timezone.now().isoformat(),
+        "manual_override_allowed": True,
+        "is_fallback": True,
+        "warning": reason,
+    }
+
+
+def fetch_hud_rent_estimate(city_query: str):
+    city_name, state_abbr = _parse_city_state(city_query)
+    token = os.getenv("HUD_FMR_API_TOKEN", "").strip()
+    if not token:
+        return _fallback_rent_payload(city_query, state_abbr, "HUD_FMR_API_TOKEN is not configured")
+    if not state_abbr:
+        return _fallback_rent_payload(city_query, state_abbr, "State code not provided in city string")
+
+    try:
+        request = Request(f"{HUD_FMR_BASE_URL}/statedata/{quote(state_abbr)}")
+        request.add_header("Authorization", f"Bearer {token}")
+        with urlopen(request, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        return _fallback_rent_payload(city_query, state_abbr, f"HUD API error: {exc.code}")
+    except URLError:
+        return _fallback_rent_payload(city_query, state_abbr, "HUD API network error")
+    except Exception as exc:
+        return _fallback_rent_payload(city_query, state_abbr, f"HUD API parse error: {exc}")
+
+    data = payload.get("data") or {}
+    county_rows = data.get("counties") or []
+    metro_rows = data.get("metroareas") or []
+    all_rows = metro_rows + county_rows
+
+    city_l = city_name.lower()
+
+    def _row_name(row):
+        return (
+            str(row.get("metro_name") or row.get("county_name") or row.get("name") or "").strip()
+        )
+
+    ranked = sorted(
+        all_rows,
+        key=lambda row: (
+            0 if city_l and city_l in _row_name(row).lower() else 1,
+            len(_row_name(row)),
+        ),
+    )
+    best = ranked[0] if ranked else {}
+    rent_value = (
+        best.get("Two-Bedroom")
+        or best.get("twobedroom")
+        or best.get("2-Bedroom")
+        or best.get("onebedroom")
+        or best.get("One-Bedroom")
+    )
+
+    try:
+        monthly_rent = int(str(rent_value).replace(",", ""))
+    except Exception:
+        return _fallback_rent_payload(city_query, state_abbr, "HUD payload missing rent value")
+
+    return {
+        "provider": "HUD FMR API",
+        "city": city_query,
+        "state": state_abbr,
+        "matched_area": _row_name(best) or f"{state_abbr} statewide",
+        "monthly_rent_estimate": monthly_rent,
+        "fmr_year": data.get("year"),
+        "last_updated": timezone.now().isoformat(),
+        "manual_override_allowed": True,
+        "is_fallback": False,
+    }
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
@@ -125,8 +284,24 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         fmt = request.query_params.get('fmt', 'csv')
         return export_data(self.get_queryset(), ApplicationExportSerializer, fmt, 'applications')
 
-from rest_framework.views import APIView
-import pandas as pd
+class ReferenceDataView(APIView):
+    def get(self, request, *args, **kwargs):
+        return Response({
+            "marital_status_options": MARITAL_STATUS_OPTIONS,
+            "city_cost_of_living": CITY_COST_OF_LIVING,
+            "state_col_base": STATE_COL_BASE,
+            "state_tax_rate": STATE_TAX_RATE,
+            "state_name_to_abbr": STATE_NAME_TO_ABBR,
+        })
+
+
+class RentEstimateView(APIView):
+    def get(self, request, *args, **kwargs):
+        city = (request.query_params.get("city") or "").strip()
+        if not city:
+            return Response({"error": "city query param is required"}, status=status.HTTP_400_BAD_REQUEST)
+        result = fetch_hud_rent_estimate(city)
+        return Response(result, status=status.HTTP_200_OK)
 
 class ImportApplicationsView(APIView):
     parser_classes = (MultiPartParser, FormParser)

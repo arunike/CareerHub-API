@@ -39,6 +39,7 @@ class Application(models.Model):
     
     # Details
     rto_policy = models.CharField(max_length=20, choices=RTO_CHOICES, default='UNKNOWN')
+    rto_days_per_week = models.PositiveSmallIntegerField(default=0)
     salary_range = models.CharField(max_length=100, blank=True, help_text="e.g. $150k - $180k")
     location = models.CharField(max_length=100, blank=True)
     
