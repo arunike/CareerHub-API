@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Company, Application, Offer, Document
+from .models import Company, Application, Offer, Document, Task
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,3 +70,9 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
         fields = ['id', 'company', 'role_title', 'status', 'rto_policy', 'current_round', 'job_link', 'salary_range', 'location', 'notes', 'date_applied', 'created_at', 'updated_at']
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = '__all__'
