@@ -1,14 +1,18 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Company, Application, Offer
-from .serializers import CompanySerializer, ApplicationSerializer, ApplicationExportSerializer, OfferSerializer
+from .models import Company, Application, Offer, Document
+from .serializers import CompanySerializer, ApplicationSerializer, ApplicationExportSerializer, OfferSerializer, DocumentSerializer
 from availability.utils import export_data
 from datetime import datetime
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
+
+class DocumentViewSet(viewsets.ModelViewSet):
+    queryset = Document.objects.all()
+    serializer_class = DocumentSerializer
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     queryset = Application.objects.all()
