@@ -12,9 +12,28 @@ class OfferSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class DocumentSerializer(serializers.ModelSerializer):
+    application_details = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Document
-        fields = '__all__'
+        fields = ['id', 'title', 'file', 'document_type', 'application', 'application_details', 'created_at', 'updated_at']
+
+    def get_application_details(self, obj):
+        if not obj.application:
+            return None
+        return {
+            'id': obj.application.id,
+            'role': obj.application.role_title,
+            'company': obj.application.company.name,
+        }
+
+class DocumentExportSerializer(serializers.ModelSerializer):
+    application_role = serializers.CharField(source='application.role_title', read_only=True)
+    application_company = serializers.CharField(source='application.company.name', read_only=True)
+
+    class Meta:
+        model = Document
+        fields = ['id', 'title', 'document_type', 'file', 'application_role', 'application_company', 'created_at', 'updated_at']
 
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)

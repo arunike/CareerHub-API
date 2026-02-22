@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Company, Application, Offer, Document
-from .serializers import CompanySerializer, ApplicationSerializer, ApplicationExportSerializer, OfferSerializer, DocumentSerializer
+from .serializers import CompanySerializer, ApplicationSerializer, ApplicationExportSerializer, OfferSerializer, DocumentSerializer, DocumentExportSerializer
 from availability.utils import export_data
 from datetime import datetime
 
@@ -13,6 +13,19 @@ class CompanyViewSet(viewsets.ModelViewSet):
 class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
+
+    @action(detail=False, methods=['delete'])
+    def delete_all(self, request):
+        count, _ = Document.objects.all().delete()
+        return Response(
+            {"message": f"Deleted {count} documents."},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        fmt = request.query_params.get('fmt', 'csv')
+        return export_data(self.get_queryset(), DocumentExportSerializer, fmt, 'documents')
 
 class ApplicationViewSet(viewsets.ModelViewSet):
     queryset = Application.objects.all()
