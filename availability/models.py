@@ -111,6 +111,7 @@ class ShareLink(models.Model):
     uuid = models.CharField(max_length=36, unique=True)
     title = models.CharField(max_length=255)
     duration_days = models.IntegerField(default=7)
+    booking_block_minutes = models.IntegerField(default=30)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)

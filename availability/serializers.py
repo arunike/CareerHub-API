@@ -83,7 +83,17 @@ class ShareLinkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShareLink
-        fields = ['id', 'uuid', 'title', 'duration_days', 'created_at', 'expires_at', 'is_active', 'is_expired']
+        fields = [
+            'id',
+            'uuid',
+            'title',
+            'duration_days',
+            'booking_block_minutes',
+            'created_at',
+            'expires_at',
+            'is_active',
+            'is_expired',
+        ]
         read_only_fields = ['created_at', 'is_expired']
 
 
