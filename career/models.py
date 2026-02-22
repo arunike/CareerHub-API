@@ -69,3 +69,22 @@ class Offer(models.Model):
 
     def __str__(self):
         return f"Offer for {self.application}"
+
+class Document(models.Model):
+    DOCUMENT_TYPES = [
+        ('RESUME', 'Resume'),
+        ('COVER_LETTER', 'Cover Letter'),
+        ('PORTFOLIO', 'Portfolio'),
+        ('OTHER', 'Other'),
+    ]
+
+    title = models.CharField(max_length=255)
+    file = models.FileField(upload_to='documents/')
+    document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default='RESUME')
+    application = models.ForeignKey(Application, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title

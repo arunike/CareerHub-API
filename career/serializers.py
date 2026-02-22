@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Company, Application, Offer
+from .models import Company, Application, Offer, Document
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,6 +9,11 @@ class CompanySerializer(serializers.ModelSerializer):
 class OfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = Offer
+        fields = '__all__'
+
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
         fields = '__all__'
 
 class ApplicationSerializer(serializers.ModelSerializer):
