@@ -37,9 +37,21 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Delete All**: Bulk delete endpoint for clearing test data
 
 ### 💎 Offer Management
-- **Compensation Tracking**: Store Base Salary, Bonus, Equity, Sign-On, Benefits, and PTO Days
+- **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
+- **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
+
+### 📄 Document Management
+- **Upload & CRUD**: Store resumes, cover letters, portfolios, and other docs
+- **Versioning**:
+  - each document has `version_number` and `is_current`
+  - upload new versions while keeping version history
+  - query current-only list or full version list
+- **Linking**: Documents can optionally link to an application
+- **Locking Rules**: Locked documents cannot be deleted
+- **Bulk Delete Rules**: `delete_all` deletes only unlocked documents
+- **Export**: Export documents in csv/json/xlsx formats
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
@@ -103,6 +115,22 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 The API will be available at `http://localhost:8000/api`.
 
+### Migration Workflow (Important)
+
+When you change Django models, always generate and commit migrations.
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+python manage.py check
+```
+
+Commit both:
+- model changes (for example `career/models.py`)
+- generated migration files (for example `career/migrations/0017_*.py`)
+
+If migrations are not committed, other environments will fail with DB schema errors (for example `no such column ...`).
+
 ### Optional: Create a Superuser
 ```bash
 python manage.py createsuperuser
@@ -143,26 +171,48 @@ backend/
 
 ### Career Endpoints
 
+Base prefix: `/api/career/`
+
 #### Applications
-- `GET /api/applications/` - List all applications
-- `POST /api/applications/` - Create a new application
-- `GET /api/applications/{id}/` - Retrieve application details
-- `PUT /api/applications/{id}/` - Update application (auto-creates offer if status → OFFER)
-- `DELETE /api/applications/{id}/` - Delete application
-- `POST /api/applications/import/` - Bulk import from CSV/XLSX
-- `GET /api/applications/export/?fmt=csv` - Export applications (csv/json/xlsx)
-- `DELETE /api/applications/delete_all/` - Delete all applications
+- `GET /api/career/applications/` - List all applications
+- `POST /api/career/applications/` - Create a new application
+- `GET /api/career/applications/{id}/` - Retrieve application details
+- `PUT /api/career/applications/{id}/` - Update application (auto-creates offer if status → OFFER)
+- `DELETE /api/career/applications/{id}/` - Delete application
+- `POST /api/career/import/` - Bulk import from CSV/XLSX
+- `GET /api/career/applications/export/?fmt=csv` - Export applications (csv/json/xlsx)
+- `DELETE /api/career/applications/delete_all/` - Delete all applications
 
 #### Offers
-- `GET /api/offers/` - List all offers
-- `POST /api/offers/` - Create a new offer
-- `GET /api/offers/{id}/` - Retrieve offer details
-- `PUT /api/offers/{id}/` - Update offer
-- `DELETE /api/offers/{id}/` - Delete offer
+- `GET /api/career/offers/` - List all offers
+- `POST /api/career/offers/` - Create a new offer
+- `GET /api/career/offers/{id}/` - Retrieve offer details
+- `PUT /api/career/offers/{id}/` - Update offer
+- `DELETE /api/career/offers/{id}/` - Delete offer
 
 #### Companies
-- `GET /api/companies/` - List all companies
-- `POST /api/companies/` - Create a new company
+- `GET /api/career/companies/` - List all companies
+- `POST /api/career/companies/` - Create a new company
+
+#### Documents
+- `GET /api/career/documents/` - List current document versions
+- `GET /api/career/documents/?include_versions=true` - List all versions
+- `POST /api/career/documents/` - Upload a document
+- `POST /api/career/documents/{id}/add_version/` - Create new version
+- `GET /api/career/documents/{id}/versions/` - List version history
+- `GET /api/career/documents/export/?fmt=csv` - Export documents
+- `DELETE /api/career/documents/delete_all/` - Delete all unlocked documents
+
+#### Tasks
+- `GET /api/career/tasks/` - List tasks
+- `POST /api/career/tasks/` - Create task
+- `PATCH /api/career/tasks/{id}/` - Update task
+- `POST /api/career/tasks/reorder/` - Reorder tasks
+
+#### Offer Comparison Helpers
+- `GET /api/career/reference-data/` - Tax/COL/marital-status reference payload
+- `GET /api/career/rent-estimate/?city=San+Jose,+CA,+United+States` - Rent estimate (HUD/fallback)
+- `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` - Weekly summary (applications/interviews/next actions)
 
 ### Availability Endpoints
 
