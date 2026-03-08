@@ -89,6 +89,7 @@ class UserSettings(models.Model):
     global_availability = models.JSONField(default=dict)
     ghosting_threshold_days = models.IntegerField(default=30, help_text="Days of inactivity before marking application as ghosted")
     default_event_category = models.ForeignKey(EventCategory, on_delete=models.SET_NULL, null=True, blank=True)
+    ignored_federal_holidays = models.JSONField(default=list, help_text="List of federal holiday names or dates to ignore")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -4,7 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..models import CustomHoliday
+from ..models import CustomHoliday, UserSettings
 from ..serializers import CustomHolidaySerializer
 from ..utils import export_data, get_federal_holidays
 
@@ -26,10 +26,20 @@ class HolidayViewSet(viewsets.ModelViewSet):
     def federal(self, request):
         year = datetime.now().year
         holidays_dict = get_federal_holidays(year)
-        data = [
-            {'date': d.strftime('%Y-%m-%d'), 'description': name}
-            for d, name in sorted(holidays_dict.items())
-        ]
+        
+        user_settings = UserSettings.objects.first()
+        ignored_holidays = user_settings.ignored_federal_holidays if user_settings else []
+        
+        data = []
+        for d, name in sorted(holidays_dict.items()):
+            date_str = d.strftime('%Y-%m-%d')
+            is_ignored = name in ignored_holidays or date_str in ignored_holidays
+            data.append({
+                'date': date_str, 
+                'description': name,
+                'is_ignored': is_ignored
+            })
+            
         return Response(data)
 
     @action(detail=False, methods=['get'])
