@@ -55,7 +55,11 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
-- **Holiday Detection**: Automatically populate U.S. federal holidays for the current year
+- **Holiday Detection & Management**: 
+  - Automatically populate U.S. federal holidays for the current year
+  - Add manually-defined "Custom Federal" holidays that integrate directly into the global federal list
+  - Ignore specific federal holidays dynamically
+  - Create grouped multi-day custom holiday collections
 - **Availability Generation**: Generate availability text from work settings, holidays, and event conflicts
 - **Public Booking Links**:
   - generate/deactivate share links
@@ -221,8 +225,9 @@ Base prefix: `/api/career/`
 - `DELETE /api/events/delete_all/` - Delete all events
 
 #### Holidays
-- `GET /api/holidays/` - List all holidays
-- `POST /api/holidays/` - Create a custom holiday
+- `GET /api/holidays/` - List all custom holidays
+- `POST /api/holidays/` - Create a custom holiday (includes grouped collections)
+- `GET /api/holidays/federal/` - List native federal + user-defined federal holidays
 - `GET /api/holidays/export/?fmt=csv` - Export holidays
 
 #### Availability / Booking
