@@ -37,8 +37,24 @@ class HolidayViewSet(viewsets.ModelViewSet):
             data.append({
                 'date': date_str, 
                 'description': name,
+                'holiday_type': 'federal_native',
                 'is_ignored': is_ignored
             })
+            
+        # Append custom defined federal holidays
+        custom_federal = CustomHoliday.objects.filter(holiday_type='federal', date__year=year)
+        for custom in custom_federal:
+            date_str = custom.date.strftime('%Y-%m-%d')
+            is_ignored = custom.description in ignored_holidays or date_str in ignored_holidays
+            data.append({
+                'id': custom.id,
+                'date': date_str,
+                'description': custom.description,
+                'holiday_type': 'federal',
+                'is_ignored': is_ignored
+            })
+            
+        data.sort(key=lambda x: x['date'])
             
         return Response(data)
 

@@ -17,6 +17,7 @@ class CustomHoliday(models.Model):
     date = models.DateField()
     group_id = models.CharField(max_length=50, blank=True, null=True, help_text="Group UUID for multi-day holidays")
     description = models.CharField(max_length=255, blank=True, null=True)
+    holiday_type = models.CharField(max_length=20, default='custom')
     is_recurring = models.BooleanField(default=False)
     is_locked = models.BooleanField(default=False, help_text="Locked holidays cannot be deleted")
 
