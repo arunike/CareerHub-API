@@ -2,13 +2,14 @@
 
 A robust Django REST Framework API powering the CareerHub job search platform.
 
-![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![DRF](https://img.shields.io/badge/DRF-red?style=for-the-badge&logo=django&logoColor=white)
+![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![DRF](https://img.shields.io/badge/DRF-red?style=for-the-badge&logo=django&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white) ![Celery](https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
 ## 📋 Table of Contents
 - [Overview](#-overview)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
 - [Getting Started](#-getting-started)
+- [Docker](#-docker)
 - [Project Structure](#-project-structure)
 - [API Documentation](#-api-documentation)
 - [Frontend](#-frontend)
@@ -25,6 +26,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
+- ⚡ **Redis-Powered**: Caching, rate limiting, real-time WebSocket alerts, and async task queue
+- 🐳 **Docker Ready**: One-command startup with Docker Compose
 
 ## ✨ Features
 
@@ -70,12 +73,44 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **User Preferences**: Singleton settings model for ghosting threshold and timezone
 - **Auto-Ghosted Logic**: Configurable threshold to auto-update stale applications
 
+### ⚡ Distributed Systems
+
+- **Redis Cache** (`django-redis`)
+  - Analytics widget query results cached with MD5 keys (5 min TTL)
+  - `UserSettings` primary timezone cached per booking session (10 min TTL)
+  - Cache auto-invalidated via `post_save`/`post_delete` signals on `Event` and `Application`
+  - Graceful fallback to DB when Redis is unavailable
+
+- **Celery + Redis Beat** (`celery`, `django-celery-beat`)
+  - `auto_ghost_stale_applications` — daily task; marks applications as GHOSTED past the configured threshold
+  - `expire_stale_share_links` — hourly task; deactivates expired `ShareLink` objects
+  - `clear_widget_cache` — every 10 min fallback cache wipe
+  - Scheduled via `DatabaseScheduler` (configurable from Django admin)
+
+- **Redis Rate Limiting** (DRF `SimpleRateThrottle`)
+  - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
+  - `PublicBookingCreateThrottle`: 5 POST requests/minute per IP
+  - Throttle state stored in Redis; gracefully falls back to LocMemCache in tests
+
+- **Django Channels WebSocket** (`channels[daphne]`, `channels-redis`)
+  - `ConflictAlertConsumer` at `ws://host/ws/conflicts/`
+  - Broadcasts real-time conflict alerts to all connected clients when event conflicts are detected
+  - Served by Daphne ASGI server (handles both HTTP + WebSocket)
+
 ## 🛠 Tech Stack
 
 ### Core Framework
 - **Django 5.x** - Python web framework
 - **Django REST Framework** - Toolkit for building RESTful APIs
 - **SQLite** - Default database (easily swappable to PostgreSQL/MySQL)
+
+### Distributed Systems
+- **Redis** - Cache backend, Celery broker/backend, and Channel Layer
+- **Celery** - Distributed task queue for background and scheduled jobs
+- **django-celery-beat** - Database-backed periodic task scheduler
+- **Django Channels + Daphne** - ASGI server with WebSocket support
+- **channels-redis** - Redis channel layer for Channels
+- **django-redis** - Redis cache backend for Django
 
 ### Data Processing
 - **Pandas** - CSV/XLSX parsing and data manipulation
@@ -85,39 +120,109 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **django-cors-headers** - CORS middleware for frontend integration
 - **holidays** - Federal holiday detection library
 
+### Infrastructure
+- **Docker + Docker Compose** - Containerised local development and deployment
+
 ## 🚀 Getting Started
 
-### Prerequisites
-- Python 3.8+
-- pip
+### Option A — Docker (recommended)
 
-### Installation
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+cd api
+
+# First time — build images and start all services
+docker compose up --build
+
+# Subsequent runs
+docker compose up -d
+
+# Stop everything
+docker compose down
+
+# Stream logs
+docker compose logs -f api
+```
+
+Services started:
+| Service | Port | Description |
+|---|---|---|
+| Redis | 6379 | Cache, broker, channel layer |
+| api (Daphne) | 8000 | Django HTTP + WebSocket |
+| worker | — | Celery task worker |
+| beat | — | Celery periodic scheduler |
+
+API: `http://localhost:8000/api`  
+WebSocket: `ws://localhost:8000/ws/conflicts/`
+
+---
+
+### Option B — Local (venv)
+
+#### Prerequisites
+- Python 3.8+
+- Redis running on `localhost:6379`
+
+#### Installation
 
 1. **Navigate to backend directory**
    ```bash
    cd api
    ```
 
-2. **Install Dependencies**
+2. **Activate virtual environment and install dependencies**
    ```bash
-   pip install -r requirements.txt
+   python -m venv venv && source venv/bin/activate
+   pip install -r requirements.docker.txt
    ```
 
 3. **Run Migrations**
    ```bash
    python manage.py migrate
    ```
-   
-   This will automatically create the `db.sqlite3` database file with all necessary tables.
 
-4. **Start the Development Server**
+4. **Start Daphne (ASGI — HTTP + WebSocket)**
    ```bash
-   python manage.py runserver
+   daphne -b 0.0.0.0 -p 8000 config.asgi:application
    ```
 
-The API will be available at `http://localhost:8000/api`.
+5. **Start Celery Worker** (new terminal)
+   ```bash
+   celery -A config worker --loglevel=info
+   ```
 
-### Migration Workflow (Important)
+6. **Start Celery Beat** (new terminal)
+   ```bash
+   celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+   ```
+
+
+## 🐳 Docker
+
+All Docker files live in `api/`:
+
+```
+api/
+├── Dockerfile            # Multi-stage build (builder + final)
+├── docker-compose.yml    # 4 services: redis, api, worker, beat
+├── .env                  # Local secrets (git-ignored)
+├── .env.example          # Template — commit this, not .env
+├── .dockerignore         # Excludes venv, db, media, etc.
+└── requirements.docker.txt  # Clean minimal dependency list
+```
+
+### Environment Variables (`.env`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `SECRET_KEY` | dev key | Django secret key |
+| `DEBUG` | `True` | Debug mode |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
+| `REDIS_HOST` | `localhost` | Overridden to `redis` by Compose |
+| `REDIS_PORT` | `6379` | Redis port |
+
+### Migration Workflow
 
 When you change Django models, always generate and commit migrations.
 
@@ -127,43 +232,49 @@ python manage.py migrate
 python manage.py check
 ```
 
-Commit both:
-- model changes (for example `career/models.py`)
-- generated migration files (for example `career/migrations/0017_*.py`)
-
-If migrations are not committed, other environments will fail with DB schema errors (for example `no such column ...`).
-
-### Optional: Create a Superuser
+### Optional: Django Admin
 ```bash
 python manage.py createsuperuser
 ```
-
-Access the Django Admin at `http://localhost:8000/admin` to manage data via a GUI.
+Access at `http://localhost:8000/admin`.
 
 ## 📁 Project Structure
 
 ```
-backend/
+api/
 ├── availability/              # Availability calendar & events module
 │   ├── models.py             # Event, Holiday, DayAvailability, Settings models
 │   ├── serializers.py        # DRF serializers
-│   ├── views.py              # API ViewSets (CRUD + export endpoints)
-│   ├── urls.py               # URL routing
+│   ├── views/                # API ViewSets (CRUD + export endpoints)
+│   ├── consumers.py          # WebSocket ConflictAlertConsumer
+│   ├── throttling.py         # Redis rate-limit throttle classes
+│   ├── tasks.py              # Celery tasks (expire links, clear cache)
+│   ├── signals.py            # Cache invalidation signals
+│   ├── routing.py            # WebSocket URL routing
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
 ├── career/                   # Job applications & offers module
 │   ├── models.py             # Company, Application, Offer models
 │   ├── serializers.py        # DRF serializers with auto company creation
 │   ├── views.py              # API ViewSets + auto-offer creation logic
+│   ├── tasks.py              # Celery task: auto_ghost_stale_applications
 │   └── urls.py               # URL routing
 │
-├── availability_manager/     # Django project settings
-│   ├── settings.py           # Configuration (CORS, DRF, database)
+├── analytics/                # Custom widget query engine
+│   ├── custom_widgets.py     # Redis-cached NL query processor
+│   ├── signals.py            # Cache bust on Event/Application change
+│   └── tests.py              # Widget + cache test suite
+│
+├── config/                   # Django project settings
+│   ├── settings.py           # Configuration (Redis, Celery, Channels, CORS)
+│   ├── asgi.py               # ASGI app (HTTP + WebSocket via Daphne)
 │   └── urls.py               # Root URL configuration
 │
+├── celery_app.py             # Celery app definition
 ├── db.sqlite3                # SQLite database (auto-created, not committed)
 ├── manage.py                 # Django management script
-└── requirements.txt          # Python dependencies
+├── requirements.docker.txt   # Minimal Docker dependencies
+└── docker-compose.yml        # Multi-service Docker Compose config
 ```
 
 ## 📡 API Documentation
