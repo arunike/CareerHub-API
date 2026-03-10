@@ -1,3 +1,6 @@
+import os
+from datetime import timedelta
+
 """
 Django settings for availability_project project.
 
@@ -20,17 +23,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-w_#zbf+qxmmmdk0354*1wstm%o(z_+@p7%8tseg1&(av^pkrm!"
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    "django-insecure-w_#zbf+qxmmmdk0354*1wstm%o(z_+@p7%8tseg1&(av^pkrm!",
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -39,6 +45,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "channels",
+    "django_celery_beat",
     "availability",
     "career",
     "analytics",
@@ -74,7 +82,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database
@@ -132,3 +140,64 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Media configuration for file uploads
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ---------------------------------------------------------------------------
+# Redis
+# ---------------------------------------------------------------------------
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+
+# Cache TTL used across the project (in seconds)
+CACHE_TTL = 300  # 5 minutes
+
+# Django cache backend — Redis db=1
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"{REDIS_URL}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": CACHE_TTL,
+        # Use in-memory cache during Django test runs so Redis is not required
+        "TEST": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+    }
+}
+
+# Django Channels — Redis channel layer, db=2
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(REDIS_HOST, REDIS_PORT)],
+        },
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Celery
+# ---------------------------------------------------------------------------
+CELERY_BROKER_URL = f"{REDIS_URL}/0"
+CELERY_RESULT_BACKEND = f"{REDIS_URL}/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+CELERY_BEAT_SCHEDULE = {
+    "auto-ghost-stale-applications": {
+        "task": "career.tasks.auto_ghost_stale_applications",
+        "schedule": timedelta(hours=24),
+    },
+    "expire-stale-share-links": {
+        "task": "availability.tasks.expire_stale_share_links",
+        "schedule": timedelta(hours=1),
+    },
+    "clear-widget-cache": {
+        "task": "availability.tasks.clear_widget_cache",
+        "schedule": timedelta(minutes=10),
+    },
+}

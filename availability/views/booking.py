@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from uuid import uuid4
 
+from django.core.cache import cache
+from django.conf import settings as django_settings
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -11,7 +13,9 @@ from rest_framework.views import APIView
 
 from ..models import Event, PublicBooking, ShareLink, UserSettings
 from ..serializers import PublicBookingSerializer, ShareLinkSerializer
+from ..throttling import PublicBookingCreateThrottle, PublicBookingSlotsThrottle
 from ..utils import calculate_availability_for_dates
+from ..signals import USER_SETTINGS_TZ_CACHE_KEY
 
 TIMEZONE_CODE_TO_NAME = {
     'PT': 'America/Los_Angeles',
@@ -59,10 +63,13 @@ def _normalize_timezone_code(value):
 
 
 def _base_timezone_code():
-    settings = UserSettings.objects.first()
-    if settings and settings.primary_timezone:
-        return _normalize_timezone_code(settings.primary_timezone)
-    return 'PT'
+    cached = cache.get(USER_SETTINGS_TZ_CACHE_KEY)
+    if cached:
+        return cached
+    user_settings = UserSettings.objects.first()
+    tz_code = _normalize_timezone_code(user_settings.primary_timezone) if user_settings else 'PT'
+    cache.set(USER_SETTINGS_TZ_CACHE_KEY, tz_code, timeout=600)
+    return tz_code
 
 
 def _format_label(start_dt, end_dt):
@@ -211,6 +218,7 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
 class PublicBookingSlotsView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [PublicBookingSlotsThrottle]
 
     def get(self, request, uuid):
         link = _get_share_link_or_none(uuid)
@@ -272,6 +280,7 @@ class PublicBookingSlotsView(APIView):
 class PublicBookingCreateView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = [PublicBookingCreateThrottle]
 
     def post(self, request, uuid):
         link = _get_share_link_or_none(uuid)

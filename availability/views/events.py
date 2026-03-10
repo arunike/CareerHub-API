@@ -1,15 +1,31 @@
 from datetime import datetime
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from ..conflict_detector import check_for_conflicts
+from ..consumers import CONFLICT_ALERTS_GROUP
 from ..models import Event
 from ..recurrence import delete_recurring_series, generate_recurring_instances, update_recurring_series
 from ..serializers import EventSerializer
 from ..utils import export_data
+
+
+def _broadcast_conflict_alert(conflicts: list):
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        CONFLICT_ALERTS_GROUP,
+        {
+            "type": "conflict_alert",
+            "message": "Event conflict detected.",
+            "conflicting_events": [e.id for e in conflicts],
+            "event_names": [e.name for e in conflicts],
+        },
+    )
 
 
 class EventViewSet(viewsets.ModelViewSet):
@@ -29,6 +45,7 @@ class EventViewSet(viewsets.ModelViewSet):
         data = serializer.validated_data
         conflicts = check_for_conflicts(data)
         if conflicts:
+            _broadcast_conflict_alert(conflicts)
             force = self.request.query_params.get('force', 'false').lower() == 'true'
             if not force:
                 conflict_names = ', '.join([e.name for e in conflicts])
@@ -52,6 +69,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
         conflicts = check_for_conflicts(full_data, exclude_id=instance.id)
         if conflicts:
+            _broadcast_conflict_alert(conflicts)
             force = self.request.query_params.get('force', 'false').lower() == 'true'
             if not force:
                 conflict_names = ', '.join([e.name for e in conflicts])

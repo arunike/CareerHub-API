@@ -1,0 +1,72 @@
+services:
+  # Redis
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Django API (Daphne ASGI — HTTP + WebSocket)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - api_media:/app/media
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A config worker --loglevel=info --concurrency=2
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Beat (periodic task scheduler)
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A config beat --loglevel=info
+             --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  api_media:
