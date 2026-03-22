@@ -17,12 +17,12 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 - [Author](#-author)
 
 ## 🌟 Overview
-The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the Availability Manager platform. It handles job application tracking, offer management, availability calendars, and interview event scheduling—all exposed through a clean RESTful API.
+The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and AI-powered career tools—all exposed through a clean RESTful API.
 
 **Key Capabilities:**
-- 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, and Holidays
-- 📥 **Import/Export**: Bulk CSV/XLSX import and multi-format export (CSV, JSON, XLSX, ZIP)
-- 🤖 **Auto-Offer Creation**: Automatically creates `Offer` objects when application status changes to "OFFER"
+- 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, and Experience
+- 🤖 **AI Suite**: LLM-powered JD matching, cover letter generation, and offer negotiation advice (Gemini/OpenAI-compatible)
+- 📥 **Import/Export**: Bulk CSV/XLSX import and multi-format export (CSV, JSON, XLSX)
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
@@ -36,47 +36,71 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Status Tracking**: Support for 8 application stages (Applied, OA, Screen, Onsite, Offer, Rejected, Accepted, Ghosted)
 - **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
 - **Bulk Import**: Upload CSV/XLSX files to import multiple applications at once
-- **Export Options**: Download data as CSV, JSON, or XLSX with customizable serializers
-- **Delete All**: Bulk delete endpoint for clearing test data
+- **Export Options**: Download data as CSV, JSON, or XLSX
+- **Locking**: Locked applications cannot be deleted
+- **Delete All**: Bulk delete endpoint respects lock status
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
+- **Negotiation Advice**: AI-powered negotiation strategy using the marked current role as baseline (see AI Suite)
 
-### 🤖 AI JD Matcher
-- **LLM-Powered Evaluation**: Analyzes resumes against job descriptions to extract matched skills, missing skills, and generate an actionable executive summary.
-- **Skill Extraction**: Advanced parsing of candidate experience and job requirements.
-- **Scoring Engine**: Calculates an objective overall match score based on extracted alignment criteria.
+### 🤖 AI Suite
+
+> All AI features share a single LLM provider config (`LLM_API_URL`, `LLM_API_KEY`, `LLM_MODEL`) in `.env`.
+> Default provider: **Google Gemini** via OpenAI-compatible endpoint.
+
+#### JD Matcher (`POST /api/career/match-jd/`)
+- Evaluates a job description against the candidate's full Experience profile
+- Returns: match score (0–100), executive summary, matched skills, missing skills, actionable recommendations
+- Implemented in `career/llm_matcher.py` → `generate_jd_match_evaluation()`
+
+#### Cover Letter Generator (`POST /api/career/applications/{id}/generate-cover-letter/`)
+- Generates a tailored, 3–4 paragraph cover letter for a specific application
+- Accepts optional `jd_text` for a more targeted letter; falls back to role/company context only
+- Pulls candidate's full Experience as background context
+- Implemented in `career/llm_matcher.py` → `generate_cover_letter()`
+
+#### Offer Negotiation Advisor (`POST /api/career/offers/{id}/negotiation-advice/`)
+- Analyzes the target offer against the marked current/baseline offer and candidate experience
+- Returns: `talking_points` (ready-to-use scripts), `leverage_points` (your strengths), `caution_points` (risks), `suggested_ask` (concrete counter numbers with rationale)
+- Implemented in `career/llm_matcher.py` → `generate_negotiation_advice()`
+
+#### Analytics NL Query Engine (`POST /api/analytics/query/`)
+- Accepts free-text queries like "how many rejections this month?" or "events by category"
+- First tries fast regex/DB pattern matching; falls back to LLM with a DB summary snapshot for unrecognized queries
+- Returns `{type: "metric", value, unit}` or `{type: "chart", data, chartType}` — consumed directly by frontend widgets
+- Implemented in `analytics/custom_widgets.py`
+
+#### Skill Extraction (NLP, background)
+- Extracts skills from Experience descriptions using NLTK + spaCy
+- Runs automatically on `Experience` create/update
+- Implemented in `career/skills_extractor.py`
 
 ### 📄 Document Management
 - **Upload & CRUD**: Store resumes, cover letters, portfolios, and other docs
-- **Versioning**:
-  - each document has `version_number` and `is_current`
-  - upload new versions while keeping version history
-  - query current-only list or full version list
+- **Versioning**: `version_number` + `is_current`; upload new versions while keeping version history
 - **Linking**: Documents can optionally link to an application
 - **Locking Rules**: Locked documents cannot be deleted
-- **Bulk Delete Rules**: `delete_all` deletes only unlocked documents
 - **Export**: Export documents in csv/json/xlsx formats
+
+### 👤 Experience
+- Full CRUD for work experience entries (title, company, location, start/end dates, description, skills)
+- Skills are auto-extracted from description on save (NLP pipeline)
+- Experience data is the shared context for all AI features
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
-- **Holiday Detection & Management**: 
-  - Automatically populate U.S. federal holidays for the current year
-  - Add manually-defined "Custom Federal" holidays that integrate directly into the global federal list
-  - Ignore specific federal holidays dynamically
-  - Create grouped multi-day custom holiday collections
-- **Availability Generation**: Generate availability text from work settings, holidays, and event conflicts
-- **Public Booking Links**:
-  - generate/deactivate share links
-  - public slots endpoint returns only available slots (no private event/holiday details)
-  - public booking endpoint creates a locked internal event to block the booked slot
+- **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections
+- **Availability Generation**: Generate availability text blocks from work settings, holidays, and event conflicts
+- **Public Booking Links**: Generate/deactivate share links; public slots endpoint; booking creates a locked internal event
+- **Real-Time Conflict Alerts**: WebSocket (`ws://host/ws/conflicts/`) broadcasts conflicts instantly via Django Channels + Redis
 
 ### ⚙️ Settings
-- **User Preferences**: Singleton settings model for ghosting threshold and timezone
-- **Auto-Ghosted Logic**: Configurable threshold to auto-update stale applications
+- **User Preferences**: Singleton settings model for ghosting threshold, timezone, work hours, work days, buffer time, and event categories
+- **Auto-Ghosted Logic**: Configurable threshold; Celery task runs daily to mark stale applications as GHOSTED
 
 ### ⚡ Distributed Systems
 
@@ -95,7 +119,6 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Redis Rate Limiting** (DRF `SimpleRateThrottle`)
   - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
   - `PublicBookingCreateThrottle`: 5 POST requests/minute per IP
-  - Throttle state stored in Redis; gracefully falls back to LocMemCache in tests
 
 - **Django Channels WebSocket** (`channels[daphne]`, `channels-redis`)
   - `ConflictAlertConsumer` at `ws://host/ws/conflicts/`
@@ -108,6 +131,10 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Django 5.x** - Python web framework
 - **Django REST Framework** - Toolkit for building RESTful APIs
 - **SQLite** - Default database (easily swappable to PostgreSQL/MySQL)
+
+### AI / NLP
+- **Google Gemini** (via OpenAI-compatible API) - JD matching, cover letter generation, negotiation advice
+- **NLTK + spaCy** - Skill extraction from free-text experience descriptions
 
 ### Distributed Systems
 - **Redis** - Cache backend, Celery broker/backend, and Channel Layer
@@ -158,7 +185,7 @@ Services started:
 | worker | — | Celery task worker |
 | beat | — | Celery periodic scheduler |
 
-API: `http://localhost:8000/api`  
+API: `http://localhost:8000/api`
 WebSocket: `ws://localhost:8000/ws/conflicts/`
 
 ---
@@ -226,16 +253,16 @@ api/
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
 | `REDIS_HOST` | `localhost` | Overridden to `redis` by Compose |
 | `REDIS_PORT` | `6379` | Redis port |
-| `LLM_API_KEY` | `your-api-key-here` | Required for AI JD Matcher. Get your free API key from Google AI Studio. |
-| `LLM_API_URL` | `https://generat...` | Default points to Gemini's OpenAI-compatible endpoint. |
-| `LLM_MODEL` | `gemini-2.0-flash` | The model to use for the JD Matching engine. |
+| `LLM_API_KEY` | — | **Required for all AI features.** Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey). |
+| `LLM_API_URL` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | OpenAI-compatible endpoint. Swap for any compatible provider. |
+| `LLM_MODEL` | `gemini-2.0-flash` | Model name passed to the API. |
 
 ### 🤖 Configuring the AI API Key
-The JD Matcher uses Google's Gemini models via their OpenAI-compatible endpoint by default.
-1. Create a copy of `.env.example` and name it `.env` in the `api/` directory.
+All AI features (JD Matcher, Cover Letter Generator, Negotiation Advisor, Analytics fallback) share the same LLM config:
+1. Copy `.env.example` → `.env` in the `api/` directory.
 2. Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
-3. Paste the key into your `.env` file: `LLM_API_KEY=your-actual-api-key-here`.
-4. Restart docker containers or your local server for the changes to take effect.
+3. Set `LLM_API_KEY=your-actual-api-key-here` in `.env`.
+4. Restart containers or your local server.
 
 
 ### Migration Workflow
@@ -259,7 +286,7 @@ Access at `http://localhost:8000/admin`.
 ```
 api/
 ├── availability/              # Availability calendar & events module
-│   ├── models.py             # Event, Holiday, DayAvailability, Settings models
+│   ├── models.py             # Event, Holiday, UserSettings, ShareLink, PublicBooking models
 │   ├── serializers.py        # DRF serializers
 │   ├── views/                # API ViewSets (CRUD + export endpoints)
 │   ├── consumers.py          # WebSocket ConflictAlertConsumer
@@ -269,15 +296,25 @@ api/
 │   ├── routing.py            # WebSocket URL routing
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
-├── career/                   # Job applications & offers module
-│   ├── models.py             # Company, Application, Offer models
-│   ├── serializers.py        # DRF serializers with auto company creation
-│   ├── views.py              # API ViewSets + auto-offer creation logic
+├── career/                   # Job applications, offers & AI tools module
+│   ├── models.py             # Company, Application, Offer, Document, Task, Experience models
+│   ├── serializers.py        # DRF serializers with auto company creation + skill extraction
+│   ├── views/                # API ViewSets (package)
+│   │   ├── applications.py   # ApplicationViewSet + cover letter action
+│   │   ├── offers.py         # OfferViewSet + negotiation advice action
+│   │   ├── documents.py      # DocumentViewSet with versioning
+│   │   ├── experiences.py    # ExperienceViewSet + MatchJDView
+│   │   ├── tasks.py          # TaskViewSet with reorder action
+│   │   ├── companies.py      # CompanyViewSet
+│   │   └── reference.py      # ReferenceDataView, RentEstimateView, WeeklyReviewView
+│   ├── llm_matcher.py        # All LLM functions (JD match, cover letter, negotiation)
+│   ├── skills_extractor.py   # NLTK + spaCy skill extraction
+│   ├── services/             # Business logic (reference data, rent, weekly review)
 │   ├── tasks.py              # Celery task: auto_ghost_stale_applications
 │   └── urls.py               # URL routing
 │
 ├── analytics/                # Custom widget query engine
-│   ├── custom_widgets.py     # Redis-cached NL query processor
+│   ├── custom_widgets.py     # Regex + LLM-fallback NL query processor (Redis-cached)
 │   ├── signals.py            # Cache bust on Event/Application change
 │   └── tests.py              # Widget + cache test suite
 │
@@ -300,82 +337,97 @@ api/
 Base prefix: `/api/career/`
 
 #### Applications
-- `GET /api/career/applications/` - List all applications
-- `POST /api/career/applications/` - Create a new application
-- `GET /api/career/applications/{id}/` - Retrieve application details
-- `PUT /api/career/applications/{id}/` - Update application (auto-creates offer if status → OFFER)
-- `DELETE /api/career/applications/{id}/` - Delete application
-- `POST /api/career/import/` - Bulk import from CSV/XLSX
-- `GET /api/career/applications/export/?fmt=csv` - Export applications (csv/json/xlsx)
-- `DELETE /api/career/applications/delete_all/` - Delete all applications
+- `GET /api/career/applications/` — List all applications
+- `POST /api/career/applications/` — Create a new application
+- `GET /api/career/applications/{id}/` — Retrieve application details
+- `PUT /api/career/applications/{id}/` — Update application (auto-creates offer if status → OFFER)
+- `DELETE /api/career/applications/{id}/` — Delete application (blocked if locked)
+- `DELETE /api/career/applications/delete_all/` — Delete all unlocked applications
+- `POST /api/career/import/` — Bulk import from CSV/XLSX
+- `GET /api/career/applications/export/?fmt=csv` — Export applications (csv/json/xlsx)
+- `POST /api/career/applications/{id}/generate-cover-letter/` — **AI: Generate tailored cover letter** (`{jd_text?: string}`)
 
 #### Offers
-- `GET /api/career/offers/` - List all offers
-- `POST /api/career/offers/` - Create a new offer
-- `GET /api/career/offers/{id}/` - Retrieve offer details
-- `PUT /api/career/offers/{id}/` - Update offer
-- `DELETE /api/career/offers/{id}/` - Delete offer
+- `GET /api/career/offers/` — List all offers
+- `POST /api/career/offers/` — Create a new offer
+- `GET /api/career/offers/{id}/` — Retrieve offer details
+- `PUT /api/career/offers/{id}/` — Update offer
+- `DELETE /api/career/offers/{id}/` — Delete offer
+- `POST /api/career/offers/{id}/negotiation-advice/` — **AI: Get negotiation strategy** (uses current offer as baseline)
+
+#### Experience
+- `GET /api/career/experiences/` — List all experience entries
+- `POST /api/career/experiences/` — Create experience (auto-extracts skills)
+- `PUT /api/career/experiences/{id}/` — Update experience
+- `DELETE /api/career/experiences/{id}/` — Delete experience
+- `POST /api/career/match-jd/` — **AI: Evaluate job description** against full experience profile (`{text: string}`)
 
 #### Companies
-- `GET /api/career/companies/` - List all companies
-- `POST /api/career/companies/` - Create a new company
+- `GET /api/career/companies/` — List all companies
+- `POST /api/career/companies/` — Create a new company
 
 #### Documents
-- `GET /api/career/documents/` - List current document versions
-- `GET /api/career/documents/?include_versions=true` - List all versions
-- `POST /api/career/documents/` - Upload a document
-- `POST /api/career/documents/{id}/add_version/` - Create new version
-- `GET /api/career/documents/{id}/versions/` - List version history
-- `GET /api/career/documents/export/?fmt=csv` - Export documents
-- `DELETE /api/career/documents/delete_all/` - Delete all unlocked documents
+- `GET /api/career/documents/` — List current document versions
+- `GET /api/career/documents/?include_versions=true` — List all versions
+- `POST /api/career/documents/` — Upload a document
+- `POST /api/career/documents/{id}/add_version/` — Create new version
+- `GET /api/career/documents/{id}/versions/` — List version history
+- `GET /api/career/documents/export/?fmt=csv` — Export documents
+- `DELETE /api/career/documents/delete_all/` — Delete all unlocked documents
 
 #### Tasks
-- `GET /api/career/tasks/` - List tasks
-- `POST /api/career/tasks/` - Create task
-- `PATCH /api/career/tasks/{id}/` - Update task
-- `POST /api/career/tasks/reorder/` - Reorder tasks
+- `GET /api/career/tasks/` — List tasks
+- `POST /api/career/tasks/` — Create task
+- `PATCH /api/career/tasks/{id}/` — Update task
+- `POST /api/career/tasks/reorder/` — Reorder tasks
 
-#### AI Matcher
-- `POST /api/career/match/` - Submit a job description to trigger an LLM-powered evaluation against the current user profile. Returns a detailed match analysis report.
+#### Helpers
+- `GET /api/career/reference-data/` — Tax/COL/marital-status reference payload
+- `GET /api/career/rent-estimate/?city=San+Jose,+CA,+United+States` — Rent estimate (HUD/fallback)
+- `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` — Weekly summary
 
-#### Offer Comparison Helpers
-- `GET /api/career/reference-data/` - Tax/COL/marital-status reference payload
-- `GET /api/career/rent-estimate/?city=San+Jose,+CA,+United+States` - Rent estimate (HUD/fallback)
-- `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` - Weekly summary (applications/interviews/next actions)
+### Analytics Endpoints
+
+- `POST /api/analytics/query/` — Natural language widget query (`{query: string, context: "job-hunt"|"availability"}`)
+  - Returns `{type: "metric", value, unit}` or `{type: "chart", data, chartType}`
+  - Regex-matched queries are served from Redis cache; unrecognized queries fall back to LLM
 
 ### Availability Endpoints
 
 #### Events
-- `GET /api/events/` - List all events
-- `POST /api/events/` - Create a new event
-- `GET /api/events/{id}/` - Retrieve event details
-- `PUT /api/events/{id}/` - Update event
-- `DELETE /api/events/{id}/` - Delete event
-- `GET /api/events/export/?fmt=json` - Export events
-- `DELETE /api/events/delete_all/` - Delete all events
+- `GET /api/events/` — List all events
+- `POST /api/events/` — Create a new event (triggers conflict detection + WebSocket broadcast)
+- `GET /api/events/{id}/` — Retrieve event details
+- `PUT /api/events/{id}/` — Update event
+- `DELETE /api/events/{id}/` — Delete event
+- `GET /api/events/export/?fmt=json` — Export events
+- `DELETE /api/events/delete_all/` — Delete all events
 
 #### Holidays
-- `GET /api/holidays/` - List all custom holidays
-- `POST /api/holidays/` - Create a custom holiday (includes grouped collections)
-- `GET /api/holidays/federal/` - List native federal + user-defined federal holidays
-- `GET /api/holidays/export/?fmt=csv` - Export holidays
+- `GET /api/holidays/` — List all custom holidays
+- `POST /api/holidays/` — Create a custom holiday (supports grouped multi-day collections)
+- `GET /api/holidays/federal/` — List native federal + user-defined federal holidays
+- `GET /api/holidays/export/?fmt=csv` — Export holidays
 
 #### Availability / Booking
-- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT` - Generate availability text rows
-- `POST /api/overrides/` - Override a specific date's availability text
-- `GET /api/share-links/current/` - Get active booking share link (if any)
-- `POST /api/share-links/generate/` - Generate a new booking share link
-- `POST /api/share-links/deactivate/` - Deactivate current booking share links
-- `GET /api/booking/{uuid}/slots/?date=YYYY-MM-DD&timezone=PT` - Public endpoint to fetch bookable slots
-- `POST /api/booking/{uuid}/book/` - Public endpoint to submit a booking
+- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT` — Generate availability text rows
+- `POST /api/overrides/` — Override a specific date's availability text
+- `GET /api/share-links/current/` — Get active booking share link
+- `POST /api/share-links/generate/` — Generate a new booking share link
+- `POST /api/share-links/deactivate/` — Deactivate current booking share links
+- `GET /api/booking/{uuid}/slots/?date=YYYY-MM-DD&timezone=PT` — Public: fetch bookable slots
+- `POST /api/booking/{uuid}/book/` — Public: submit a booking (creates locked event)
 
 #### Settings
-- `GET /api/settings/1/` - Retrieve user settings
-- `PUT /api/settings/1/` - Update settings (ghosting threshold, timezone)
+- `GET /api/settings/1/` — Retrieve user settings
+- `PUT /api/settings/1/` — Update settings (ghosting threshold, timezone, work hours, etc.)
+
+#### WebSocket
+- `ws://host/ws/conflicts/` — Real-time conflict alert stream
 
 ## 🔗 Frontend
 
-- **Frontend**: [WorkOps API](https://github.com/arunike/CareerHub-Frontend)
+- **Frontend**: [CareerHub Frontend](https://github.com/arunike/CareerHub-Frontend)
 
 ## 📄 License
 
