@@ -1,0 +1,102 @@
+import os
+import json
+import urllib.request
+import logging
+from .models import Experience
+
+logger = logging.getLogger(__name__)
+
+# --- Provider configuration (set these in your .env) ---
+LLM_API_URL = os.environ.get('LLM_API_URL', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions')
+LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
+LLM_MODEL   = os.environ.get('LLM_MODEL',   'gemini-2.0-flash')
+
+EVALUATION_PROMPT_TEMPLATE = """
+You are an expert technical recruiter and ATS system.
+Holistically evaluate the Candidate's Professional Experience against the Job Description.
+Do NOT just keyword-match; assess whether the candidate's actual trajectory and achievements align with the role.
+
+Respond ONLY with a valid JSON object using exactly this structure:
+{{
+    "score": <integer 0-100>,
+    "summary": "<2-3 sentences explaining overall fit>",
+    "matched_skills": ["<strength or matched area>", ...],
+    "missing_skills": ["<critical gap>", ...],
+    "recommendations": ["<actionable resume tip>", ...]
+}}
+
+---
+JOB DESCRIPTION:
+{jd_text}
+
+---
+{resume_context}
+"""
+
+def _build_resume_context() -> str:
+    experiences = Experience.objects.all().order_by('-start_date')
+    lines = ["CANDIDATE'S PROFESSIONAL EXPERIENCE:\n"]
+    for exp in experiences:
+        start = exp.start_date.strftime('%Y-%m') if exp.start_date else 'Unknown'
+        end   = exp.end_date.strftime('%Y-%m')   if exp.end_date   else 'Present'
+        lines.append(f"Role: {exp.title} at {exp.company} ({start} to {end})")
+        if exp.description:
+            lines.append(f"Description: {exp.description}")
+        if exp.skills:
+            lines.append(f"Skills: {', '.join(exp.skills)}")
+        lines.append('-' * 40)
+    return '\n'.join(lines)
+
+def generate_jd_match_evaluation(jd_text: str) -> dict:
+    if not jd_text:
+        return {
+            "score": 0,
+            "summary": "No job description provided.",
+            "matched_skills": [],
+            "missing_skills": [],
+            "recommendations": []
+        }
+
+    if not LLM_API_URL or not LLM_MODEL:
+        raise ValueError("LLM_API_URL and LLM_MODEL must be set in your .env file.")
+
+    prompt = EVALUATION_PROMPT_TEMPLATE.format(
+        jd_text=jd_text,
+        resume_context=_build_resume_context(),
+    )
+
+    headers = {'Content-Type': 'application/json'}
+    if LLM_API_KEY:
+        headers['Authorization'] = f'Bearer {LLM_API_KEY}'
+
+    payload = json.dumps({
+        'model': LLM_MODEL,
+        'messages': [{'role': 'user', 'content': prompt}],
+        'temperature': 0.2,
+    }).encode('utf-8')
+
+    try:
+        req = urllib.request.Request(LLM_API_URL, data=payload, headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result   = json.loads(response.read().decode('utf-8'))
+            content  = result['choices'][0]['message']['content'].strip()
+
+            # Strip markdown code fences if the model ignores instructions
+            if content.startswith('```'):
+                content = content.split('```')[1]
+                if content.startswith('json'):
+                    content = content[4:]
+                content = content.strip()
+
+            evaluation = json.loads(content)
+            return {
+                'score':            evaluation.get('score', 0),
+                'summary':          evaluation.get('summary', ''),
+                'matched_skills':   evaluation.get('matched_skills', []),
+                'missing_skills':   evaluation.get('missing_skills', []),
+                'recommendations':  evaluation.get('recommendations', []),
+            }
+
+    except Exception as exc:
+        logger.error('LLM evaluation failed: %s', exc)
+        raise ValueError(f'LLM request failed: {exc}')

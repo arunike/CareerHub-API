@@ -27,11 +27,7 @@ def extract_skills_from_text(text: str, company: str = "", title: str = "") -> l
     if not text:
         return []
         
-    doc = nlp(text)
-    
-    candidates = []
-    
-    # 0. Pre-defined Explicit Tech Skills to always catch
+    # Massive predefined dictionary of valid tech skills to catch regardless of case
     tech_keywords = {
         'golang', 'python', 'java', 'javascript', 'typescript', 'react', 'vue', 'angular',
         'docker', 'kubernetes', 'aws', 'gcp', 'azure', 'sql', 'mysql', 'postgresql', 'mongodb',
@@ -41,66 +37,99 @@ def extract_skills_from_text(text: str, company: str = "", title: str = "") -> l
         'scrum', 'kanban', 'machine learning', 'deep learning', 'nlp', 'computer vision',
         'data science', 'pandas', 'numpy', 'scipy', 'scikit-learn', 'tensorflow', 'pytorch',
         'c++', 'c#', 'php', 'ruby', 'swift', 'kotlin', 'dart', 'flutter', 'react native',
-        'prompt', 'llm', 'llms', 'openai', 'claude'
+        'prompt', 'llm', 'llms', 'openai', 'claude', 'ci/cd', 'tcp/ip', 'pl/sql', 'ux/ui',
+        'bash', 'shell', 'graphql', 'grpc', 'terraform', 'ansible', 'jenkins'
     }
     
-    words = text.replace(',', ' ').replace('.', ' ').split()
+    # Generic corporate/tech words to aggressively ignore if picked up by NER
+    generic_job_words = {
+        'software', 'engineer', 'developer', 'manager', 'bachelor', 'master', 'degree',
+        'experience', 'years', 'team', 'project', 'system', 'application', 'business', 
+        'product', 'development', 'management', 'data', 'design', 'testing', 'support', 
+        'working', 'knowledge', 'understanding', 'using', 'strong', 'ability', 'skills',
+        'required', 'preferred', 'plus', 'including', 'related', 'field', 'science',
+        'computer', 'engineering', 'role', 'responsibilities', 'requirements', 'environment'
+    }
+    
+    # Standard English stopwords (the, and, of, is, etc.)
+    stop_words = set(stopwords.words('english'))
+    
+    candidates = []
+    
+    # 1. Catch all pre-defined tech keywords regardless of text capitalization
+    words = word_tokenize(text)
     for w in words:
-        if w.lower() in tech_keywords:
-            candidates.append(w)
-    
-    # 1. Spacy Semantic Entities (Bypasses regular English nouns like Promote, Campaign, Ads without ANY skip lists!)
-    for ent in doc.ents:
-        if ent.label_ in ('ORG', 'PRODUCT'):
-            # Split multi-word entities (e.g. TikTok DM -> TikTok, DM)
-            for token in ent.text.split():
-                candidates.append(token)
-                
-    # 2. Structural Technology Acronym Rules (e.g. API, APIs, iOS, HTML5, CI/CD)
-    acronyms = re.findall(r'\b[A-Z][a-zA-Z0-9]*[A-Z0-9]s?\b', text)
-    acronyms += re.findall(r'\b[a-z]*[A-Z][a-zA-Z0-9]*[A-Z0-9]s?\b', text)
-    acronyms += re.findall(r'\b(?:CI/CD|TCP/IP|PL/SQL)\b', text, re.IGNORECASE)
-    
-    for ac in acronyms:
+        clean_w = w.lower().strip(',.()!?:;')
+        if clean_w in tech_keywords:
+            candidates.append(clean_w)
+            
+    # 2. Extract strictly uppercase Acronyms (e.g. API, AWS, iOS - handle special camelCase)
+    # This regex looks for 2+ uppercase letters optionally ending in 's' (APIs), or specific tech patterns like iOS, macOS
+    strict_acronyms = re.findall(r'\b[A-Z]{2,5}s?\b', text)
+    strict_acronyms += re.findall(r'\b(?:iOS|macOS|tvOS)\b', text)
+    for ac in strict_acronyms:
         candidates.append(ac)
         
-    # 3. Dynamic Context Exclusion
-    context_words = set()
-    if company:
-        context_words.update(company.lower().split())
-    if title:
-        context_words.update(title.lower().split())
-        
-    structural_blocks = {'the', 'and', 'for', 'with', 'inc', 'llc', 'ltd'}
-    context_words.update(structural_blocks)
-    
-    # Reject bad acronyms or acronyms that are too generic
-    hardcoded_rejects = {'dm', 'us', 'u.s', 'u.s.', 'usa', 'uk', 'hq', 'vp', 'ceo', 'cfo', 'cto', 'roi', 'kpi', 'okr'}
-    
+    # 3. Spacy Semantic Entities - Only keep highly specific tech entities if they aren't generic
+    doc = nlp(text)
+    for ent in doc.ents:
+        if ent.label_ in ('PRODUCT', 'ORG'):
+            for token in ent.text.split():
+                clean_token = token.strip(',.()!?:;')
+                if len(clean_token) > 2:
+                    candidates.append(clean_token)
+                    
+    # 4. Processing and Filtering
     unique_skills = []
-    seen = set(context_words)
+    seen = set()
+    
+    # Dynamic context from user args
+    if company:
+        seen.update(company.lower().split())
+    if title:
+        seen.update(title.lower().split())
+        
+    hardcoded_rejects = {
+        'dm', 'us', 'usa', 'uk', 'hq', 'vp', 'ceo', 'cfo', 'cto', 'roi', 'kpi', 'okr', 'llc', 'inc', 'ltd',
+        'opt', 'cpt', 'h1b', 'ead', 'pto', 'al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'fl', 'ga', 'hi', 
+        'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 
+        'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 
+        'va', 'wa', 'wv', 'wi', 'wy', 'dc'
+    }
+    seen.update(hardcoded_rejects)
+    seen.update(generic_job_words)
+    seen.update(stop_words)
     
     for c in candidates:
-        if c.lower() in hardcoded_rejects:
+        clean_c = c.strip(' -,.*&^%$#@!()[]{}|<>/?`~')
+        if clean_c.endswith('.') and not clean_c.lower().endswith('.js') and not clean_c.lower().endswith('.net'):
+            clean_c = clean_c[:-1]
+            
+        # Capitalize specifically if it's an acronym or matched keyword
+        display_c = clean_c
+        if clean_c.lower() in tech_keywords:
+            if clean_c.lower() in ['c++', 'c#', 'ci/cd', 'tcp/ip', 'ux/ui']:
+                display_c = clean_c.upper()
+            elif clean_c.lower() == 'ios':
+                display_c = 'iOS'
+            elif len(clean_c) <= 3 and clean_c.lower() not in ['git', 'vue', 'css']:
+                display_c = clean_c.upper() # e.g. SQL -> SQL
+            else:
+                display_c = clean_c.capitalize()
+        elif re.match(r'^[A-Z]{2,5}s?$', clean_c):
+            display_c = clean_c # Keep strict acronym casing
+            
+        lower_c = display_c.lower()
+        
+        # Validation checks
+        if len(lower_c) < 2 and lower_c not in ('c', 'r'):
             continue
-        # Clean punctuation from edges
-        c = re.sub(r'^[^a-zA-Z0-9+#.]+|[^a-zA-Z0-9+#.]+$', '', c)
-        if c.endswith('.') and not c.lower().endswith('.js') and not c.lower().endswith('.net'):
-            c = c[:-1]
-            
-        if len(c) < 2 and c not in ('C', 'R'):
+        if lower_c in seen:
             continue
+        if re.match(r'^[\+\-\$\€\£]?\d+(?:[.,]\d+)?(?:[KkMmBb]|\%)?$', lower_c):
+            continue # Reject numbers/percentages
             
-        # Reject raw math numbers, percentages, salaries, and metrics (298K, 5M, 19%)
-        if re.match(r'^[\+\-\$\€\£]?\d+(?:[.,]\d+)?(?:[KkMmBb]|\%)?$', c):
-            continue
+        seen.add(lower_c)
+        unique_skills.append(display_c)
             
-        # Reject slashed rates like K/day
-        if '/' in c and c.upper() not in ('CI/CD', 'TCP/IP', 'PL/SQL', 'UX/UI', 'UI/UX'):
-            continue
-            
-        if c.lower() not in seen:
-            seen.add(c.lower())
-            unique_skills.append(c)
-            
-    return unique_skills[:15]
+    return unique_skills[:20]
