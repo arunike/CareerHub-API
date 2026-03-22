@@ -100,3 +100,57 @@ def generate_jd_match_evaluation(jd_text: str) -> dict:
     except Exception as exc:
         logger.error('LLM evaluation failed: %s', exc)
         raise ValueError(f'LLM request failed: {exc}')
+
+
+COVER_LETTER_PROMPT_TEMPLATE = """
+You are an expert career coach and professional writer.
+Write a compelling, personalized cover letter for the following job application.
+The cover letter should be professional, concise (3-4 paragraphs), and highlight the candidate's most relevant experience and skills for this specific role.
+Do NOT include placeholder text like [Your Name] or [Date] — write the body paragraphs only.
+
+Respond ONLY with the cover letter body text. No JSON, no headers, no extra formatting.
+
+---
+COMPANY: {company}
+ROLE: {role_title}
+LOCATION: {location}
+{jd_section}
+
+---
+{resume_context}
+"""
+
+
+def generate_cover_letter(application, jd_text: str = '') -> str:
+    if not LLM_API_URL or not LLM_MODEL:
+        raise ValueError("LLM_API_URL and LLM_MODEL must be set in your .env file.")
+
+    jd_section = f"JOB DESCRIPTION:\n{jd_text}" if jd_text.strip() else \
+        "No job description provided — tailor the letter based on the role title and company."
+
+    prompt = COVER_LETTER_PROMPT_TEMPLATE.format(
+        company=application.company.name,
+        role_title=application.role_title,
+        location=application.location or 'Not specified',
+        jd_section=jd_section,
+        resume_context=_build_resume_context(),
+    )
+
+    headers = {'Content-Type': 'application/json'}
+    if LLM_API_KEY:
+        headers['Authorization'] = f'Bearer {LLM_API_KEY}'
+
+    payload = json.dumps({
+        'model': LLM_MODEL,
+        'messages': [{'role': 'user', 'content': prompt}],
+        'temperature': 0.7,
+    }).encode('utf-8')
+
+    try:
+        req = urllib.request.Request(LLM_API_URL, data=payload, headers=headers, method='POST')
+        with urllib.request.urlopen(req, timeout=30) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            return result['choices'][0]['message']['content'].strip()
+    except Exception as exc:
+        logger.error('LLM cover letter generation failed: %s', exc)
+        raise ValueError(f'LLM request failed: {exc}')

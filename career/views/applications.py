@@ -53,6 +53,17 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         fmt = request.query_params.get('fmt', 'csv')
         return export_data(self.get_queryset(), ApplicationExportSerializer, fmt, 'applications')
 
+    @action(detail=True, methods=['post'], url_path='generate-cover-letter')
+    def generate_cover_letter(self, request, pk=None):
+        application = self.get_object()
+        jd_text = request.data.get('jd_text', '')
+        try:
+            from ..llm_matcher import generate_cover_letter as llm_generate_cover_letter
+            cover_letter = llm_generate_cover_letter(application, jd_text)
+            return Response({'cover_letter': cover_letter})
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ImportApplicationsView(APIView):
     parser_classes = (MultiPartParser, FormParser)
