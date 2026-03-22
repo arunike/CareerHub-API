@@ -248,7 +248,7 @@ nbconvert @ file:///Users/cbousseau/work/recipes/ci_py311/nbconvert_167791840255
 nbformat @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_cbnf5nccgk/croot/nbformat_1694616744196/work
 nest-asyncio @ file:///Users/cbousseau/work/recipes/ci_py311/nest-asyncio_1677912430289/work
 networkx @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_b9af3smw_7/croot/networkx_1690562010704/work
-nltk @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_ebiuq9880w/croot/nltk_1688114154971/work
+nltk==3.8.1
 notebook @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_37zamp3vxi/croot/notebook_1690984825122/work
 notebook_shim @ file:///Users/cbousseau/work/recipes/ci_py311/notebook-shim_1677921216909/work
 numba @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_c1u7ur8ie4/croot/numba_1690878269783/work
@@ -259,7 +259,12 @@ oauthlib==3.2.2
 onnxruntime==1.18.0
 openai==1.37.1
 opencv-python-headless==4.10.0.84
-openpyxl==3.0.10
+Pillow==10.3.0
+pandas>=2.0
+openpyxl>=3.1
+nltk==3.8.1
+spacy==3.7.4
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz
 opentelemetry-api==1.26.0
 opentelemetry-exporter-otlp-proto-common==1.26.0
 opentelemetry-exporter-otlp-proto-grpc==1.26.0

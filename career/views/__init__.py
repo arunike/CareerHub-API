@@ -1,6 +1,7 @@
 from .applications import ApplicationViewSet, ImportApplicationsView
 from .companies import CompanyViewSet
 from .documents import DocumentViewSet
+from .experiences import ExperienceViewSet
 from .offers import OfferViewSet
 from .reference import ReferenceDataView, RentEstimateView, WeeklyReviewView
 from .tasks import TaskViewSet
@@ -15,4 +16,5 @@ __all__ = [
     'ReferenceDataView',
     'RentEstimateView',
     'WeeklyReviewView',
+    'ExperienceViewSet',
 ]

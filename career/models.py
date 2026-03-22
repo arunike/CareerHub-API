@@ -139,3 +139,21 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+class Experience(models.Model):
+    title = models.CharField(max_length=255)
+    company = models.CharField(max_length=255)
+    location = models.CharField(max_length=255, blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    is_current = models.BooleanField(default=False)
+    description = models.TextField(blank=True)
+    skills = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_date', '-created_at']
+
+    def __str__(self):
+        return f"{self.title} at {self.company}"

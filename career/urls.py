@@ -9,6 +9,7 @@ from .views import (
     ReferenceDataView,
     RentEstimateView,
     WeeklyReviewView,
+    ExperienceViewSet,
 )
 from django.urls import path
 
@@ -18,6 +19,7 @@ router.register(r'applications', ApplicationViewSet)
 router.register(r'offers', OfferViewSet)
 router.register(r'documents', DocumentViewSet)
 router.register(r'tasks', TaskViewSet)
+router.register(r'experiences', ExperienceViewSet)
 
 urlpatterns = [
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),
