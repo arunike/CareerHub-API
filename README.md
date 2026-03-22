@@ -45,6 +45,11 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
 
+### 🤖 AI JD Matcher
+- **LLM-Powered Evaluation**: Analyzes resumes against job descriptions to extract matched skills, missing skills, and generate an actionable executive summary.
+- **Skill Extraction**: Advanced parsing of candidate experience and job requirements.
+- **Scoring Engine**: Calculates an objective overall match score based on extracted alignment criteria.
+
 ### 📄 Document Management
 - **Upload & CRUD**: Store resumes, cover letters, portfolios, and other docs
 - **Versioning**:
@@ -221,6 +226,17 @@ api/
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
 | `REDIS_HOST` | `localhost` | Overridden to `redis` by Compose |
 | `REDIS_PORT` | `6379` | Redis port |
+| `LLM_API_KEY` | `your-api-key-here` | Required for AI JD Matcher. Get your free API key from Google AI Studio. |
+| `LLM_API_URL` | `https://generat...` | Default points to Gemini's OpenAI-compatible endpoint. |
+| `LLM_MODEL` | `gemini-2.0-flash` | The model to use for the JD Matching engine. |
+
+### 🤖 Configuring the AI API Key
+The JD Matcher uses Google's Gemini models via their OpenAI-compatible endpoint by default.
+1. Create a copy of `.env.example` and name it `.env` in the `api/` directory.
+2. Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+3. Paste the key into your `.env` file: `LLM_API_KEY=your-actual-api-key-here`.
+4. Restart docker containers or your local server for the changes to take effect.
+
 
 ### Migration Workflow
 
@@ -318,6 +334,9 @@ Base prefix: `/api/career/`
 - `POST /api/career/tasks/` - Create task
 - `PATCH /api/career/tasks/{id}/` - Update task
 - `POST /api/career/tasks/reorder/` - Reorder tasks
+
+#### AI Matcher
+- `POST /api/career/match/` - Submit a job description to trigger an LLM-powered evaluation against the current user profile. Returns a detailed match analysis report.
 
 #### Offer Comparison Helpers
 - `GET /api/career/reference-data/` - Tax/COL/marital-status reference payload
