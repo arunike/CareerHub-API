@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import urllib.request
 import logging
@@ -11,27 +12,33 @@ LLM_API_URL = os.environ.get('LLM_API_URL', 'https://generativelanguage.googleap
 LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
 LLM_MODEL   = os.environ.get('LLM_MODEL',   'gemini-2.0-flash')
 
-EVALUATION_PROMPT_TEMPLATE = """
+EVALUATION_SYSTEM_PROMPT = """\
 You are an expert technical recruiter and ATS system.
 Holistically evaluate the Candidate's Professional Experience against the Job Description.
-Do NOT just keyword-match; assess whether the candidate's actual trajectory and achievements align with the role.
+Do NOT just keyword-match; assess whether the candidate's actual trajectory, achievements, \
+and seniority level align with the role.
+
+Scoring rubric:
+90-100: Strong match — would shortlist immediately
+70-89:  Good fit with minor gaps
+50-69:  Partial match — significant gaps exist
+<50:    Poor match
 
 Respond ONLY with a valid JSON object using exactly this structure:
-{{
+{
     "score": <integer 0-100>,
-    "summary": "<2-3 sentences explaining overall fit>",
+    "summary": "<2-3 sentences on overall fit and whether the candidate's seniority matches the role>",
     "matched_skills": ["<strength or matched area>", ...],
     "missing_skills": ["<critical gap>", ...],
     "recommendations": ["<actionable resume tip>", ...]
-}}
+}"""
 
----
+EVALUATION_USER_TEMPLATE = """\
 JOB DESCRIPTION:
 {jd_text}
 
 ---
-{resume_context}
-"""
+{resume_context}"""
 
 def _build_resume_context() -> str:
     experiences = Experience.objects.all().order_by('-start_date')
@@ -60,7 +67,7 @@ def generate_jd_match_evaluation(jd_text: str) -> dict:
     if not LLM_API_URL or not LLM_MODEL:
         raise ValueError("LLM_API_URL and LLM_MODEL must be set in your .env file.")
 
-    prompt = EVALUATION_PROMPT_TEMPLATE.format(
+    user_msg = EVALUATION_USER_TEMPLATE.format(
         jd_text=jd_text,
         resume_context=_build_resume_context(),
     )
@@ -71,7 +78,10 @@ def generate_jd_match_evaluation(jd_text: str) -> dict:
 
     payload = json.dumps({
         'model': LLM_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
+        'messages': [
+            {'role': 'system', 'content': EVALUATION_SYSTEM_PROMPT},
+            {'role': 'user',   'content': user_msg},
+        ],
         'temperature': 0.2,
     }).encode('utf-8')
 
@@ -80,14 +90,7 @@ def generate_jd_match_evaluation(jd_text: str) -> dict:
         with urllib.request.urlopen(req, timeout=30) as response:
             result   = json.loads(response.read().decode('utf-8'))
             content  = result['choices'][0]['message']['content'].strip()
-
-            # Strip markdown code fences if the model ignores instructions
-            if content.startswith('```'):
-                content = content.split('```')[1]
-                if content.startswith('json'):
-                    content = content[4:]
-                content = content.strip()
-
+            content  = re.sub(r'^```(?:json)?\s*\n?|\n?```\s*$', '', content).strip()
             evaluation = json.loads(content)
             return {
                 'score':            evaluation.get('score', 0),
@@ -102,32 +105,33 @@ def generate_jd_match_evaluation(jd_text: str) -> dict:
         raise ValueError(f'LLM request failed: {exc}')
 
 
-NEGOTIATION_PROMPT_TEMPLATE = """
+NEGOTIATION_SYSTEM_PROMPT = """\
 You are an expert compensation negotiation coach helping a candidate negotiate a job offer.
-Analyze the offer against the candidate's background and current compensation (if available), then provide concrete, actionable negotiation advice.
+Analyze the offer against the candidate's background and current compensation (if provided), \
+then give concrete, actionable negotiation advice prioritized by impact.
 
 Respond ONLY with a valid JSON object using exactly this structure:
-{{
-    "talking_points": ["<specific script line or argument to use>", ...],
+{
+    "talking_points": ["<specific script line or argument to use, ordered by when to deploy>", ...],
     "leverage_points": ["<strength the candidate can cite>", ...],
     "caution_points": ["<risk or weakness to be aware of>", ...],
-    "suggested_ask": {{
+    "suggested_ask": {
         "base_salary": <integer or null>,
         "sign_on": <integer or null>,
-        "equity": <integer or null>,
+        "equity": <integer annualized USD value or null>,
         "pto_days": <integer or null>,
-        "notes": "<brief rationale for the suggested ask>"
-    }}
-}}
+        "notes": "<brief rationale and priority order for the ask>"
+    }
+}"""
 
----
+NEGOTIATION_USER_TEMPLATE = """\
 TARGET OFFER:
 Company: {company}
 Role: {role_title}
 Location: {location} | RTO: {rto_policy}
 Base Salary: ${base_salary:,}
 Annual Bonus: ${bonus:,}
-Equity (annualized): ${equity:,}
+Equity (annualized value): ${equity:,}
 Sign-On Bonus: ${sign_on:,}
 PTO: {pto_days} days | Holidays: {holiday_days} days
 Benefits Value: ${benefits_value:,}
@@ -136,8 +140,7 @@ Benefits Value: ${benefits_value:,}
 {current_section}
 
 ---
-{resume_context}
-"""
+{resume_context}"""
 
 
 def generate_negotiation_advice(offer, current_offer=None) -> dict:
@@ -157,7 +160,7 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
         current_section = "CURRENT / BASELINE COMPENSATION: Not provided — advise based on offer alone."
 
     app = offer.application
-    prompt = NEGOTIATION_PROMPT_TEMPLATE.format(
+    user_msg = NEGOTIATION_USER_TEMPLATE.format(
         company=app.company.name,
         role_title=app.role_title,
         location=app.location or 'Not specified',
@@ -179,7 +182,10 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
 
     payload = json.dumps({
         'model': LLM_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
+        'messages': [
+            {'role': 'system', 'content': NEGOTIATION_SYSTEM_PROMPT},
+            {'role': 'user',   'content': user_msg},
+        ],
         'temperature': 0.3,
     }).encode('utf-8')
 
@@ -188,11 +194,7 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
         with urllib.request.urlopen(req, timeout=30) as response:
             result = json.loads(response.read().decode('utf-8'))
             content = result['choices'][0]['message']['content'].strip()
-            if content.startswith('```'):
-                content = content.split('```')[1]
-                if content.startswith('json'):
-                    content = content[4:]
-                content = content.strip()
+            content = re.sub(r'^```(?:json)?\s*\n?|\n?```\s*$', '', content).strip()
             advice = json.loads(content)
             return {
                 'talking_points':  advice.get('talking_points', []),
@@ -205,23 +207,31 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
         raise ValueError(f'LLM request failed: {exc}')
 
 
-COVER_LETTER_PROMPT_TEMPLATE = """
+COVER_LETTER_SYSTEM_PROMPT = """\
 You are an expert career coach and professional writer.
-Write a compelling, personalized cover letter for the following job application.
-The cover letter should be professional, concise (3-4 paragraphs), and highlight the candidate's most relevant experience and skills for this specific role.
-Do NOT include placeholder text like [Your Name] or [Date] — write the body paragraphs only.
+Write a compelling, personalized cover letter body for the job application described by the user.
 
-Respond ONLY with the cover letter body text. No JSON, no headers, no extra formatting.
+Structure (4 paragraphs):
+1. Hook — a specific reason this company or role excites you; never open with \
+"I am writing to express my interest" or similar clichés
+2. Most relevant experience and how it directly maps to the role requirements
+3. A concrete achievement or project that demonstrates measurable impact
+4. Call to action — express genuine enthusiasm and invite the next step
 
----
+Additional rules:
+- Mirror the language and terminology from the job description where it feels natural
+- Professional, confident, and concise — cut filler phrases
+- Do NOT include placeholders like [Your Name] or [Date] — body paragraphs only
+- Respond ONLY with the cover letter body text. No JSON, no headers, no extra formatting."""
+
+COVER_LETTER_USER_TEMPLATE = """\
 COMPANY: {company}
 ROLE: {role_title}
 LOCATION: {location}
 {jd_section}
 
 ---
-{resume_context}
-"""
+{resume_context}"""
 
 
 def generate_cover_letter(application, jd_text: str = '') -> str:
@@ -231,7 +241,7 @@ def generate_cover_letter(application, jd_text: str = '') -> str:
     jd_section = f"JOB DESCRIPTION:\n{jd_text}" if jd_text.strip() else \
         "No job description provided — tailor the letter based on the role title and company."
 
-    prompt = COVER_LETTER_PROMPT_TEMPLATE.format(
+    user_msg = COVER_LETTER_USER_TEMPLATE.format(
         company=application.company.name,
         role_title=application.role_title,
         location=application.location or 'Not specified',
@@ -245,7 +255,10 @@ def generate_cover_letter(application, jd_text: str = '') -> str:
 
     payload = json.dumps({
         'model': LLM_MODEL,
-        'messages': [{'role': 'user', 'content': prompt}],
+        'messages': [
+            {'role': 'system', 'content': COVER_LETTER_SYSTEM_PROMPT},
+            {'role': 'user',   'content': user_msg},
+        ],
         'temperature': 0.7,
     }).encode('utf-8')
 
