@@ -149,6 +149,17 @@ class Experience(models.Model):
     is_current = models.BooleanField(default=False)
     description = models.TextField(blank=True)
     skills = models.JSONField(default=list, blank=True)
+    logo = models.ImageField(upload_to='experience_logos/', null=True, blank=True)
+    EMPLOYMENT_TYPE_CHOICES = [
+        ('full_time', 'Full-time'),
+        ('part_time', 'Part-time'),
+        ('internship', 'Internship'),
+        ('contract', 'Contract'),
+        ('freelance', 'Freelance'),
+    ]
+    employment_type = models.CharField(max_length=20, choices=EMPLOYMENT_TYPE_CHOICES, default='full_time', null=True, blank=True)
+    is_promotion = models.BooleanField(default=False, help_text="Groups this role with the previous role at the same company as a promotion")
+    is_locked = models.BooleanField(default=False, null=True, blank=True, help_text="Locked roles cannot be edited or deleted")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
