@@ -20,6 +20,7 @@ class CustomHoliday(models.Model):
     holiday_type = models.CharField(max_length=20, default='custom')
     is_recurring = models.BooleanField(default=False)
     is_locked = models.BooleanField(default=False, help_text="Locked holidays cannot be deleted")
+    tab = models.CharField(max_length=100, blank=True, null=True, help_text="Custom tab id this holiday belongs to")
 
     def __str__(self):
         return f"{self.date} - {self.description or 'Holiday'}"
@@ -91,6 +92,8 @@ class UserSettings(models.Model):
     ghosting_threshold_days = models.IntegerField(default=30, help_text="Days of inactivity before marking application as ghosted")
     default_event_category = models.ForeignKey(EventCategory, on_delete=models.SET_NULL, null=True, blank=True)
     ignored_federal_holidays = models.JSONField(default=list, help_text="List of federal holiday names or dates to ignore")
+    employment_types = models.JSONField(default=list, blank=True, help_text="Custom employment type definitions [{value, label, color}]")
+    holiday_tabs = models.JSONField(default=list, blank=True, help_text="User-defined holiday tab definitions [{id, name}]")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

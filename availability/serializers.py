@@ -44,7 +44,7 @@ class EventSerializer(serializers.ModelSerializer):
 class CustomHolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomHoliday
-        fields = ['id', 'date', 'group_id', 'description', 'holiday_type', 'is_recurring', 'is_locked']
+        fields = ['id', 'date', 'group_id', 'description', 'holiday_type', 'is_recurring', 'is_locked', 'tab']
 
 class AvailabilityOverrideSerializer(serializers.ModelSerializer):
     class Meta:
@@ -65,7 +65,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'default_event_duration', 'buffer_time', 'primary_timezone',
             'theme', 'notification_preferences', 'global_availability',
             'ghosting_threshold_days', 'default_event_category',
-            'ignored_federal_holidays', 'created_at', 'updated_at'
+            'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
