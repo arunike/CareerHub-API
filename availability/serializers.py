@@ -5,7 +5,7 @@ from career.models import Application
 class EventCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = EventCategory
-        fields = ['id', 'name', 'color', 'icon']
+        fields = ['id', 'name', 'color', 'icon', 'is_locked']
 
 class EventSerializer(serializers.ModelSerializer):
     category_details = EventCategorySerializer(source='category', read_only=True)

@@ -6,7 +6,8 @@ class EventCategory(models.Model):
     name = models.CharField(max_length=50, unique=True)
     color = models.CharField(max_length=7)
     icon = models.CharField(max_length=50, blank=True)
-    
+    is_locked = models.BooleanField(default=False)
+
     class Meta:
         verbose_name_plural = 'Event Categories'
     
