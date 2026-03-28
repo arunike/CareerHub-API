@@ -7,7 +7,7 @@ from ..serializers import OfferSerializer
 
 
 class OfferViewSet(viewsets.ModelViewSet):
-    queryset = Offer.objects.all()
+    queryset = Offer.objects.select_related('application__company').all()
     serializer_class = OfferSerializer
 
     @action(detail=True, methods=['post'], url_path='negotiation-advice')

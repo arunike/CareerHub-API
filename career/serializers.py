@@ -16,9 +16,17 @@ class CompanySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class OfferSerializer(serializers.ModelSerializer):
+    application_details = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Offer
         fields = '__all__'
+
+    def get_application_details(self, obj):
+        return {
+            'company': obj.application.company.name,
+            'role_title': obj.application.role_title,
+        }
 
 class DocumentSerializer(serializers.ModelSerializer):
     application_details = serializers.SerializerMethodField(read_only=True)
@@ -151,7 +159,7 @@ class TaskSerializer(serializers.ModelSerializer):
 class ExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Experience
-        fields = ['id', 'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_locked', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_locked', 'offer', 'hourly_rate', 'base_salary', 'bonus', 'equity', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
