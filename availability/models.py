@@ -95,6 +95,7 @@ class UserSettings(models.Model):
     ignored_federal_holidays = models.JSONField(default=list, help_text="List of federal holiday names or dates to ignore")
     employment_types = models.JSONField(default=list, blank=True, help_text="Custom employment type definitions [{value, label, color}]")
     holiday_tabs = models.JSONField(default=list, blank=True, help_text="User-defined holiday tab definitions [{id, name}]")
+    hidden_nav_items = models.JSONField(default=list, blank=True, help_text="List of nav route keys to hide from sidebar")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
