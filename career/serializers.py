@@ -107,7 +107,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Application
         fields = [
-            'id', 'company_name', 'company_details', 'role_title', 'status', 'job_link',
+            'id', 'company_name', 'company_details', 'role_title', 'status', 'employment_type', 'job_link',
             'rto_policy', 'rto_days_per_week',
             'commute_cost_value', 'commute_cost_frequency',
             'free_food_perk_value', 'free_food_perk_frequency',
