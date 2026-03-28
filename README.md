@@ -20,7 +20,7 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and AI-powered career tools—all exposed through a clean RESTful API.
 
 **Key Capabilities:**
-- 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, and Experience
+- 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
 - 🤖 **AI Suite**: LLM-powered JD matching, cover letter generation, and offer negotiation advice (Gemini/OpenAI-compatible)
 - 📥 **Import/Export**: Bulk CSV/XLSX import and multi-format export (CSV, JSON, XLSX)
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
@@ -87,19 +87,23 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Export**: Export documents in csv/json/xlsx formats
 
 ### 👤 Experience
-- Full CRUD for work experience entries (title, company, location, start/end dates, description, skills)
+- Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
 - Skills are auto-extracted from description on save (NLP pipeline)
 - Experience data is the shared context for all AI features
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
-- **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections
+- **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
 - **Availability Generation**: Generate availability text blocks from work settings, holidays, and event conflicts
 - **Public Booking Links**: Generate/deactivate share links; public slots endpoint; booking creates a locked internal event
 - **Real-Time Conflict Alerts**: WebSocket (`ws://host/ws/conflicts/`) broadcasts conflicts instantly via Django Channels + Redis
 
 ### ⚙️ Settings
-- **User Preferences**: Singleton settings model for ghosting threshold, timezone, work hours, work days, buffer time, and event categories
+- **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category, and notification preferences
+- **Employment Types** (`employment_types` JSONField): User-configurable list of `{value, label, color}` employment type definitions — consumed by the Experience page; supports add/edit/delete with 10 color options
+- **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
+- **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
+- **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
 - **Auto-Ghosted Logic**: Configurable threshold; Celery task runs daily to mark stale applications as GHOSTED
 
 ### ⚡ Distributed Systems
@@ -286,14 +290,17 @@ Access at `http://localhost:8000/admin`.
 ```
 api/
 ├── availability/              # Availability calendar & events module
-│   ├── models.py             # Event, Holiday, UserSettings, ShareLink, PublicBooking models
-│   ├── serializers.py        # DRF serializers
+│   ├── models.py             # Event, CustomHoliday (+ tab field), UserSettings
+│   │                         #   (+ employment_types, holiday_tabs JSONFields),
+│   │                         #   EventCategory (+ is_locked), ShareLink, PublicBooking
+│   ├── serializers.py        # DRF serializers (all new fields exposed)
 │   ├── views/                # API ViewSets (CRUD + export endpoints)
 │   ├── consumers.py          # WebSocket ConflictAlertConsumer
 │   ├── throttling.py         # Redis rate-limit throttle classes
 │   ├── tasks.py              # Celery tasks (expire links, clear cache)
 │   ├── signals.py            # Cache invalidation signals
 │   ├── routing.py            # WebSocket URL routing
+│   ├── migrations/           # Database migrations (0001–0021)
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
 ├── career/                   # Job applications, offers & AI tools module
@@ -404,10 +411,19 @@ Base prefix: `/api/career/`
 - `DELETE /api/events/delete_all/` — Delete all events
 
 #### Holidays
-- `GET /api/holidays/` — List all custom holidays
-- `POST /api/holidays/` — Create a custom holiday (supports grouped multi-day collections)
+- `GET /api/holidays/` — List all custom holidays (includes `tab` field)
+- `POST /api/holidays/` — Create a custom holiday (supports `tab` assignment + grouped multi-day collections)
+- `PUT /api/holidays/{id}/` — Update holiday (full replace)
+- `PATCH /api/holidays/{id}/` — Partial update (e.g., tab or description only)
 - `GET /api/holidays/federal/` — List native federal + user-defined federal holidays
 - `GET /api/holidays/export/?fmt=csv` — Export holidays
+
+#### Event Categories
+- `GET /api/categories/` — List all event categories
+- `POST /api/categories/` — Create a category
+- `PUT /api/categories/{id}/` — Update category (name, color, icon, is_locked)
+- `PATCH /api/categories/{id}/` — Partial update (e.g., toggle `is_locked` only)
+- `DELETE /api/categories/{id}/` — Delete category
 
 #### Availability / Booking
 - `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT` — Generate availability text rows
@@ -419,8 +435,8 @@ Base prefix: `/api/career/`
 - `POST /api/booking/{uuid}/book/` — Public: submit a booking (creates locked event)
 
 #### Settings
-- `GET /api/settings/1/` — Retrieve user settings
-- `PUT /api/settings/1/` — Update settings (ghosting threshold, timezone, work hours, etc.)
+- `GET /api/settings/current/` — Retrieve user settings (singleton)
+- `PUT /api/settings/current/` — Update all settings fields including `employment_types` and `holiday_tabs`
 
 #### WebSocket
 - `ws://host/ws/conflicts/` — Real-time conflict alert stream
