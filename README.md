@@ -90,6 +90,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
 - Skills are auto-extracted from description on save (NLP pipeline)
 - Experience data is the shared context for all AI features
+- **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; files stored in `media/experience_logos/`
+- **Raise History**: each experience can link to an Offer; raise events (date, type, before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
@@ -242,11 +244,14 @@ All Docker files live in `api/`:
 api/
 ├── Dockerfile            # Multi-stage build (builder + final)
 ├── docker-compose.yml    # 4 services: redis, api, worker, beat
+├── media/                # Uploaded files (bind-mounted into container at /app/media — persists on host)
 ├── .env                  # Local secrets (git-ignored)
 ├── .env.example          # Template — commit this, not .env
 ├── .dockerignore         # Excludes venv, db, media, etc.
 └── requirements.docker.txt  # Clean minimal dependency list
 ```
+
+> **Media persistence**: uploaded files (e.g. experience logos) are stored in `api/media/` on the host via a bind mount (`./media:/app/media`). Files survive container restarts and rebuilds — no data is stored in Docker named volumes.
 
 ### Environment Variables (`.env`)
 
@@ -367,6 +372,8 @@ Base prefix: `/api/career/`
 - `POST /api/career/experiences/` — Create experience (auto-extracts skills)
 - `PUT /api/career/experiences/{id}/` — Update experience
 - `DELETE /api/career/experiences/{id}/` — Delete experience
+- `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field)
+- `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
 - `POST /api/career/match-jd/` — **AI: Evaluate job description** against full experience profile (`{text: string}`)
 
 #### Companies
