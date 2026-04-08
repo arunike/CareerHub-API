@@ -61,7 +61,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSettings
         fields = [
-            'id', 'work_start_time', 'work_end_time', 'work_days',
+            'id', 'work_start_time', 'work_end_time', 'work_time_ranges', 'work_days',
             'default_event_duration', 'buffer_time', 'primary_timezone',
             'theme', 'notification_preferences', 'global_availability',
             'ghosting_threshold_days', 'default_event_category',

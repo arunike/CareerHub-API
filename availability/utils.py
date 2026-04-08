@@ -95,10 +95,18 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles'):
     work_end_time = time(17, 0)
     work_days = [0, 1, 2, 3, 4] # Mon-Fri
     
+    work_time_ranges = []  # Multiple ranges: [(start_time, end_time), ...]
+
     if settings:
         if settings.work_start_time: work_start_time = settings.work_start_time
         if settings.work_end_time: work_end_time = settings.work_end_time
         if settings.work_days: work_days = settings.work_days
+        if settings.work_time_ranges:
+            for r in settings.work_time_ranges:
+                s = parse_time_str(r.get('start', ''))
+                e = parse_time_str(r.get('end', ''))
+                if s and e:
+                    work_time_ranges.append((s, e))
 
     # 2. Pre-fetch Data
     
@@ -174,30 +182,32 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles'):
             
         # Priority 4: Calculate Slots
         else:
-            # Base availability: User's work hours
-            # Combine with date to make datetime objects for subtraction logic
-            base_start = datetime.combine(d, work_start_time)
-            base_end = datetime.combine(d, work_end_time)
-            
             day_conflicts = []
             if d in events_by_date:
                 for s, e in events_by_date[d]:
                     c_start = datetime.combine(d, s)
                     c_end = datetime.combine(d, e)
                     day_conflicts.append((c_start, c_end))
-            
-            available_slots = subtract_intervals(base_start, base_end, day_conflicts)
-            
-            if not available_slots:
+
+            # Use multiple time ranges if configured, else fall back to single range
+            ranges = work_time_ranges if work_time_ranges else [(work_start_time, work_end_time)]
+
+            all_slots = []
+            for rng_start, rng_end in ranges:
+                base_start = datetime.combine(d, rng_start)
+                base_end = datetime.combine(d, rng_end)
+                all_slots.extend(subtract_intervals(base_start, base_end, day_conflicts))
+
+            if not all_slots:
                 text = "Unavailable"
             else:
                 # Format slots
                 parts = []
-                for s_dt, e_dt in available_slots:
+                for s_dt, e_dt in sorted(all_slots):
                     # Check if slot is significant (e.g. > 15 mins)
-                    if (e_dt - s_dt).total_seconds() >= 900: 
+                    if (e_dt - s_dt).total_seconds() >= 900:
                         parts.append(f"{s_dt.strftime('%-I:%M %p')} - {e_dt.strftime('%-I:%M %p')}")
-                
+
                 text = ", ".join(parts) if parts else "Unavailable"
 
         # Only include if there is actual availability

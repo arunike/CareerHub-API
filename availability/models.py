@@ -83,6 +83,7 @@ class UserSettings(models.Model):
     
     work_start_time = models.TimeField(default='09:00:00')
     work_end_time = models.TimeField(default='17:00:00')
+    work_time_ranges = models.JSONField(default=list, blank=True, help_text="List of time ranges [{start: 'HH:MM:SS', end: 'HH:MM:SS'}]. Overrides work_start_time/work_end_time when non-empty.")
     work_days = models.JSONField(default=list)
     default_event_duration = models.IntegerField(default=60)
     buffer_time = models.IntegerField(default=0)
