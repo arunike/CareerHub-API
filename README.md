@@ -102,6 +102,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category, and notification preferences
+- **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows per day (e.g., 11am–12pm and 2pm–5pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges all ranges after subtracting event conflicts
 - **Employment Types** (`employment_types` JSONField): User-configurable list of `{value, label, color}` employment type definitions — consumed by the Experience page; supports add/edit/delete with 10 color options
 - **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
 - **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
@@ -305,7 +306,7 @@ api/
 │   ├── tasks.py              # Celery tasks (expire links, clear cache)
 │   ├── signals.py            # Cache invalidation signals
 │   ├── routing.py            # WebSocket URL routing
-│   ├── migrations/           # Database migrations (0001–0021)
+│   ├── migrations/           # Database migrations (0001–0023)
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
 ├── career/                   # Job applications, offers & AI tools module
@@ -443,7 +444,7 @@ Base prefix: `/api/career/`
 
 #### Settings
 - `GET /api/settings/current/` — Retrieve user settings (singleton)
-- `PUT /api/settings/current/` — Update all settings fields including `employment_types` and `holiday_tabs`
+- `PUT /api/settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, and `work_time_ranges`
 
 #### WebSocket
 - `ws://host/ws/conflicts/` — Real-time conflict alert stream
