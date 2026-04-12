@@ -95,7 +95,8 @@ class ImportApplicationsView(APIView):
                     status=status_val,
                     job_link=row.get('link', ''),
                     salary_range=row.get('salary', ''),
-                    location=row.get('location', ''),
+                    location=row.get('home_location', row.get('location', '')),
+                    office_location=row.get('office_location', row.get('Office Location', '')),
                     date_applied=(
                         pd.to_datetime(row.get('date_applied', datetime.now())).date()
                         if 'date_applied' in row

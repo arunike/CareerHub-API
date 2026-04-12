@@ -111,6 +111,7 @@ def _build_application_payload(raw_application, fallback_company, fallback_title
         'monthly_rent_override': application_payload.get('monthly_rent_override'),
         'salary_range': application_payload.get('salary_range') or '',
         'location': application_payload.get('location') or '',
+        'office_location': application_payload.get('office_location') or '',
         'employment_type': application_payload.get('employment_type') or 'full_time',
         'notes': application_payload.get('notes') or '',
         'current_round': application_payload.get('current_round') or 0,

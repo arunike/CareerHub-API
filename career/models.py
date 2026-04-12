@@ -55,6 +55,7 @@ class Application(models.Model):
     monthly_rent_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     salary_range = models.CharField(max_length=100, blank=True, help_text="e.g. $150k - $180k")
     location = models.CharField(max_length=100, blank=True)
+    office_location = models.CharField(max_length=100, blank=True)
     
     employment_type = models.CharField(max_length=20, default='full_time', null=True, blank=True)
 

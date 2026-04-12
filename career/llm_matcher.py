@@ -131,6 +131,14 @@ def _format_offer_time_off(offer) -> str:
     return f"PTO: {offer.pto_days} days | Holidays: {holiday_days} days"
 
 
+def _format_application_location(application) -> str:
+    home_location = getattr(application, 'location', '') or ''
+    office_location = getattr(application, 'office_location', '') or ''
+    if home_location and office_location and home_location != office_location:
+        return f"Home: {home_location} | Office: {office_location}"
+    return office_location or home_location or 'Not specified'
+
+
 NEGOTIATION_USER_TEMPLATE = """\
 TARGET OFFER:
 Company: {company}
@@ -170,7 +178,7 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
     user_msg = NEGOTIATION_USER_TEMPLATE.format(
         company=app.company.name,
         role_title=app.role_title,
-        location=app.location or 'Not specified',
+        location=_format_application_location(app),
         rto_policy=app.rto_policy or 'Unknown',
         base_salary=int(offer.base_salary),
         bonus=int(offer.bonus),
@@ -250,7 +258,7 @@ def generate_cover_letter(application, jd_text: str = '') -> str:
     user_msg = COVER_LETTER_USER_TEMPLATE.format(
         company=application.company.name,
         role_title=application.role_title,
-        location=application.location or 'Not specified',
+        location=_format_application_location(application),
         jd_section=jd_section,
         resume_context=_build_resume_context(),
     )
