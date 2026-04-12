@@ -124,6 +124,13 @@ Respond ONLY with a valid JSON object using exactly this structure:
     }
 }"""
 
+def _format_offer_time_off(offer) -> str:
+    holiday_days = getattr(offer, 'holiday_days', 11)
+    if getattr(offer, 'is_unlimited_pto', False):
+        return f"Unlimited PTO | Holidays: {holiday_days} days"
+    return f"PTO: {offer.pto_days} days | Holidays: {holiday_days} days"
+
+
 NEGOTIATION_USER_TEMPLATE = """\
 TARGET OFFER:
 Company: {company}
@@ -133,7 +140,7 @@ Base Salary: ${base_salary:,}
 Annual Bonus: ${bonus:,}
 Equity (annualized value): ${equity:,}
 Sign-On Bonus: ${sign_on:,}
-PTO: {pto_days} days | Holidays: {holiday_days} days
+Time Off: {time_off_summary}
 Benefits Value: ${benefits_value:,}
 
 ---
@@ -154,7 +161,7 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
             f"Annual Bonus: ${int(current_offer.bonus):,}\n"
             f"Equity (annualized): ${int(current_offer.equity):,}\n"
             f"Sign-On: ${int(current_offer.sign_on):,}\n"
-            f"PTO: {current_offer.pto_days} days"
+            f"Time Off: {_format_offer_time_off(current_offer)}"
         )
     else:
         current_section = "CURRENT / BASELINE COMPENSATION: Not provided — advise based on offer alone."
@@ -169,8 +176,7 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
         bonus=int(offer.bonus),
         equity=int(offer.equity),
         sign_on=int(offer.sign_on),
-        pto_days=offer.pto_days,
-        holiday_days=offer.holiday_days,
+        time_off_summary=_format_offer_time_off(offer),
         benefits_value=int(offer.benefits_value),
         current_section=current_section,
         resume_context=_build_resume_context(),

@@ -28,6 +28,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 sign_on=0,
                 benefits_value=0,
                 pto_days=15,
+                is_unlimited_pto=False,
                 is_current=False,
             )
 
