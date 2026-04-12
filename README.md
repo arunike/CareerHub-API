@@ -22,7 +22,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 **Key Capabilities:**
 - 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
 - 🤖 **AI Suite**: LLM-powered JD matching, cover letter generation, and offer negotiation advice (Gemini/OpenAI-compatible)
-- 📥 **Import/Export**: Bulk CSV/XLSX import and multi-format export (CSV, JSON, XLSX)
+- 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
@@ -92,6 +92,11 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - Experience data is the shared context for all AI features
 - **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; files stored in `media/experience_logos/`
 - **Raise History**: each experience can link to an Offer; raise events (date, type, before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field
+- **Structured team history**: `team_history` JSON stores named team entries and norms metadata for use in the frontend Team History modal
+- **Internship compensation model**: hourly roles support `hourly_rate`, `hours_per_day`, `working_days_per_week`, `total_hours_worked`, `overtime_hours`, `overtime_rate`, `overtime_multiplier`, and `total_earnings_override`
+- **Multi-phase internship schedules**: `schedule_phases` JSON stores phase-by-phase internship schedule and compensation overrides
+- **Experience import/export**: export all experiences in CSV/JSON/XLSX; JSON preserves the richest payload including `schedule_phases`, `team_history`, linked `offer` snapshots, linked `application` snapshots, and logo data
+- **Atomic import pipeline**: experience import reconstructs related `Company`, `Application`, and `Offer` records when present, then restores logo files and Experience records inside a DB transaction
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
@@ -311,12 +316,12 @@ api/
 │
 ├── career/                   # Job applications, offers & AI tools module
 │   ├── models.py             # Company, Application, Offer, Document, Task, Experience models
-│   ├── serializers.py        # DRF serializers with auto company creation + skill extraction
+│   ├── serializers.py        # DRF serializers with auto company creation, skill extraction, and Experience export payloads
 │   ├── views/                # API ViewSets (package)
 │   │   ├── applications.py   # ApplicationViewSet + cover letter action
 │   │   ├── offers.py         # OfferViewSet + negotiation advice action
 │   │   ├── documents.py      # DocumentViewSet with versioning
-│   │   ├── experiences.py    # ExperienceViewSet + MatchJDView
+│   │   ├── experiences.py    # ExperienceViewSet + MatchJDView + Experience import/export helpers
 │   │   ├── tasks.py          # TaskViewSet with reorder action
 │   │   ├── companies.py      # CompanyViewSet
 │   │   └── reference.py      # ReferenceDataView, RentEstimateView, WeeklyReviewView
@@ -372,7 +377,11 @@ Base prefix: `/api/career/`
 - `GET /api/career/experiences/` — List all experience entries
 - `POST /api/career/experiences/` — Create experience (auto-extracts skills)
 - `PUT /api/career/experiences/{id}/` — Update experience
+- `PATCH /api/career/experiences/{id}/` — Partial update experience fields (used heavily by the frontend)
 - `DELETE /api/career/experiences/{id}/` — Delete experience
+- `DELETE /api/career/experiences/delete_all/` — Delete all unlocked experiences
+- `GET /api/career/experiences/export/?fmt=json` — Export experiences (csv/json/xlsx). JSON is best for full round-trip fidelity
+- `POST /api/career/experiences/import/` — Import experiences from JSON/CSV/XLSX, including linked offer/application snapshots when present
 - `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field)
 - `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
 - `POST /api/career/match-jd/` — **AI: Evaluate job description** against full experience profile (`{text: string}`)
