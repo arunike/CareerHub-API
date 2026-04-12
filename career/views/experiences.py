@@ -14,7 +14,8 @@ class ExperienceViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         locked = instance.is_locked or False
-        if locked and not (len(request.data) == 1 and 'is_locked' in request.data):
+        allowed_locked_fields = {'is_locked', 'is_pinned', 'team_history'}
+        if locked and not set(request.data.keys()).issubset(allowed_locked_fields):
             return Response({'error': 'This experience is locked and cannot be edited.'}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
 
