@@ -1,3 +1,5 @@
+import base64
+
 from rest_framework import serializers
 from django.db.models import Q
 from .models import (
@@ -149,6 +151,135 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
             'current_round', 'job_link', 'salary_range', 'location', 'notes',
             'date_applied', 'created_at', 'updated_at'
         ]
+
+
+class OfferExportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Offer
+        exclude = ['application']
+
+
+class ApplicationImportExportSerializer(serializers.ModelSerializer):
+    company = serializers.CharField(source='company.name', read_only=True)
+
+    class Meta:
+        model = Application
+        fields = [
+            'id',
+            'company',
+            'role_title',
+            'status',
+            'job_link',
+            'rto_policy',
+            'rto_days_per_week',
+            'commute_cost_value',
+            'commute_cost_frequency',
+            'free_food_perk_value',
+            'free_food_perk_frequency',
+            'tax_base_rate',
+            'tax_bonus_rate',
+            'tax_equity_rate',
+            'monthly_rent_override',
+            'salary_range',
+            'location',
+            'employment_type',
+            'notes',
+            'current_round',
+            'is_locked',
+            'date_applied',
+            'created_at',
+            'updated_at',
+        ]
+
+
+class ExperienceExportSerializer(serializers.ModelSerializer):
+    offer_reference_id = serializers.SerializerMethodField()
+    offer_data = serializers.SerializerMethodField()
+    offer_application_data = serializers.SerializerMethodField()
+    logo_filename = serializers.SerializerMethodField()
+    logo_content_type = serializers.SerializerMethodField()
+    logo_base64 = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Experience
+        fields = [
+            'id',
+            'title',
+            'company',
+            'location',
+            'start_date',
+            'end_date',
+            'is_current',
+            'description',
+            'skills',
+            'employment_type',
+            'is_promotion',
+            'is_return_offer',
+            'is_locked',
+            'is_pinned',
+            'hourly_rate',
+            'hours_per_day',
+            'working_days_per_week',
+            'total_hours_worked',
+            'overtime_hours',
+            'overtime_rate',
+            'overtime_multiplier',
+            'total_earnings_override',
+            'base_salary',
+            'bonus',
+            'equity',
+            'team_history',
+            'schedule_phases',
+            'offer_reference_id',
+            'offer_data',
+            'offer_application_data',
+            'logo_filename',
+            'logo_content_type',
+            'logo_base64',
+            'created_at',
+            'updated_at',
+        ]
+
+    def get_offer_reference_id(self, obj):
+        return obj.offer_id
+
+    def get_offer_data(self, obj):
+        if not obj.offer:
+            return None
+        return OfferExportSerializer(obj.offer).data
+
+    def get_offer_application_data(self, obj):
+        if not obj.offer or not obj.offer.application:
+            return None
+        return ApplicationImportExportSerializer(obj.offer.application).data
+
+    def get_logo_filename(self, obj):
+        if not obj.logo:
+            return None
+        return obj.logo.name.rsplit('/', 1)[-1]
+
+    def get_logo_content_type(self, obj):
+        if not obj.logo:
+            return None
+        file_name = obj.logo.name.lower()
+        if file_name.endswith('.png'):
+            return 'image/png'
+        if file_name.endswith('.jpg') or file_name.endswith('.jpeg'):
+            return 'image/jpeg'
+        if file_name.endswith('.gif'):
+            return 'image/gif'
+        if file_name.endswith('.webp'):
+            return 'image/webp'
+        return 'application/octet-stream'
+
+    def get_logo_base64(self, obj):
+        if not obj.logo:
+            return None
+        try:
+            with obj.logo.open('rb') as file_obj:
+                return base64.b64encode(file_obj.read()).decode('ascii')
+        except Exception:
+            return None
 
 
 class TaskSerializer(serializers.ModelSerializer):

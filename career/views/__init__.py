@@ -1,7 +1,7 @@
 from .applications import ApplicationViewSet, ImportApplicationsView
 from .companies import CompanyViewSet
 from .documents import DocumentViewSet
-from .experiences import ExperienceViewSet, MatchJDView
+from .experiences import ExperienceViewSet, ImportExperiencesView, MatchJDView
 from .offers import OfferViewSet
 from .reference import ReferenceDataView, RentEstimateView, WeeklyReviewView
 from .tasks import TaskViewSet
@@ -17,5 +17,6 @@ __all__ = [
     'RentEstimateView',
     'WeeklyReviewView',
     'ExperienceViewSet',
+    'ImportExperiencesView',
     'MatchJDView',
 ]

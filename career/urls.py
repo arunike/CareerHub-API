@@ -10,6 +10,7 @@ from .views import (
     RentEstimateView,
     WeeklyReviewView,
     ExperienceViewSet,
+    ImportExperiencesView,
     MatchJDView,
 )
 from django.urls import path
@@ -25,6 +26,7 @@ router.register(r'experiences', ExperienceViewSet)
 urlpatterns = [
     path('match-jd/', MatchJDView.as_view(), name='career-match-jd'),
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),
+    path('experiences/import/', ImportExperiencesView.as_view(), name='import-experiences'),
     path('reference-data/', ReferenceDataView.as_view(), name='career-reference-data'),
     path('rent-estimate/', RentEstimateView.as_view(), name='career-rent-estimate'),
     path('weekly-review/', WeeklyReviewView.as_view(), name='career-weekly-review'),
