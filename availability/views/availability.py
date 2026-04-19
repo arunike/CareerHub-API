@@ -13,11 +13,23 @@ class AvailabilityOverrideViewSet(viewsets.ModelViewSet):
     queryset = AvailabilityOverride.objects.all()
     serializer_class = AvailabilityOverrideSerializer
 
+    def get_queryset(self):
+        return AvailabilityOverride.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class AvailabilitySettingViewSet(viewsets.ModelViewSet):
     queryset = AvailabilitySetting.objects.all()
     serializer_class = AvailabilitySettingSerializer
     lookup_field = 'key'
+
+    def get_queryset(self):
+        return AvailabilitySetting.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class AvailabilityViewSet(viewsets.ViewSet):
@@ -34,7 +46,7 @@ class AvailabilityViewSet(viewsets.ViewSet):
                 return Response({'error': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
 
         dates = get_next_two_weeks_weekdays(start_date)
-        availability_map = calculate_availability_for_dates(dates, target_tz)
+        availability_map = calculate_availability_for_dates(dates, target_tz, user=request.user)
 
         response_data = []
         for date_obj in dates:

@@ -11,7 +11,7 @@ class CustomWidgetQueryView(APIView):
         if not query:
             return Response({'error': 'Query is required'}, status=status.HTTP_400_BAD_REQUEST)
             
-        result = process_query(query, context)
+        result = process_query(query, context, request.user)
         
         if 'error' in result:
             return Response(result, status=status.HTTP_400_BAD_REQUEST)

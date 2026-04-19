@@ -10,6 +10,12 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all().order_by('status', 'position', '-updated_at')
     serializer_class = TaskSerializer
 
+    def get_queryset(self):
+        return Task.objects.filter(user=self.request.user).order_by('status', 'position', '-updated_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     @action(detail=False, methods=['post'])
     def reorder(self, request):
         updates = request.data.get('updates', [])
@@ -20,7 +26,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             task_id = item.get('id')
             if task_id is None:
                 continue
-            Task.objects.filter(id=task_id).update(
+            Task.objects.filter(id=task_id, user=request.user).update(
                 status=item.get('status', 'TODO'),
                 position=item.get('position', 0),
             )

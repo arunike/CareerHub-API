@@ -2,16 +2,25 @@ import json
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-CONFLICT_ALERTS_GROUP = "conflict_alerts"
+
+def get_conflict_alerts_group_name(user_id):
+    return f"conflict_alerts_user_{user_id}"
 
 
 class ConflictAlertConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        await self.channel_layer.group_add(CONFLICT_ALERTS_GROUP, self.channel_name)
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close(code=4401)
+            return
+
+        self.conflict_alerts_group = get_conflict_alerts_group_name(user.id)
+        await self.channel_layer.group_add(self.conflict_alerts_group, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(CONFLICT_ALERTS_GROUP, self.channel_name)
+        if hasattr(self, "conflict_alerts_group"):
+            await self.channel_layer.group_discard(self.conflict_alerts_group, self.channel_name)
 
     # Called when a message is received from the WebSocket client (not used)
     async def receive(self, text_data=None, bytes_data=None):

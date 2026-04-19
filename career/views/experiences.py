@@ -195,7 +195,7 @@ def _decode_logo_content(record):
     return ContentFile(decoded, name=filename), filename
 
 
-def _create_offer_from_snapshot(record, offer_map):
+def _create_offer_from_snapshot(record, offer_map, user):
     offer_data = _parse_structured_value(record.get('offer_data'), None)
     if not offer_data:
         return None
@@ -214,8 +214,8 @@ def _create_offer_from_snapshot(record, offer_map):
         fallback_company=record.get('company'),
         fallback_title=record.get('title'),
     )
-    company, _ = Company.objects.get_or_create(name=application_payload.pop('company_name'))
-    application = Application.objects.create(company=company, **application_payload)
+    company, _ = Company.objects.get_or_create(user=user, name=application_payload.pop('company_name'))
+    application = Application.objects.create(user=user, company=company, **application_payload)
 
     offer_payload = _build_offer_payload(offer_data)
     offer = Offer.objects.create(application=application, **offer_payload)
@@ -228,6 +228,9 @@ def _create_offer_from_snapshot(record, offer_map):
 class ExperienceViewSet(viewsets.ModelViewSet):
     queryset = Experience.objects.all().order_by('-start_date', '-created_at')
     serializer_class = ExperienceSerializer
+
+    def get_queryset(self):
+        return Experience.objects.filter(user=self.request.user).order_by('-start_date', '-created_at')
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -245,7 +248,7 @@ class ExperienceViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'], url_path='delete_all')
     def delete_all(self, request):
-        Experience.objects.filter(is_locked__in=[False, None]).delete()
+        self.get_queryset().filter(is_locked__in=[False, None]).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'])
@@ -258,7 +261,7 @@ class ExperienceViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if 'logo' not in request.FILES:
             return Response({'error': 'No logo file provided.'}, status=status.HTTP_400_BAD_REQUEST)
-        # Delete old file from storage before replacing
+        
         if instance.logo:
             instance.logo.delete(save=False)
         instance.logo = request.FILES['logo']
@@ -281,7 +284,7 @@ class MatchJDView(APIView):
             return Response({'error': 'No job description provided.'}, status=400)
             
         try:
-            evaluation = generate_jd_match_evaluation(text)
+            evaluation = generate_jd_match_evaluation(text, request.user)
             return Response(evaluation)
         except ValueError as e:
             return Response({'error': str(e)}, status=400)
@@ -307,11 +310,11 @@ class ImportExperiencesView(APIView):
                 for raw_record in records:
                     record = _clean_record(raw_record if isinstance(raw_record, dict) else {})
                     experience_payload = _build_experience_payload(record)
-                    offer = _create_offer_from_snapshot(record, offer_map)
+                    offer = _create_offer_from_snapshot(record, offer_map, request.user)
                     if offer:
                         experience_payload['offer'] = offer.id
 
-                    serializer = ExperienceSerializer(data=experience_payload)
+                    serializer = ExperienceSerializer(data=experience_payload, context={'request': request})
                     serializer.is_valid(raise_exception=True)
                     experience = serializer.save()
 

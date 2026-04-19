@@ -25,6 +25,7 @@ class RentEstimateView(APIView):
 class WeeklyReviewView(APIView):
     def get(self, request, *args, **kwargs):
         payload, error = build_weekly_review_payload(
+            request.user,
             request.query_params.get('start_date'),
             request.query_params.get('end_date'),
         )

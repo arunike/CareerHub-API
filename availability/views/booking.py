@@ -15,7 +15,7 @@ from ..models import Event, PublicBooking, ShareLink, UserSettings
 from ..serializers import PublicBookingSerializer, ShareLinkSerializer
 from ..throttling import PublicBookingCreateThrottle, PublicBookingSlotsThrottle
 from ..utils import calculate_availability_for_dates
-from ..signals import USER_SETTINGS_TZ_CACHE_KEY
+from ..signals import get_user_settings_tz_cache_key
 
 TIMEZONE_CODE_TO_NAME = {
     'PT': 'America/Los_Angeles',
@@ -62,13 +62,14 @@ def _normalize_timezone_code(value):
     return 'PT'
 
 
-def _base_timezone_code():
-    cached = cache.get(USER_SETTINGS_TZ_CACHE_KEY)
+def _base_timezone_code(user):
+    cache_key = get_user_settings_tz_cache_key(getattr(user, 'id', None))
+    cached = cache.get(cache_key)
     if cached:
         return cached
-    user_settings = UserSettings.objects.first()
+    user_settings = UserSettings.objects.filter(user=user).first()
     tz_code = _normalize_timezone_code(user_settings.primary_timezone) if user_settings else 'PT'
-    cache.set(USER_SETTINGS_TZ_CACHE_KEY, tz_code, timeout=600)
+    cache.set(cache_key, tz_code, timeout=600)
     return tz_code
 
 
@@ -131,7 +132,7 @@ def _convert_slot_to_base(date_obj, start_time, end_time, from_code, to_code):
 
 def _get_share_link_or_none(uuid_value):
     link = ShareLink.objects.filter(uuid=uuid_value, is_active=True).first()
-    if not link:
+    if not link or link.user_id is None:
         return None
     if link.expires_at <= timezone.now():
         link.is_active = False
@@ -172,11 +173,17 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
     queryset = ShareLink.objects.all().order_by('-created_at')
     serializer_class = ShareLinkSerializer
 
+    def get_queryset(self):
+        return ShareLink.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     @action(detail=False, methods=['get'])
     def current(self, request):
         now = timezone.now()
-        ShareLink.objects.filter(is_active=True, expires_at__lte=now).update(is_active=False)
-        link = ShareLink.objects.filter(is_active=True, expires_at__gt=now).order_by('-created_at').first()
+        self.get_queryset().filter(is_active=True, expires_at__lte=now).update(is_active=False)
+        link = self.get_queryset().filter(is_active=True, expires_at__gt=now).first()
         if not link:
             return Response({'active': None})
         return Response({'active': self.get_serializer(link).data})
@@ -197,8 +204,9 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
         except (TypeError, ValueError):
             booking_block_minutes = 30
 
-        ShareLink.objects.filter(is_active=True).update(is_active=False)
+        self.get_queryset().filter(is_active=True).update(is_active=False)
         link = ShareLink.objects.create(
+            user=request.user,
             uuid=str(uuid4()),
             title=title,
             duration_days=duration_days,
@@ -211,7 +219,7 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def deactivate(self, request):
         now = timezone.now()
-        count = ShareLink.objects.filter(is_active=True, expires_at__gt=now).update(is_active=False)
+        count = self.get_queryset().filter(is_active=True, expires_at__gt=now).update(is_active=False)
         return Response({'message': f'Deactivated {count} active link(s).'})
 
 
@@ -226,7 +234,7 @@ class PublicBookingSlotsView(APIView):
             return Response({'error': 'This booking link is invalid or expired.'}, status=404)
 
         timezone_code = _normalize_timezone_code(request.query_params.get('timezone', 'PT'))
-        base_timezone_code = _base_timezone_code()
+        base_timezone_code = _base_timezone_code(link.user)
         date_str = request.query_params.get('date')
         days_raw = request.query_params.get('days', 14)
         try:
@@ -242,7 +250,7 @@ class PublicBookingSlotsView(APIView):
                 return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
 
         dates = [start_date + timedelta(days=i) for i in range(days)]
-        availability_map = calculate_availability_for_dates(dates, base_timezone_code)
+        availability_map = calculate_availability_for_dates(dates, base_timezone_code, user=link.user)
 
         rows = []
         for date_obj in dates:
@@ -294,7 +302,7 @@ class PublicBookingCreateView(APIView):
         end_time = request.data.get('end_time')
         notes = (request.data.get('notes') or '').strip()
         timezone_code = _normalize_timezone_code(request.data.get('timezone') or 'PT')
-        base_timezone_code = _base_timezone_code()
+        base_timezone_code = _base_timezone_code(link.user)
 
         if not name or not email or not date_str or not start_time or not end_time:
             return Response({'error': 'name, email, date, start_time, and end_time are required.'}, status=400)
@@ -304,7 +312,7 @@ class PublicBookingCreateView(APIView):
         except ValueError:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
 
-        availability_map = calculate_availability_for_dates([booking_date], base_timezone_code)
+        availability_map = calculate_availability_for_dates([booking_date], base_timezone_code, user=link.user)
         availability_item = availability_map.get(date_str)
         base_slots = _filter_booked_slots(
             link,
@@ -341,6 +349,7 @@ class PublicBookingCreateView(APIView):
         )
 
         Event.objects.create(
+            user=link.user,
             name=f'Booking - {name}',
             date=normalized_date,
             start_time=normalized_start_time,

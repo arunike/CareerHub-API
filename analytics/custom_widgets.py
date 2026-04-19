@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 CACHE_KEY_PREFIX = "widget"
 
 
-def _build_cache_key(query_text: str, context: str) -> str:
-    raw = f"{query_text.strip().lower()}:{context}"
+def _build_cache_key(query_text: str, context: str, user_id: int | None) -> str:
+    raw = f"{user_id}:{query_text.strip().lower()}:{context}"
     digest = hashlib.md5(raw.encode()).hexdigest()
     return f"{CACHE_KEY_PREFIX}:{digest}"
 
@@ -49,25 +49,26 @@ def get_date_range_from_query(query):
     return (None, None)
 
 
-def _build_db_summary() -> dict:
-    """Gather aggregated DB stats to give the LLM enough context to answer analytics queries."""
+def _build_db_summary(user=None) -> dict:
+    application_qs = Application.objects.filter(user=user) if user else Application.objects.all()
+    event_qs = Event.objects.filter(user=user) if user else Event.objects.all()
     app_by_status = list(
-        Application.objects.values('status').annotate(count=Count('id')).order_by('status')
+        application_qs.values('status').annotate(count=Count('id')).order_by('status')
     )
     event_by_category = list(
-        Event.objects.values('category__name').annotate(count=Count('id')).order_by('-count')
+        event_qs.values('category__name').annotate(count=Count('id')).order_by('-count')
     )
     return {
         'applications': {
-            'total': Application.objects.count(),
+            'total': application_qs.count(),
             'by_status': [{'status': r['status'], 'count': r['count']} for r in app_by_status],
-            'offers_count': Application.objects.filter(status__in=['OFFER', 'ACCEPTED']).count(),
-            'active_count': Application.objects.exclude(
+            'offers_count': application_qs.filter(status__in=['OFFER', 'ACCEPTED']).count(),
+            'active_count': application_qs.exclude(
                 status__in=['REJECTED', 'GHOSTED', 'ACCEPTED']
             ).count(),
         },
         'events': {
-            'total': Event.objects.count(),
+            'total': event_qs.count(),
             'by_category': [
                 {'category': r['category__name'] or 'Uncategorized', 'count': r['count']}
                 for r in event_by_category
@@ -76,8 +77,7 @@ def _build_db_summary() -> dict:
     }
 
 
-def _llm_fallback(query_text: str, context: str) -> dict:
-    """Use the LLM to answer queries that the regex engine couldn't handle."""
+def _llm_fallback(query_text: str, context: str, user=None) -> dict:
     llm_url = os.environ.get('LLM_API_URL', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions')
     llm_key = os.environ.get('LLM_API_KEY', '')
     llm_model = os.environ.get('LLM_MODEL', 'gemini-2.0-flash')
@@ -85,7 +85,7 @@ def _llm_fallback(query_text: str, context: str) -> dict:
     if not llm_url or not llm_key:
         return {'error': 'Query not understood', 'suggestion': 'Try "Total events" or "Applications by status"'}
 
-    db_summary = _build_db_summary()
+    db_summary = _build_db_summary(user)
 
     prompt = f"""You are an analytics assistant for a job search tracker app.
 Answer the following query using ONLY the database summary provided. Do not make up data.
@@ -126,7 +126,7 @@ If you cannot answer from the data provided, respond with:
         return {'error': 'Query not understood', 'suggestion': 'Try "Total events" or "Applications by status"'}
 
 
-def _compute_result(query_text: str, context: str) -> dict:
+def _compute_result(query_text: str, context: str, user=None) -> dict:
     """Execute the raw DB query and return the result dict."""
     query_lower = query_text.lower()
 
@@ -140,7 +140,7 @@ def _compute_result(query_text: str, context: str) -> dict:
 
     if context == 'availability':
         if re.search(r'total (events|meetings)', query_lower):
-            queryset = Event.objects.all()
+            queryset = Event.objects.filter(user=user) if user else Event.objects.all()
             if start_date:
                 queryset = queryset.filter(date__gte=start_date.date())
             if end_date:
@@ -151,7 +151,7 @@ def _compute_result(query_text: str, context: str) -> dict:
             return {'type': 'metric', 'value': 0, 'unit': 'minutes (not supported yet)'}
 
         if re.search(r'(events|meetings) by category', query_lower):
-            queryset = Event.objects.all()
+            queryset = Event.objects.filter(user=user) if user else Event.objects.all()
             if start_date:
                 queryset = queryset.filter(date__gte=start_date.date())
             if end_date:
@@ -165,7 +165,7 @@ def _compute_result(query_text: str, context: str) -> dict:
 
     elif context == 'job-hunt':
         if re.search(r'total (applications|apps)', query_lower):
-            queryset = Application.objects.all()
+            queryset = Application.objects.filter(user=user) if user else Application.objects.all()
             if start_date:
                 queryset = queryset.filter(date_applied__gte=start_date)
             if end_date:
@@ -173,7 +173,7 @@ def _compute_result(query_text: str, context: str) -> dict:
             return {'type': 'metric', 'value': queryset.count(), 'unit': 'applications'}
 
         if re.search(r'total (offers|offer)', query_lower):
-            queryset = Application.objects.filter(status__in=['OFFER', 'ACCEPTED'])
+            queryset = Application.objects.filter(user=user, status__in=['OFFER', 'ACCEPTED']) if user else Application.objects.filter(status__in=['OFFER', 'ACCEPTED'])
             if start_date:
                 queryset = queryset.filter(date_applied__gte=start_date)
             if end_date:
@@ -181,7 +181,7 @@ def _compute_result(query_text: str, context: str) -> dict:
             return {'type': 'metric', 'value': queryset.count(), 'unit': 'offers'}
 
         if re.search(r'active (applications|apps)', query_lower):
-            queryset = Application.objects.exclude(status__in=['REJECTED', 'GHOSTED', 'ACCEPTED'])
+            queryset = Application.objects.filter(user=user).exclude(status__in=['REJECTED', 'GHOSTED', 'ACCEPTED']) if user else Application.objects.exclude(status__in=['REJECTED', 'GHOSTED', 'ACCEPTED'])
             if start_date:
                 queryset = queryset.filter(date_applied__gte=start_date)
             if end_date:
@@ -189,7 +189,7 @@ def _compute_result(query_text: str, context: str) -> dict:
             return {'type': 'metric', 'value': queryset.count(), 'unit': 'active apps'}
 
         if re.search(r'(applications|apps) by status', query_lower):
-            queryset = Application.objects.all()
+            queryset = Application.objects.filter(user=user) if user else Application.objects.all()
             if start_date:
                 queryset = queryset.filter(date_applied__gte=start_date)
             if end_date:
@@ -198,11 +198,11 @@ def _compute_result(query_text: str, context: str) -> dict:
             formatted_data = [{'name': item['status'], 'value': item['count']} for item in data]
             return {'type': 'chart', 'data': formatted_data, 'chartType': 'bar'}
 
-    return _llm_fallback(query_text, context)
+    return _llm_fallback(query_text, context, user)
 
 
-def process_query(query_text: str, context: str) -> dict:
-    cache_key = _build_cache_key(query_text, context)
+def process_query(query_text: str, context: str, user=None) -> dict:
+    cache_key = _build_cache_key(query_text, context, getattr(user, 'id', None))
 
     try:
         cached = cache.get(cache_key)
@@ -211,7 +211,7 @@ def process_query(query_text: str, context: str) -> dict:
     except Exception:
         cached = None
 
-    result = _compute_result(query_text, context)
+    result = _compute_result(query_text, context, user)
 
     # Only cache successful results, not error responses
     if 'error' not in result:

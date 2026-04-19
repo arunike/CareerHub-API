@@ -35,10 +35,6 @@ def parse_time(time_str):
     return time_str
 
 def get_event_datetime_range(event_data):
-    """
-    Convert event data (date, start_time, end_time, timezone) into 
-    timezone-aware start and end datetime objects in UTC.
-    """
     def get_val(obj, attr):
         if isinstance(obj, dict):
             return obj.get(attr)
@@ -90,10 +86,6 @@ def events_overlap(event1, event2):
     return start1 < end2 and start2 < end1
 
 def detect_conflicts_for_event(event):
-    # Optimizing: Only fetch events in a relevant date window?
-    # Since timezones shift, an event on Day X in PT might overlap with Day X+1 in UTC or Day X-1.
-    # We'll broaden the search window slightly (-1 to +1 day) around the event date.
-    
     target_date = event.date
     if isinstance(target_date, str):
         target_date = datetime.strptime(target_date, '%Y-%m-%d').date()
@@ -102,7 +94,9 @@ def detect_conflicts_for_event(event):
     end_window = target_date + timedelta(days=1)
     
     # Fetch potential candidates
+    event_user = getattr(event, 'user', None)
     candidate_events = Event.objects.filter(
+        user=event_user,
         date__range=[start_window, end_window]
     ).exclude(id=event.id)
     
@@ -113,8 +107,7 @@ def detect_conflicts_for_event(event):
     
     return conflicts
 
-def check_for_conflicts(data, exclude_id=None):
-    """Check if the proposed event data conflicts with existing events."""
+def check_for_conflicts(data, user, exclude_id=None):
     # Similar window logic as above
     d = data.get('date')
     if not d: return []
@@ -127,7 +120,7 @@ def check_for_conflicts(data, exclude_id=None):
     start_window = target_date - timedelta(days=1)
     end_window = target_date + timedelta(days=1)
 
-    candidate_events = Event.objects.filter(date__range=[start_window, end_window])
+    candidate_events = Event.objects.filter(user=user, date__range=[start_window, end_window])
     if exclude_id:
         candidate_events = candidate_events.exclude(id=exclude_id)
         
@@ -138,11 +131,11 @@ def check_for_conflicts(data, exclude_id=None):
             
     return conflicts
 
-def detect_all_conflicts():
+def detect_all_conflicts(user):
     # Clear old unresolved conflicts
-    ConflictAlert.objects.filter(resolved=False).delete()
+    ConflictAlert.objects.filter(resolved=False, event1__user=user).delete()
     
-    all_events = Event.objects.all().order_by('date', 'start_time')
+    all_events = Event.objects.filter(user=user).order_by('date', 'start_time')
     conflicts_created = 0
     checked_pairs = set()
     
@@ -165,11 +158,12 @@ def detect_all_conflicts():
     
     return conflicts_created
 
-def get_upcoming_events(days_ahead=7):
+def get_upcoming_events(days_ahead=7, user=None):
     today = datetime.now().date()
     end_date = today + timedelta(days=days_ahead)
     
     return Event.objects.filter(
+        user=user,
         date__gte=today,
         date__lte=end_date
     ).order_by('date', 'start_time')

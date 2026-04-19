@@ -10,10 +10,13 @@ class OfferViewSet(viewsets.ModelViewSet):
     queryset = Offer.objects.select_related('application__company').all()
     serializer_class = OfferSerializer
 
+    def get_queryset(self):
+        return Offer.objects.select_related('application__company').filter(application__user=self.request.user)
+
     @action(detail=True, methods=['post'], url_path='negotiation-advice')
     def negotiation_advice(self, request, pk=None):
         offer = self.get_object()
-        current_offer = Offer.objects.filter(is_current=True).exclude(pk=offer.pk).first()
+        current_offer = self.get_queryset().filter(is_current=True).exclude(pk=offer.pk).first()
         try:
             from ..llm_matcher import generate_negotiation_advice
             advice = generate_negotiation_advice(offer, current_offer)

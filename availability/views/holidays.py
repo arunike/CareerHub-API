@@ -13,6 +13,12 @@ class HolidayViewSet(viewsets.ModelViewSet):
     queryset = CustomHoliday.objects.all()
     serializer_class = CustomHolidaySerializer
 
+    def get_queryset(self):
+        return CustomHoliday.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance.is_locked:
@@ -27,7 +33,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
         year = datetime.now().year
         holidays_dict = get_federal_holidays(year)
         
-        user_settings = UserSettings.objects.first()
+        user_settings = UserSettings.objects.filter(user=request.user).first()
         ignored_holidays = user_settings.ignored_federal_holidays if user_settings else []
         
         data = []
@@ -42,7 +48,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
             })
             
         # Append custom defined federal holidays
-        custom_federal = CustomHoliday.objects.filter(holiday_type='federal', date__year=year)
+        custom_federal = CustomHoliday.objects.filter(user=request.user, holiday_type='federal', date__year=year)
         for custom in custom_federal:
             date_str = custom.date.strftime('%Y-%m-%d')
             is_ignored = custom.description in ignored_holidays or date_str in ignored_holidays
@@ -65,7 +71,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = CustomHoliday.objects.filter(is_locked=False).delete()
+        count, _ = self.get_queryset().filter(is_locked=False).delete()
         return Response(
             {'message': f'Deleted {count} holidays. Locked holidays were preserved.'},
             status=status.HTTP_200_OK,

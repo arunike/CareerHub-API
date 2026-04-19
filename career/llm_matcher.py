@@ -40,8 +40,8 @@ JOB DESCRIPTION:
 ---
 {resume_context}"""
 
-def _build_resume_context() -> str:
-    experiences = Experience.objects.all().order_by('-start_date')
+def _build_resume_context(user) -> str:
+    experiences = Experience.objects.filter(user=user).order_by('-start_date')
     lines = ["CANDIDATE'S PROFESSIONAL EXPERIENCE:\n"]
     for exp in experiences:
         start = exp.start_date.strftime('%Y-%m') if exp.start_date else 'Unknown'
@@ -54,7 +54,7 @@ def _build_resume_context() -> str:
         lines.append('-' * 40)
     return '\n'.join(lines)
 
-def generate_jd_match_evaluation(jd_text: str) -> dict:
+def generate_jd_match_evaluation(jd_text: str, user) -> dict:
     if not jd_text:
         return {
             "score": 0,
@@ -69,7 +69,7 @@ def generate_jd_match_evaluation(jd_text: str) -> dict:
 
     user_msg = EVALUATION_USER_TEMPLATE.format(
         jd_text=jd_text,
-        resume_context=_build_resume_context(),
+        resume_context=_build_resume_context(user),
     )
 
     headers = {'Content-Type': 'application/json'}
@@ -187,7 +187,7 @@ def generate_negotiation_advice(offer, current_offer=None) -> dict:
         time_off_summary=_format_offer_time_off(offer),
         benefits_value=int(offer.benefits_value),
         current_section=current_section,
-        resume_context=_build_resume_context(),
+        resume_context=_build_resume_context(offer.application.user),
     )
 
     headers = {'Content-Type': 'application/json'}
@@ -248,7 +248,7 @@ LOCATION: {location}
 {resume_context}"""
 
 
-def generate_cover_letter(application, jd_text: str = '') -> str:
+def generate_cover_letter(application, jd_text: str = '', user=None) -> str:
     if not LLM_API_URL or not LLM_MODEL:
         raise ValueError("LLM_API_URL and LLM_MODEL must be set in your .env file.")
 
@@ -260,7 +260,7 @@ def generate_cover_letter(application, jd_text: str = '') -> str:
         role_title=application.role_title,
         location=_format_application_location(application),
         jd_section=jd_section,
-        resume_context=_build_resume_context(),
+        resume_context=_build_resume_context(user or application.user),
     )
 
     headers = {'Content-Type': 'application/json'}

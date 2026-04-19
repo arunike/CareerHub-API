@@ -8,17 +8,17 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from ..conflict_detector import check_for_conflicts
-from ..consumers import CONFLICT_ALERTS_GROUP
+from ..consumers import get_conflict_alerts_group_name
 from ..models import Event
 from ..recurrence import delete_recurring_series, generate_recurring_instances, update_recurring_series
 from ..serializers import EventSerializer
 from ..utils import export_data
 
 
-def _broadcast_conflict_alert(conflicts: list):
+def _broadcast_conflict_alert(user_id: int, conflicts: list):
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        CONFLICT_ALERTS_GROUP,
+        get_conflict_alerts_group_name(user_id),
         {
             "type": "conflict_alert",
             "message": "Event conflict detected.",
@@ -32,58 +32,8 @@ class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
     serializer_class = EventSerializer
 
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance.is_locked:
-            return Response(
-                {'error': 'This event is locked and cannot be deleted. Unlock it first.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().destroy(request, *args, **kwargs)
-
-    def perform_create(self, serializer):
-        data = serializer.validated_data
-        conflicts = check_for_conflicts(data)
-        if conflicts:
-            _broadcast_conflict_alert(conflicts)
-            force = self.request.query_params.get('force', 'false').lower() == 'true'
-            if not force:
-                conflict_names = ', '.join([e.name for e in conflicts])
-                raise ValidationError(
-                    {
-                        'conflict': True,
-                        'message': f'This event conflicts with: {conflict_names}',
-                        'conflicting_events': [e.id for e in conflicts],
-                    }
-                )
-        serializer.save()
-
-    def perform_update(self, serializer):
-        data = serializer.validated_data
-        instance = serializer.instance
-        full_data = {
-            'date': data.get('date', instance.date),
-            'start_time': data.get('start_time', instance.start_time),
-            'end_time': data.get('end_time', instance.end_time),
-        }
-
-        conflicts = check_for_conflicts(full_data, exclude_id=instance.id)
-        if conflicts:
-            _broadcast_conflict_alert(conflicts)
-            force = self.request.query_params.get('force', 'false').lower() == 'true'
-            if not force:
-                conflict_names = ', '.join([e.name for e in conflicts])
-                raise ValidationError(
-                    {
-                        'conflict': True,
-                        'message': f'This event conflicts with: {conflict_names}',
-                        'conflicting_events': [e.id for e in conflicts],
-                    }
-                )
-        serializer.save()
-
     def get_queryset(self):
-        queryset = Event.objects.all()
+        queryset = Event.objects.filter(user=self.request.user)
         start = self.request.query_params.get('start_date')
         end = self.request.query_params.get('end_date')
         include_instances = self.request.query_params.get('include_instances', 'true').lower() == 'true'
@@ -96,6 +46,56 @@ class EventViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(parent_event__isnull=True)
         return queryset
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_locked:
+            return Response(
+                {'error': 'This event is locked and cannot be deleted. Unlock it first.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        data = serializer.validated_data
+        conflicts = check_for_conflicts(data, self.request.user)
+        if conflicts:
+            _broadcast_conflict_alert(self.request.user.id, conflicts)
+            force = self.request.query_params.get('force', 'false').lower() == 'true'
+            if not force:
+                conflict_names = ', '.join([e.name for e in conflicts])
+                raise ValidationError(
+                    {
+                        'conflict': True,
+                        'message': f'This event conflicts with: {conflict_names}',
+                        'conflicting_events': [e.id for e in conflicts],
+                    }
+                )
+        serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        data = serializer.validated_data
+        instance = serializer.instance
+        full_data = {
+            'date': data.get('date', instance.date),
+            'start_time': data.get('start_time', instance.start_time),
+            'end_time': data.get('end_time', instance.end_time),
+        }
+
+        conflicts = check_for_conflicts(full_data, self.request.user, exclude_id=instance.id)
+        if conflicts:
+            _broadcast_conflict_alert(self.request.user.id, conflicts)
+            force = self.request.query_params.get('force', 'false').lower() == 'true'
+            if not force:
+                conflict_names = ', '.join([e.name for e in conflicts])
+                raise ValidationError(
+                    {
+                        'conflict': True,
+                        'message': f'This event conflicts with: {conflict_names}',
+                        'conflicting_events': [e.id for e in conflicts],
+                    }
+                )
+        serializer.save()
+
     @action(detail=False, methods=['get'])
     def recurring_instances(self, request):
         start_str = request.query_params.get('start_date')
@@ -106,7 +106,7 @@ class EventViewSet(viewsets.ModelViewSet):
         start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
 
-        recurring_events = Event.objects.filter(is_recurring=True, parent_event__isnull=True)
+        recurring_events = self.get_queryset().filter(is_recurring=True, parent_event__isnull=True)
         all_instances = []
         for event in recurring_events:
             all_instances.extend(generate_recurring_instances(event, start_date, end_date))
@@ -166,7 +166,7 @@ class EventViewSet(viewsets.ModelViewSet):
     def detect_conflicts(self, request):
         from ..conflict_detector import detect_all_conflicts
 
-        count = detect_all_conflicts()
+        count = detect_all_conflicts(request.user)
         return Response({'message': f'Detected {count} conflicts', 'count': count})
 
     @action(detail=True, methods=['get'])
@@ -183,7 +183,7 @@ class EventViewSet(viewsets.ModelViewSet):
         from ..conflict_detector import get_upcoming_events
 
         days = int(request.query_params.get('days', 7))
-        events = get_upcoming_events(days)
+        events = get_upcoming_events(days, request.user)
         serializer = self.get_serializer(events, many=True)
         return Response(serializer.data)
 
@@ -194,7 +194,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = Event.objects.filter(is_locked=False).delete()
+        count, _ = self.get_queryset().filter(is_locked=False).delete()
         return Response(
             {'message': f'Deleted {count} events. Locked events were preserved.'},
             status=status.HTTP_200_OK,

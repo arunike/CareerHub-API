@@ -41,12 +41,14 @@ class ImportViewSet(viewsets.ViewSet):
             try:
                 if item['classification'] == 'holiday':
                     CustomHoliday.objects.create(
+                        user=request.user,
                         date=item['date'],
                         description=item['summary'],
                         is_recurring=True,
                     )
                 else:
                     Event.objects.create(
+                        user=request.user,
                         name=item['summary'],
                         date=item['date'],
                         start_time=item['start_time'],
@@ -63,14 +65,26 @@ class EventCategoryViewSet(viewsets.ModelViewSet):
     queryset = EventCategory.objects.all()
     serializer_class = EventCategorySerializer
 
+    def get_queryset(self):
+        return EventCategory.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class UserSettingsViewSet(viewsets.ModelViewSet):
     queryset = UserSettings.objects.all()
     serializer_class = UserSettingsSerializer
 
+    def get_queryset(self):
+        return UserSettings.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
     @action(detail=False, methods=['get', 'put'])
     def current(self, request):
-        settings, _ = UserSettings.objects.get_or_create(id=1)
+        settings, _ = UserSettings.objects.get_or_create(user=request.user)
         if request.method == 'GET':
             return Response(self.get_serializer(settings).data)
 
@@ -84,11 +98,11 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
     def export_all(self, request):
         fmt = request.query_params.get('fmt', 'json')
         data_map = {
-            'events': (Event.objects.all(), EventSerializer),
-            'holidays': (CustomHoliday.objects.all(), CustomHolidaySerializer),
-            'applications': (Application.objects.all(), ApplicationExportSerializer),
-            'user_settings': (UserSettings.objects.all(), UserSettingsSerializer),
-            'categories': (EventCategory.objects.all(), EventCategorySerializer),
+            'events': (Event.objects.filter(user=request.user), EventSerializer),
+            'holidays': (CustomHoliday.objects.filter(user=request.user), CustomHolidaySerializer),
+            'applications': (Application.objects.filter(user=request.user), ApplicationExportSerializer),
+            'user_settings': (UserSettings.objects.filter(user=request.user), UserSettingsSerializer),
+            'categories': (EventCategory.objects.filter(user=request.user), EventCategorySerializer),
         }
 
         if fmt in {'xlsx', 'excel'}:
@@ -129,9 +143,12 @@ class ConflictAlertViewSet(viewsets.ModelViewSet):
     queryset = ConflictAlert.objects.all()
     serializer_class = ConflictAlertSerializer
 
+    def get_queryset(self):
+        return ConflictAlert.objects.filter(event1__user=self.request.user)
+
     @action(detail=False, methods=['get'])
     def unresolved(self, request):
-        conflicts = ConflictAlert.objects.filter(resolved=False)
+        conflicts = self.get_queryset().filter(resolved=False)
         serializer = self.get_serializer(conflicts, many=True)
         return Response(serializer.data)
 

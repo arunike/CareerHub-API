@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.db import models
 
 class Company(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='companies')
     name = models.CharField(max_length=255)
     website = models.URLField(blank=True, null=True)
     industry = models.CharField(max_length=100, blank=True)
@@ -9,6 +11,9 @@ class Company(models.Model):
 
     class Meta:
         verbose_name_plural = "Companies"
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'name'], name='unique_company_per_user'),
+        ]
 
     def __str__(self):
         return self.name
@@ -37,6 +42,7 @@ class Application(models.Model):
         ('YEARLY', 'Yearly'),
     ]
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='applications')
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='applications')
     role_title = models.CharField(max_length=255)
     job_link = models.URLField(blank=True, null=True)
@@ -101,6 +107,7 @@ class Document(models.Model):
         ('OTHER', 'Other'),
     ]
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to='documents/')
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default='RESUME')
@@ -130,6 +137,7 @@ class Task(models.Model):
         ('HIGH', 'High'),
     ]
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='tasks')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='TODO')
@@ -146,6 +154,7 @@ class Task(models.Model):
         return self.title
 
 class Experience(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='experiences')
     title = models.CharField(max_length=255)
     company = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True)

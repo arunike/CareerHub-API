@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from availability.utils import export_data
 
-from ..models import Document
+from ..models import Application, Document
 from ..serializers import DocumentExportSerializer, DocumentSerializer
 
 
@@ -16,7 +16,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
     serializer_class = DocumentSerializer
 
     def get_queryset(self):
-        queryset = Document.objects.all().order_by('-updated_at')
+        queryset = Document.objects.filter(user=self.request.user).order_by('-updated_at')
         include_versions = self.request.query_params.get('include_versions')
         if include_versions in ('1', 'true', 'True'):
             return queryset
@@ -32,11 +32,11 @@ class DocumentViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        serializer.save(is_current=True, version_number=1, root_document=None)
+        serializer.save(user=self.request.user, is_current=True, version_number=1, root_document=None)
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = Document.objects.filter(is_locked=False).delete()
+        count, _ = self.get_queryset().filter(is_locked=False).delete()
         return Response(
             {'message': f'Deleted {count} documents. Locked documents were preserved.'},
             status=status.HTTP_200_OK,
@@ -51,7 +51,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
     def versions(self, request, pk=None):
         doc = self.get_object()
         root = doc.root_document or doc
-        versions = Document.objects.filter(Q(id=root.id) | Q(root_document_id=root.id)).order_by(
+        versions = self.get_queryset().filter(Q(id=root.id) | Q(root_document_id=root.id)).order_by(
             '-version_number'
         )
         serializer = self.get_serializer(versions, many=True)
@@ -65,20 +65,28 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if not file_obj:
             return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
 
+        requested_application_id = request.data.get('application')
+        if requested_application_id in (None, '', 'null'):
+            application_id = doc.application_id
+        else:
+            if not Application.objects.filter(id=requested_application_id, user=request.user).exists():
+                return Response(
+                    {'error': 'Selected application was not found for this account.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            application_id = requested_application_id
+
         with transaction.atomic():
-            current_versions = Document.objects.filter(Q(id=root.id) | Q(root_document_id=root.id))
+            current_versions = self.get_queryset().filter(Q(id=root.id) | Q(root_document_id=root.id))
             max_version = current_versions.aggregate(max_v=Max('version_number'))['max_v'] or 1
             current_versions.update(is_current=False)
 
             new_doc = Document.objects.create(
+                user=request.user,
                 title=request.data.get('title', doc.title),
                 file=file_obj,
                 document_type=request.data.get('document_type', doc.document_type),
-                application_id=(
-                    request.data.get('application')
-                    if request.data.get('application') not in (None, '', 'null')
-                    else doc.application_id
-                ),
+                application_id=application_id,
                 root_document=root,
                 version_number=max_version + 1,
                 is_current=True,

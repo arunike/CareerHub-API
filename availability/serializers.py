@@ -9,13 +9,6 @@ class EventCategorySerializer(serializers.ModelSerializer):
 
 class EventSerializer(serializers.ModelSerializer):
     category_details = EventCategorySerializer(source='category', read_only=True)
-    
-    # Application Linking
-    application = serializers.PrimaryKeyRelatedField(
-        queryset=Application.objects.all(),
-        required=False,
-        allow_null=True
-    )
     application_details = serializers.SerializerMethodField()
     
     class Meta:
@@ -30,6 +23,19 @@ class EventSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['application'].queryset = Application.objects.filter(user=request.user)
+            fields['category'].queryset = EventCategory.objects.filter(user=request.user)
+            fields['parent_event'].queryset = Event.objects.filter(user=request.user)
+        else:
+            fields['application'].queryset = Application.objects.none()
+            fields['category'].queryset = EventCategory.objects.none()
+            fields['parent_event'].queryset = Event.objects.none()
+        return fields
 
     def get_application_details(self, obj):
         if not obj.application:
@@ -68,6 +74,15 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'hidden_nav_items', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['default_event_category'].queryset = EventCategory.objects.filter(user=request.user)
+        else:
+            fields['default_event_category'].queryset = EventCategory.objects.none()
+        return fields
 
 class ConflictAlertSerializer(serializers.ModelSerializer):
     event1_details = EventSerializer(source='event1', read_only=True)

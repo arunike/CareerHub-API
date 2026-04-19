@@ -15,7 +15,7 @@ from .skills_extractor import extract_skills_from_text
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
-        fields = '__all__'
+        fields = ['id', 'name', 'website', 'industry', 'created_at', 'updated_at']
 
 class OfferSerializer(serializers.ModelSerializer):
     application_details = serializers.SerializerMethodField(read_only=True)
@@ -23,6 +23,15 @@ class OfferSerializer(serializers.ModelSerializer):
     class Meta:
         model = Offer
         fields = '__all__'
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['application'].queryset = Application.objects.filter(user=request.user)
+        else:
+            fields['application'].queryset = Application.objects.none()
+        return fields
 
     def get_application_details(self, obj):
         return {
@@ -78,8 +87,17 @@ class DocumentSerializer(serializers.ModelSerializer):
     def get_version_count(self, obj):
         root_id = obj.root_document_id or obj.id
         return Document.objects.filter(
-            Q(id=root_id) | Q(root_document_id=root_id)
+            (Q(id=root_id) | Q(root_document_id=root_id)) & Q(user=obj.user)
         ).count()
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['application'].queryset = Application.objects.filter(user=request.user)
+        else:
+            fields['application'].queryset = Application.objects.none()
+        return fields
 
 class DocumentExportSerializer(serializers.ModelSerializer):
     application_role = serializers.CharField(source='application.role_title', read_only=True)
@@ -126,14 +144,16 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         company_name = validated_data.pop('company_name')
-        company, _ = Company.objects.get_or_create(name=company_name)
-        application = Application.objects.create(company=company, **validated_data)
+        request = self.context.get('request')
+        company, _ = Company.objects.get_or_create(user=request.user, name=company_name)
+        application = Application.objects.create(user=request.user, company=company, **validated_data)
         return application
 
     def update(self, instance, validated_data):
         if 'company_name' in validated_data:
             company_name = validated_data.pop('company_name')
-            company, _ = Company.objects.get_or_create(name=company_name)
+            request = self.context.get('request')
+            company, _ = Company.objects.get_or_create(user=request.user, name=company_name)
             instance.company = company
         
         return super().update(instance, validated_data)
@@ -286,13 +306,22 @@ class ExperienceExportSerializer(serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = '__all__'
+        fields = ['id', 'title', 'description', 'status', 'priority', 'due_date', 'position', 'created_at', 'updated_at']
 
 class ExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Experience
         fields = ['id', 'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['offer'].queryset = Offer.objects.filter(application__user=request.user)
+        else:
+            fields['offer'].queryset = Offer.objects.none()
+        return fields
 
     def create(self, validated_data):
         description = validated_data.get('description', '')
@@ -304,7 +333,11 @@ class ExperienceSerializer(serializers.ModelSerializer):
                 validated_data['skills'] = extract_skills_from_text(description, company=company, title=title)
             except Exception as e:
                 validated_data['skills'] = []
-                
+
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            validated_data['user'] = request.user
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):

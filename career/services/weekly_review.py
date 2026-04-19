@@ -15,7 +15,7 @@ def is_interview_event(event: Event) -> bool:
     return any(word in category_name for word in keywords) or any(word in event_name for word in keywords)
 
 
-def build_weekly_review_payload(start_date_raw: str | None, end_date_raw: str | None):
+def build_weekly_review_payload(user, start_date_raw: str | None, end_date_raw: str | None):
     today = timezone.localdate()
     default_start = today - timedelta(days=6)
     default_end = today
@@ -27,6 +27,7 @@ def build_weekly_review_payload(start_date_raw: str | None, end_date_raw: str | 
 
     applications = (
         Application.objects.filter(
+            user=user,
             date_applied__isnull=False,
             date_applied__gte=start_date,
             date_applied__lte=end_date,
@@ -46,7 +47,7 @@ def build_weekly_review_payload(start_date_raw: str | None, end_date_raw: str | 
         for app in applications[:10]
     ]
 
-    week_events = Event.objects.filter(date__gte=start_date, date__lte=end_date).select_related(
+    week_events = Event.objects.filter(user=user, date__gte=start_date, date__lte=end_date).select_related(
         'category',
         'application',
         'application__company',
@@ -65,7 +66,7 @@ def build_weekly_review_payload(start_date_raw: str | None, end_date_raw: str | 
     ]
 
     next_week_end = today + timedelta(days=7)
-    next_actions_qs = Task.objects.filter(status__in=['TODO', 'IN_PROGRESS']).order_by(
+    next_actions_qs = Task.objects.filter(user=user, status__in=['TODO', 'IN_PROGRESS']).order_by(
         'due_date',
         'priority',
         'position',

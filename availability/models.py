@@ -1,20 +1,25 @@
+from django.conf import settings
 from django.db import models
-import json
 from django.utils import timezone
 
 class EventCategory(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='event_categories')
+    name = models.CharField(max_length=50)
     color = models.CharField(max_length=7)
     icon = models.CharField(max_length=50, blank=True)
     is_locked = models.BooleanField(default=False)
 
     class Meta:
         verbose_name_plural = 'Event Categories'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'name'], name='unique_event_category_per_user'),
+        ]
     
     def __str__(self):
         return self.name
 
 class CustomHoliday(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='custom_holidays')
     date = models.DateField()
     group_id = models.CharField(max_length=50, blank=True, null=True, help_text="Group UUID for multi-day holidays")
     description = models.CharField(max_length=255, blank=True, null=True)
@@ -40,6 +45,7 @@ class Event(models.Model):
         ('hybrid', 'Hybrid'),
     ]
 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='events')
     name = models.CharField(max_length=255)
     date = models.DateField()
     start_time = models.CharField(max_length=20) 
@@ -81,6 +87,7 @@ class UserSettings(models.Model):
         ('auto', 'Auto'),
     ]
     
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='availability_settings_profile')
     work_start_time = models.TimeField(default='09:00:00')
     work_end_time = models.TimeField(default='17:00:00')
     work_time_ranges = models.JSONField(default=list, blank=True, help_text="List of time ranges [{start: 'HH:MM:SS', end: 'HH:MM:SS'}]. Overrides work_start_time/work_end_time when non-empty.")
@@ -117,6 +124,7 @@ class ConflictAlert(models.Model):
         return f"Conflict: {self.event1.name} vs {self.event2.name}"
 
 class ShareLink(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='share_links')
     uuid = models.CharField(max_length=36, unique=True)
     title = models.CharField(max_length=255)
     duration_days = models.IntegerField(default=7)
@@ -152,16 +160,28 @@ class PublicBooking(models.Model):
         return f"{self.name} booking on {self.date} {self.start_time}-{self.end_time}"
 
 class AvailabilityOverride(models.Model):
-    date = models.DateField(unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='availability_overrides')
+    date = models.DateField()
     availability_text = models.CharField(max_length=500)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'date'], name='unique_availability_override_per_user'),
+        ]
 
     def __str__(self):
         return f"Override {self.date}: {self.availability_text}"
 
 class AvailabilitySetting(models.Model):
-    key = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='availability_key_settings')
+    key = models.CharField(max_length=100)
     value = models.CharField(max_length=255)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'key'], name='unique_availability_setting_per_user'),
+        ]
     
     def __str__(self):
         return f"{self.key}: {self.value}"

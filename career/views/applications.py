@@ -17,6 +17,9 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     queryset = Application.objects.all()
     serializer_class = ApplicationSerializer
 
+    def get_queryset(self):
+        return Application.objects.filter(user=self.request.user).select_related('company')
+
     def perform_update(self, serializer):
         instance = serializer.save()
         if instance.status == 'OFFER' and not hasattr(instance, 'offer'):
@@ -43,7 +46,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = Application.objects.filter(is_locked=False).delete()
+        count, _ = self.get_queryset().filter(is_locked=False).delete()
         return Response(
             {'message': f'Deleted {count} applications. Locked applications were preserved.'},
             status=status.HTTP_200_OK,
@@ -60,7 +63,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         jd_text = request.data.get('jd_text', '')
         try:
             from ..llm_matcher import generate_cover_letter as llm_generate_cover_letter
-            cover_letter = llm_generate_cover_letter(application, jd_text)
+            cover_letter = llm_generate_cover_letter(application, jd_text, request.user)
             return Response({'cover_letter': cover_letter})
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -88,8 +91,9 @@ class ImportApplicationsView(APIView):
                 role_title = row.get('role', row.get('Role', 'Unknown Role'))
                 status_val = row.get('status', row.get('Status', 'APPLIED')).upper()
 
-                company, _ = Company.objects.get_or_create(name=company_name)
+                company, _ = Company.objects.get_or_create(user=request.user, name=company_name)
                 Application.objects.create(
+                    user=request.user,
                     company=company,
                     role_title=role_title,
                     status=status_val,
