@@ -17,11 +17,11 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 - [Author](#-author)
 
 ## 🌟 Overview
-The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and AI-powered career tools—all exposed through a clean RESTful API.
+The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and the secure data APIs consumed by the frontend's browser-side AI tools.
 
 **Key Capabilities:**
 - 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
-- 🤖 **AI Suite**: LLM-powered JD matching, cover letter generation, and offer negotiation advice (Gemini/OpenAI-compatible)
+- 🤖 **Browser-Side AI Support**: Frontend BYOK flows pull context from standard APIs and call the user's configured AI provider directly
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
@@ -45,34 +45,16 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
-- **Negotiation Advice**: AI-powered negotiation strategy using the marked current role as baseline (see AI Suite)
+- **Negotiation Context API**: Offer and Application data power the frontend's browser-side negotiation advisor
 
-### 🤖 AI Suite
+### 🤖 Frontend BYOK AI
 
-> All AI features share a single LLM provider config (`LLM_API_URL`, `LLM_API_KEY`, `LLM_MODEL`) in `.env`.
-> Default provider: **Google Gemini** via OpenAI-compatible endpoint.
+> AI provider configuration now lives in the frontend Settings page and is stored locally in the browser.
 
-#### JD Matcher (`POST /api/career/match-jd/`)
-- Evaluates a job description against the candidate's full Experience profile
-- Returns: match score (0–100), executive summary, matched skills, missing skills, actionable recommendations
-- Implemented in `career/llm_matcher.py` → `generate_jd_match_evaluation()`
-
-#### Cover Letter Generator (`POST /api/career/applications/{id}/generate-cover-letter/`)
-- Generates a tailored, 3–4 paragraph cover letter for a specific application
-- Accepts optional `jd_text` for a more targeted letter; falls back to role/company context only
-- Pulls candidate's full Experience as background context
-- Implemented in `career/llm_matcher.py` → `generate_cover_letter()`
-
-#### Offer Negotiation Advisor (`POST /api/career/offers/{id}/negotiation-advice/`)
-- Analyzes the target offer against the marked current/baseline offer and candidate experience
-- Returns: `talking_points` (ready-to-use scripts), `leverage_points` (your strengths), `caution_points` (risks), `suggested_ask` (concrete counter numbers with rationale)
-- Implemented in `career/llm_matcher.py` → `generate_negotiation_advice()`
-
-#### Analytics NL Query Engine (`POST /api/analytics/query/`)
-- Accepts free-text queries like "how many rejections this month?" or "events by category"
-- First tries fast regex/DB pattern matching; falls back to LLM with a DB summary snapshot for unrecognized queries
-- Returns `{type: "metric", value, unit}` or `{type: "chart", data, chartType}` — consumed directly by frontend widgets
-- Implemented in `analytics/custom_widgets.py`
+- **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and calls the user's configured OpenAI-compatible provider directly
+- **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and sends it straight to the user's configured provider
+- **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context for browser-side negotiation generation
+- **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries fall back to the user's configured provider using a frontend-built summary snapshot
 
 #### Skill Extraction (NLP, background)
 - Extracts skills from Experience descriptions using NLTK + spaCy
@@ -142,10 +124,11 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### Core Framework
 - **Django 5.x** - Python web framework
 - **Django REST Framework** - Toolkit for building RESTful APIs
-- **SQLite** - Default database (easily swappable to PostgreSQL/MySQL)
+- **PostgreSQL** - Primary production database via `DATABASE_URL`
+- **SQLite** - Local fallback when `DATABASE_URL` is unset
 
 ### AI / NLP
-- **Google Gemini** (via OpenAI-compatible API) - JD matching, cover letter generation, negotiation advice
+- **User-provided OpenAI-compatible provider** - Browser-side BYOK for JD matching, cover letters, negotiation advice, and analytics widget fallback
 - **NLTK + spaCy** - Skill extraction from free-text experience descriptions
 
 ### Distributed Systems
@@ -192,6 +175,7 @@ docker compose logs -f api
 Services started:
 | Service | Port | Description |
 |---|---|---|
+| Postgres | 5432 | Primary application database |
 | Redis | 6379 | Cache, broker, channel layer |
 | api (Daphne) | 8000 | Django HTTP + WebSocket |
 | worker | — | Celery task worker |
@@ -207,6 +191,7 @@ WebSocket: `ws://localhost:8000/ws/conflicts/`
 #### Prerequisites
 - Python 3.8+
 - Redis running on `localhost:6379`
+- PostgreSQL running locally if you set `DATABASE_URL` (otherwise the app falls back to SQLite)
 
 #### Installation
 
@@ -221,22 +206,30 @@ WebSocket: `ws://localhost:8000/ws/conflicts/`
    pip install -r requirements.docker.txt
    ```
 
-3. **Run Migrations**
+3. **Choose a database**
+   ```bash
+   # PostgreSQL example
+   export DATABASE_URL=postgresql://careerhub:careerhub@localhost:5432/careerhub
+
+   # Or leave DATABASE_URL unset to keep using api/db.sqlite3 locally
+   ```
+
+4. **Run Migrations**
    ```bash
    python manage.py migrate
    ```
 
-4. **Start Daphne (ASGI — HTTP + WebSocket)**
+5. **Start Daphne (ASGI — HTTP + WebSocket)**
    ```bash
    daphne -b 0.0.0.0 -p 8000 config.asgi:application
    ```
 
-5. **Start Celery Worker** (new terminal)
+6. **Start Celery Worker** (new terminal)
    ```bash
    celery -A config worker --loglevel=info
    ```
 
-6. **Start Celery Beat** (new terminal)
+7. **Start Celery Beat** (new terminal)
    ```bash
    celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
    ```
@@ -249,7 +242,7 @@ All Docker files live in `api/`:
 ```
 api/
 ├── Dockerfile            # Multi-stage build (builder + final)
-├── docker-compose.yml    # 4 services: redis, api, worker, beat
+├── docker-compose.yml    # 5 services: postgres, redis, api, worker, beat
 ├── media/                # Uploaded files (bind-mounted into container at /app/media — persists on host)
 ├── .env                  # Local secrets (git-ignored)
 ├── .env.example          # Template — commit this, not .env
@@ -266,18 +259,17 @@ api/
 | `SECRET_KEY` | dev key | Django secret key |
 | `DEBUG` | `True` | Debug mode |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
+| `DATABASE_URL` | unset | PostgreSQL connection string; when unset Django falls back to `db.sqlite3` |
+| `DB_CONN_MAX_AGE` | `60` | Django persistent DB connection lifetime in seconds |
 | `REDIS_HOST` | `localhost` | Overridden to `redis` by Compose |
 | `REDIS_PORT` | `6379` | Redis port |
-| `LLM_API_KEY` | — | **Required for all AI features.** Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey). |
-| `LLM_API_URL` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | OpenAI-compatible endpoint. Swap for any compatible provider. |
-| `LLM_MODEL` | `gemini-2.0-flash` | Model name passed to the API. |
 
-### 🤖 Configuring the AI API Key
-All AI features (JD Matcher, Cover Letter Generator, Negotiation Advisor, Analytics fallback) share the same LLM config:
-1. Copy `.env.example` → `.env` in the `api/` directory.
-2. Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
-3. Set `LLM_API_KEY=your-actual-api-key-here` in `.env`.
-4. Restart containers or your local server.
+### 🤖 Configuring AI for the Current App
+Current AI features are configured in the frontend, not in `api/.env`:
+1. Open the app and go to `Settings` → `AI Provider`.
+2. Enter an OpenAI-compatible endpoint, model, and your own API key.
+3. Save the provider locally in the browser.
+4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
 
 ### Migration Workflow
@@ -318,31 +310,28 @@ api/
 │   ├── models.py             # Company, Application, Offer, Document, Task, Experience models
 │   ├── serializers.py        # DRF serializers with auto company creation, skill extraction, and Experience export payloads
 │   ├── views/                # API ViewSets (package)
-│   │   ├── applications.py   # ApplicationViewSet + cover letter action
-│   │   ├── offers.py         # OfferViewSet + negotiation advice action
+│   │   ├── applications.py   # ApplicationViewSet + import/export helpers
+│   │   ├── offers.py         # OfferViewSet
 │   │   ├── documents.py      # DocumentViewSet with versioning
-│   │   ├── experiences.py    # ExperienceViewSet + MatchJDView + Experience import/export helpers
+│   │   ├── experiences.py    # ExperienceViewSet + Experience import/export helpers
 │   │   ├── tasks.py          # TaskViewSet with reorder action
 │   │   ├── companies.py      # CompanyViewSet
 │   │   └── reference.py      # ReferenceDataView, RentEstimateView, WeeklyReviewView
-│   ├── llm_matcher.py        # All LLM functions (JD match, cover letter, negotiation)
 │   ├── skills_extractor.py   # NLTK + spaCy skill extraction
 │   ├── services/             # Business logic (reference data, rent, weekly review)
 │   ├── tasks.py              # Celery task: auto_ghost_stale_applications
 │   └── urls.py               # URL routing
 │
-├── analytics/                # Custom widget query engine
-│   ├── custom_widgets.py     # Regex + LLM-fallback NL query processor (Redis-cached)
-│   ├── signals.py            # Cache bust on Event/Application change
-│   └── tests.py              # Widget + cache test suite
+├── analytics/                # Analytics app support
+│   └── signals.py            # Cache bust on Event/Application change
 │
 ├── config/                   # Django project settings
-│   ├── settings.py           # Configuration (Redis, Celery, Channels, CORS)
+│   ├── settings.py           # Configuration (security, PostgreSQL/SQLite, Redis, Celery, Channels, CORS)
 │   ├── asgi.py               # ASGI app (HTTP + WebSocket via Daphne)
 │   └── urls.py               # Root URL configuration
 │
 ├── celery_app.py             # Celery app definition
-├── db.sqlite3                # SQLite database (auto-created, not committed)
+├── db.sqlite3                # Local SQLite fallback database (optional, not committed)
 ├── manage.py                 # Django management script
 ├── requirements.docker.txt   # Minimal Docker dependencies
 └── docker-compose.yml        # Multi-service Docker Compose config
@@ -363,7 +352,6 @@ Base prefix: `/api/career/`
 - `DELETE /api/career/applications/delete_all/` — Delete all unlocked applications
 - `POST /api/career/import/` — Bulk import from CSV/XLSX
 - `GET /api/career/applications/export/?fmt=csv` — Export applications (csv/json/xlsx)
-- `POST /api/career/applications/{id}/generate-cover-letter/` — **AI: Generate tailored cover letter** (`{jd_text?: string}`)
 
 #### Offers
 - `GET /api/career/offers/` — List all offers
@@ -371,7 +359,6 @@ Base prefix: `/api/career/`
 - `GET /api/career/offers/{id}/` — Retrieve offer details
 - `PUT /api/career/offers/{id}/` — Update offer
 - `DELETE /api/career/offers/{id}/` — Delete offer
-- `POST /api/career/offers/{id}/negotiation-advice/` — **AI: Get negotiation strategy** (uses current offer as baseline)
 
 #### Experience
 - `GET /api/career/experiences/` — List all experience entries
@@ -384,7 +371,6 @@ Base prefix: `/api/career/`
 - `POST /api/career/experiences/import/` — Import experiences from JSON/CSV/XLSX, including linked offer/application snapshots when present
 - `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field)
 - `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
-- `POST /api/career/match-jd/` — **AI: Evaluate job description** against full experience profile (`{text: string}`)
 
 #### Companies
 - `GET /api/career/companies/` — List all companies
@@ -409,12 +395,6 @@ Base prefix: `/api/career/`
 - `GET /api/career/reference-data/` — Tax/COL/marital-status reference payload
 - `GET /api/career/rent-estimate/?city=San+Jose,+CA,+United+States` — Rent estimate (HUD/fallback)
 - `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` — Weekly summary
-
-### Analytics Endpoints
-
-- `POST /api/analytics/query/` — Natural language widget query (`{query: string, context: "job-hunt"|"availability"}`)
-  - Returns `{type: "metric", value, unit}` or `{type: "chart", data, chartType}`
-  - Regex-matched queries are served from Redis cache; unrecognized queries fall back to LLM
 
 ### Availability Endpoints
 
