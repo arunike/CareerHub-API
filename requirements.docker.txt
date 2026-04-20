@@ -14,6 +14,7 @@ django-celery-beat==2.9.0
 redis==7.3.0
 
 # Utilities
+cryptography>=42,<45
 pytz==2024.1
 python-dotenv==1.0.1
 holidays==0.89

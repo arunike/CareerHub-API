@@ -1,4 +1,4 @@
-from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 
 
 class PublicBookingSlotsThrottle(SimpleRateThrottle):
@@ -21,3 +21,7 @@ class PublicBookingCreateThrottle(SimpleRateThrottle):
             "scope": self.scope,
             "ident": self.get_ident(request),
         }
+
+
+class AIProviderRelayThrottle(UserRateThrottle):
+    scope = "ai_provider_relay"

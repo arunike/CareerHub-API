@@ -1,14 +1,14 @@
+# Local development only. Do not use this Compose file as an internet-facing deployment template.
+name: careerhub-dev
+
 services:
   # PostgreSQL
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: careerhub
-      POSTGRES_USER: careerhub
-      POSTGRES_PASSWORD: careerhub
+    env_file: .env.development
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -37,12 +37,13 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput &&
              daphne -b 0.0.0.0 -p 8000 config.asgi:application"
-    env_file: .env
+    env_file: .env.development
     environment:
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - DATABASE_URL=postgresql://careerhub:careerhub@postgres:5432/careerhub
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
       - .:/app
       - ./media:/app/media
@@ -58,10 +59,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: celery -A config worker --loglevel=info --concurrency=2
-    env_file: .env
+    command: >
+      sh -c "celery -A config worker --loglevel=info --concurrency=2"
+    env_file: .env.development
     environment:
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - DATABASE_URL=postgresql://careerhub:careerhub@postgres:5432/careerhub
     volumes:
       - .:/app
@@ -78,11 +81,12 @@ services:
       context: .
       dockerfile: Dockerfile
     command: >
-      celery -A config beat --loglevel=info
-             --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    env_file: .env
+      sh -c "celery -A config beat --loglevel=info
+             --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    env_file: .env.development
     environment:
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - DATABASE_URL=postgresql://careerhub:careerhub@postgres:5432/careerhub
     volumes:
       - .:/app

@@ -19,6 +19,19 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+SUPPORTED_ENVIRONMENTS = {"development", "production", "test"}
+
+
+def get_environment_name():
+    value = os.environ.get("DJANGO_ENV")
+    if value is not None:
+        normalized = value.strip().lower()
+        return normalized or "development"
+
+    return "development" if (BASE_DIR / ".env.development").exists() else "production"
+
 
 def env_bool(name, default=False):
     value = os.environ.get(name)
@@ -89,30 +102,39 @@ def database_config_from_url():
 
     return database_config
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+
+ENVIRONMENT = get_environment_name()
+if ENVIRONMENT not in SUPPORTED_ENVIRONMENTS:
+    supported = ", ".join(sorted(SUPPORTED_ENVIRONMENTS))
+    raise ImproperlyConfigured(
+        f"DJANGO_ENV must be one of: {supported}. Got {ENVIRONMENT!r}."
+    )
+
+load_dotenv(BASE_DIR / f".env.{ENVIRONMENT}")
+IS_PRODUCTION = ENVIRONMENT == "production"
+IS_TEST = ENVIRONMENT == "test"
+IS_DEVELOPMENT = not IS_PRODUCTION
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-DEBUG = env_bool("DEBUG", False)
+DEBUG = env_bool("DEBUG", IS_DEVELOPMENT)
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
-    if DEBUG:
+    if IS_DEVELOPMENT:
         SECRET_KEY = "django-insecure-local-dev-only"
     else:
         raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG=False.")
 
-if not DEBUG and secret_key_is_weak(SECRET_KEY):
+if IS_PRODUCTION and secret_key_is_weak(SECRET_KEY):
     raise ImproperlyConfigured(
         "SECRET_KEY must be a strong random value when DEBUG=False."
     )
 
-DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1" if DEBUG else ""
+DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1" if IS_DEVELOPMENT else ""
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("ALLOWED_HOSTS must include your deployed hostnames.")
@@ -148,7 +170,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-DEFAULT_FRONTEND_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173" if DEBUG else ""
+DEFAULT_FRONTEND_ORIGINS = (
+    "http://localhost:5173,http://127.0.0.1:5173" if IS_DEVELOPMENT else ""
+)
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", DEFAULT_FRONTEND_ORIGINS)
 CORS_ALLOW_CREDENTIALS = True
@@ -231,6 +255,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login": os.environ.get("DRF_LOGIN_RATE", "5/minute"),
         "signup": os.environ.get("DRF_SIGNUP_RATE", "3/hour"),
+        "ai_provider_relay": os.environ.get("DRF_AI_PROVIDER_RELAY_RATE", "20/hour"),
     },
 }
 
@@ -260,18 +285,29 @@ MAX_IMPORT_ROWS = max(1, int(os.environ.get("MAX_IMPORT_ROWS", "1000")))
 ENABLE_ADMIN = env_bool("ENABLE_ADMIN", False)
 ADMIN_URL = os.environ.get("ADMIN_URL", "admin/")
 
-SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
-CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", IS_PRODUCTION)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", IS_PRODUCTION)
 SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax")
-SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", IS_PRODUCTION)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0" if DEBUG else "31536000"))
+SECURE_HSTS_SECONDS = int(
+    os.environ.get("SECURE_HSTS_SECONDS", "31536000" if IS_PRODUCTION else "0")
+)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", False)
 SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", False)
 SECURE_CONTENT_TYPE_NOSNIFF = env_bool("SECURE_CONTENT_TYPE_NOSNIFF", True)
 SECURE_REFERRER_POLICY = os.environ.get("SECURE_REFERRER_POLICY", "same-origin")
 X_FRAME_OPTIONS = os.environ.get("X_FRAME_OPTIONS", "DENY")
+AI_PROVIDER_ENCRYPTION_KEY = os.environ.get("AI_PROVIDER_ENCRYPTION_KEY", SECRET_KEY)
+AI_PROVIDER_ALLOWED_HOSTS = env_list("AI_PROVIDER_ALLOWED_HOSTS", "")
+AI_PROVIDER_REQUIRE_HTTPS = env_bool("AI_PROVIDER_REQUIRE_HTTPS", IS_PRODUCTION)
+AI_PROVIDER_RESTRICT_PRIVATE_NETWORKS = env_bool(
+    "AI_PROVIDER_RESTRICT_PRIVATE_NETWORKS", IS_PRODUCTION
+)
+AI_PROVIDER_REQUEST_TIMEOUT_SECONDS = int(
+    os.environ.get("AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", "30")
+)
 
 # ---------------------------------------------------------------------------
 # Redis
@@ -283,31 +319,45 @@ REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 # Cache TTL used across the project (in seconds)
 CACHE_TTL = 300  # 5 minutes
 
-# Django cache backend — Redis db=1
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_URL}/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "TIMEOUT": CACHE_TTL,
-        # Use in-memory cache during Django test runs so Redis is not required
-        "TEST": {
+if IS_TEST:
+    CACHES = {
+        "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        },
+            "LOCATION": "careerhub-test-cache",
+            "TIMEOUT": CACHE_TTL,
+        }
     }
-}
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+else:
+    # Django cache backend — Redis db=1
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": f"{REDIS_URL}/1",
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "TIMEOUT": CACHE_TTL,
+            # Use in-memory cache during Django test runs so Redis is not required
+            "TEST": {
+                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            },
+        }
+    }
 
-# Django Channels — Redis channel layer, db=2
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(REDIS_HOST, REDIS_PORT)],
-        },
+    # Django Channels — Redis channel layer, db=2
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(REDIS_HOST, REDIS_PORT)],
+            },
+        }
     }
-}
 
 # ---------------------------------------------------------------------------
 # Celery

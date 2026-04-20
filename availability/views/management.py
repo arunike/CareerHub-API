@@ -13,14 +13,17 @@ from rest_framework.response import Response
 from career.models import Application
 from career.serializers import ApplicationExportSerializer
 
+from ..ai_provider import AIProviderConfigurationError, AIProviderRequestError, relay_ai_provider_chat_completion
 from ..models import ConflictAlert, CustomHoliday, Event, EventCategory, UserSettings
 from ..serializers import (
+    AIProviderChatCompletionRequestSerializer,
     ConflictAlertSerializer,
     CustomHolidaySerializer,
     EventCategorySerializer,
     EventSerializer,
     UserSettingsSerializer,
 )
+from ..throttling import AIProviderRelayThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +157,30 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
         response = HttpResponse(buffer.getvalue(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="availability_manager_backup_{timestamp}.zip"'
         return response
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='ai-provider/chat-completions',
+        throttle_classes=[AIProviderRelayThrottle],
+    )
+    def ai_provider_chat_completions(self, request):
+        user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+        serializer = AIProviderChatCompletionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            payload = relay_ai_provider_chat_completion(
+                user_settings=user_settings,
+                messages=serializer.validated_data['messages'],
+                temperature=serializer.validated_data.get('temperature', 0.2),
+            )
+        except AIProviderConfigurationError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except AIProviderRequestError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response(payload)
 
 
 class ConflictAlertViewSet(viewsets.ModelViewSet):

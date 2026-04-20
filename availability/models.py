@@ -2,6 +2,14 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from .ai_provider import (
+    DEFAULT_AI_PROVIDER_ENDPOINT,
+    DEFAULT_AI_PROVIDER_MODEL,
+    decrypt_ai_provider_secret,
+    encrypt_ai_provider_secret,
+    mask_ai_provider_secret,
+)
+
 class EventCategory(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='event_categories')
     name = models.CharField(max_length=50)
@@ -104,6 +112,23 @@ class UserSettings(models.Model):
     employment_types = models.JSONField(default=list, blank=True, help_text="Custom employment type definitions [{value, label, color}]")
     holiday_tabs = models.JSONField(default=list, blank=True, help_text="User-defined holiday tab definitions [{id, name}]")
     hidden_nav_items = models.JSONField(default=list, blank=True, help_text="List of nav route keys to hide from sidebar")
+    ai_provider_endpoint = models.URLField(
+        max_length=500,
+        blank=True,
+        default=DEFAULT_AI_PROVIDER_ENDPOINT,
+        help_text="Stored AI provider endpoint for the authenticated user's BYOK configuration.",
+    )
+    ai_provider_model = models.CharField(
+        max_length=255,
+        blank=True,
+        default=DEFAULT_AI_PROVIDER_MODEL,
+        help_text="Stored AI provider model name for the authenticated user's BYOK configuration.",
+    )
+    ai_provider_api_key_encrypted = models.TextField(
+        blank=True,
+        default="",
+        help_text="Encrypted AI provider API key for the authenticated user.",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -113,6 +138,26 @@ class UserSettings(models.Model):
     
     def __str__(self):
         return f"Settings (Updated: {self.updated_at})"
+
+    def set_ai_provider_api_key(self, value):
+        self.ai_provider_api_key_encrypted = encrypt_ai_provider_secret(value)
+
+    def clear_ai_provider_api_key(self):
+        self.ai_provider_api_key_encrypted = ""
+
+    def get_ai_provider_api_key(self):
+        return decrypt_ai_provider_secret(self.ai_provider_api_key_encrypted)
+
+    def has_ai_provider_api_key(self):
+        return bool(self.ai_provider_api_key_encrypted)
+
+    def get_ai_provider_api_key_masked(self):
+        if not self.ai_provider_api_key_encrypted:
+            return ""
+        try:
+            return mask_ai_provider_secret(self.get_ai_provider_api_key())
+        except Exception:
+            return "Saved key"
 
 class ConflictAlert(models.Model):
     event1 = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='conflicts_as_event1')
