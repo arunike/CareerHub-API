@@ -17,17 +17,17 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 - [Author](#-author)
 
 ## 🌟 Overview
-The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and the secure data APIs consumed by the frontend's browser-side AI tools.
+The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and the secure data APIs consumed by the frontend's AI tools.
 
 **Key Capabilities:**
 - 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
-- 🤖 **Browser-Side AI Support**: Frontend BYOK flows pull context from standard APIs and call the user's configured AI provider directly
+- 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and requests are relayed server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
 - ⚡ **Redis-Powered**: Caching, rate limiting, real-time WebSocket alerts, and async task queue
-- 🐳 **Docker Ready**: One-command startup with Docker Compose
+- 🐳 **Docker Ready (Local Dev)**: One-command local startup with Docker Compose bound to localhost
 
 ## ✨ Features
 
@@ -45,16 +45,16 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
-- **Negotiation Context API**: Offer and Application data power the frontend's browser-side negotiation advisor
+- **Negotiation Context API**: Offer and Application data power the frontend negotiation advisor and backend relay flow
 
 ### 🤖 Frontend BYOK AI
 
-> AI provider configuration now lives in the frontend Settings page and is stored locally in the browser.
+> AI provider configuration now lives in the frontend Settings page, while the API key is stored encrypted on the backend.
 
-- **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and calls the user's configured OpenAI-compatible provider directly
-- **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and sends it straight to the user's configured provider
-- **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context for browser-side negotiation generation
-- **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries fall back to the user's configured provider using a frontend-built summary snapshot
+- **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and sends it through the authenticated backend relay
+- **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and routes provider requests through the encrypted backend relay
+- **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
+- **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
 
 #### Skill Extraction (NLP, background)
 - Extracts skills from Experience descriptions using NLTK + spaCy
@@ -148,7 +148,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **holidays** - Federal holiday detection library
 
 ### Infrastructure
-- **Docker + Docker Compose** - Containerised local development and deployment
+- **Docker + Docker Compose** - Containerised local development only
 
 ## 🚀 Getting Started
 
@@ -158,6 +158,7 @@ Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ```bash
 cd api
+cp .env.development.example .env.development
 
 # First time — build images and start all services
 docker compose up --build
@@ -171,6 +172,8 @@ docker compose down
 # Stream logs
 docker compose logs -f api
 ```
+
+> `docker-compose.yml` is for local development only. It binds Postgres, Redis, and the API to `127.0.0.1`, reads container env from `.env.development`, manages its own local Postgres volume, and is not an internet-facing deployment template.
 
 Services started:
 | Service | Port | Description |
@@ -206,30 +209,35 @@ WebSocket: `ws://localhost:8000/ws/conflicts/`
    pip install -r requirements.docker.txt
    ```
 
-3. **Choose a database**
+3. **Create your local env file**
    ```bash
-   # PostgreSQL example
-   export DATABASE_URL=postgresql://careerhub:careerhub@localhost:5432/careerhub
-
-   # Or leave DATABASE_URL unset to keep using api/db.sqlite3 locally
+   cp .env.development.example .env.development
    ```
 
-4. **Run Migrations**
+4. **Choose a database**
+   ```bash
+   # Edit .env.development for local PostgreSQL
+   DATABASE_URL=postgresql://careerhub:careerhub@localhost:5432/careerhub
+
+   # Or remove DATABASE_URL from .env.development to keep using api/db.sqlite3 locally
+   ```
+
+5. **Run Migrations**
    ```bash
    python manage.py migrate
    ```
 
-5. **Start Daphne (ASGI — HTTP + WebSocket)**
+6. **Start Daphne (ASGI — HTTP + WebSocket)**
    ```bash
    daphne -b 0.0.0.0 -p 8000 config.asgi:application
    ```
 
-6. **Start Celery Worker** (new terminal)
+7. **Start Celery Worker** (new terminal)
    ```bash
    celery -A config worker --loglevel=info
    ```
 
-7. **Start Celery Beat** (new terminal)
+8. **Start Celery Beat** (new terminal)
    ```bash
    celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
    ```
@@ -242,33 +250,41 @@ All Docker files live in `api/`:
 ```
 api/
 ├── Dockerfile            # Multi-stage build (builder + final)
-├── docker-compose.yml    # 5 services: postgres, redis, api, worker, beat
+├── docker-compose.yml    # Local-development-only services: postgres, redis, api, worker, beat
 ├── media/                # Uploaded files (bind-mounted into container at /app/media — persists on host)
-├── .env                  # Local secrets (git-ignored)
-├── .env.example          # Template — commit this, not .env
+├── .env                  # Pointer file explaining the split env setup
+├── .env.development      # Local development secrets (git-ignored)
+├── .env.development.example
+├── .env.production.example
+├── .env.example          # Quick start note for the split env workflow
 ├── .dockerignore         # Excludes venv, db, media, etc.
 └── requirements.docker.txt  # Clean minimal dependency list
 ```
 
 > **Media persistence**: uploaded files (e.g. experience logos) are stored in `api/media/` on the host via a bind mount (`./media:/app/media`). Files survive container restarts and rebuilds — no data is stored in Docker named volumes.
 
-### Environment Variables (`.env`)
+### Environment Modes
 
-| Variable | Default | Description |
-|---|---|---|
-| `SECRET_KEY` | dev key | Django secret key |
-| `DEBUG` | `True` | Debug mode |
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hosts |
-| `DATABASE_URL` | unset | PostgreSQL connection string; when unset Django falls back to `db.sqlite3` |
-| `DB_CONN_MAX_AGE` | `60` | Django persistent DB connection lifetime in seconds |
-| `REDIS_HOST` | `localhost` | Overridden to `redis` by Compose |
-| `REDIS_PORT` | `6379` | Redis port |
+CareerHub now uses explicit environment files instead of a single mixed `.env`:
+
+- `.env.development` — local development settings; secure cookies, SSL redirect, and HSTS stay off
+- `.env.production` — production-only settings if you use a file-based deploy target; secure cookies, SSL redirect, and HSTS should be on
+- platform-managed environment variables — preferred for hosted production deployments
+
+Key production flags:
+
+| Variable | Production Value |
+|---|---|
+| `SESSION_COOKIE_SECURE` | `True` |
+| `CSRF_COOKIE_SECURE` | `True` |
+| `SECURE_SSL_REDIRECT` | `True` |
+| `SECURE_HSTS_SECONDS` | `31536000` |
 
 ### 🤖 Configuring AI for the Current App
-Current AI features are configured in the frontend, not in `api/.env`:
+Current AI features are configured in the frontend, with the provider key stored encrypted on the backend:
 1. Open the app and go to `Settings` → `AI Provider`.
 2. Enter an OpenAI-compatible endpoint, model, and your own API key.
-3. Save the provider locally in the browser.
+3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
 
@@ -301,6 +317,7 @@ api/
 │   ├── consumers.py          # WebSocket ConflictAlertConsumer
 │   ├── throttling.py         # Redis rate-limit throttle classes
 │   ├── tasks.py              # Celery tasks (expire links, clear cache)
+│   ├── ai_provider.py        # Encryption helpers and authenticated provider relay
 │   ├── signals.py            # Cache invalidation signals
 │   ├── routing.py            # WebSocket URL routing
 │   ├── migrations/           # Database migrations (0001–0023)
@@ -326,7 +343,7 @@ api/
 │   └── signals.py            # Cache bust on Event/Application change
 │
 ├── config/                   # Django project settings
-│   ├── settings.py           # Configuration (security, PostgreSQL/SQLite, Redis, Celery, Channels, CORS)
+│   ├── settings.py           # Configuration (security, environment modes, PostgreSQL/SQLite, Redis, Celery, Channels, CORS)
 │   ├── asgi.py               # ASGI app (HTTP + WebSocket via Daphne)
 │   └── urls.py               # Root URL configuration
 │
@@ -334,7 +351,7 @@ api/
 ├── db.sqlite3                # Local SQLite fallback database (optional, not committed)
 ├── manage.py                 # Django management script
 ├── requirements.docker.txt   # Minimal Docker dependencies
-└── docker-compose.yml        # Multi-service Docker Compose config
+└── docker-compose.yml        # Local-development-only Docker Compose config
 ```
 
 ## 📡 API Documentation
