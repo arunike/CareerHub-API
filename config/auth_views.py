@@ -186,13 +186,25 @@ class AuthSignupView(APIView):
                 user.last_name = last_name
             user.save()
 
-        login(request, user)
-        claim_legacy_records_for_user(user)
         ensure_user_settings(user)
+        if settings.AUTO_LOGIN_AFTER_SIGNUP:
+            login(request, user)
+            claim_legacy_records_for_user(user)
+            return Response(
+                {
+                    "user": _serialize_user(user),
+                    "mode": "public",
+                    "authenticated": True,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
         return Response(
             {
-                "user": _serialize_user(user),
                 "mode": "public",
+                "authenticated": False,
+                "requires_login": True,
+                "message": "Account created. Sign in to continue.",
             },
             status=status.HTTP_201_CREATED,
         )

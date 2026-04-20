@@ -102,6 +102,7 @@ django-cors-headers==4.3.1
 django-filter==24.1
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
+psycopg[binary]==3.2.1
 dnspython==2.6.1
 docstring-to-markdown @ file:///Users/cbousseau/work/recipes/ci_py311/docstring-to-markdown_1677931891483/work
 docutils @ file:///Users/cbousseau/work/recipes/ci_py311/docutils_1677907269557/work

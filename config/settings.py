@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+from urllib.parse import parse_qsl, unquote, urlparse
 
 """
 Django settings for availability_project project.
@@ -16,6 +17,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 
 def env_bool(name, default=False):
@@ -29,8 +31,67 @@ def env_list(name, default=""):
     raw_value = os.environ.get(name, default)
     return [item.strip() for item in raw_value.split(",") if item.strip()]
 
+
+def secret_key_is_weak(value):
+    if not value:
+        return True
+
+    secret = value.strip()
+    if secret.startswith("django-insecure") or secret.startswith("replace-me"):
+        return True
+
+    if len(secret) < 50:
+        return True
+
+    return len(set(secret)) < 5
+
+
+def default_sqlite_database():
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+
+
+def database_config_from_url():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        return default_sqlite_database()
+
+    parsed = urlparse(database_url)
+    scheme = parsed.scheme.split("+", 1)[0].lower()
+    if scheme not in {"postgres", "postgresql"}:
+        raise ImproperlyConfigured(
+            "DATABASE_URL must use a PostgreSQL scheme such as postgres:// or postgresql://."
+        )
+
+    database_name = unquote(parsed.path.lstrip("/"))
+    if not database_name:
+        raise ImproperlyConfigured("DATABASE_URL must include a database name.")
+
+    query_options = {
+        key: value for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+    }
+
+    database_config = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": database_name,
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "",
+        "PORT": str(parsed.port or ""),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+        "CONN_HEALTH_CHECKS": env_bool("DB_CONN_HEALTH_CHECKS", True),
+    }
+
+    if query_options:
+        database_config["OPTIONS"] = query_options
+
+    return database_config
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -45,6 +106,11 @@ if not SECRET_KEY:
         SECRET_KEY = "django-insecure-local-dev-only"
     else:
         raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG=False.")
+
+if not DEBUG and secret_key_is_weak(SECRET_KEY):
+    raise ImproperlyConfigured(
+        "SECRET_KEY must be a strong random value when DEBUG=False."
+    )
 
 DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1" if DEBUG else ""
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
@@ -111,12 +177,7 @@ ASGI_APPLICATION = "config.asgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASES = {"default": database_config_from_url()}
 
 
 # Password validation
@@ -173,13 +234,30 @@ REST_FRAMEWORK = {
     },
 }
 
-ALLOW_PUBLIC_SIGNUP = env_bool("ALLOW_PUBLIC_SIGNUP", True)
+ALLOW_PUBLIC_SIGNUP = env_bool("ALLOW_PUBLIC_SIGNUP", False)
+AUTO_LOGIN_AFTER_SIGNUP = env_bool("AUTO_LOGIN_AFTER_SIGNUP", False)
 
 # Media configuration for file uploads
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.environ.get("DATA_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024))
+)
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(
+    os.environ.get("FILE_UPLOAD_MAX_MEMORY_SIZE", str(2_621_440))
+)
+MAX_DOCUMENT_UPLOAD_BYTES = int(
+    os.environ.get("MAX_DOCUMENT_UPLOAD_BYTES", str(10 * 1024 * 1024))
+)
+MAX_LOGO_UPLOAD_BYTES = int(
+    os.environ.get("MAX_LOGO_UPLOAD_BYTES", str(5 * 1024 * 1024))
+)
+MAX_IMPORT_FILE_BYTES = int(
+    os.environ.get("MAX_IMPORT_FILE_BYTES", str(5 * 1024 * 1024))
+)
+MAX_IMPORT_ROWS = max(1, int(os.environ.get("MAX_IMPORT_ROWS", "1000")))
 
-ENABLE_ADMIN = env_bool("ENABLE_ADMIN", DEBUG)
+ENABLE_ADMIN = env_bool("ENABLE_ADMIN", False)
 ADMIN_URL = os.environ.get("ADMIN_URL", "admin/")
 
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
@@ -189,11 +267,8 @@ CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax")
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0" if DEBUG else "31536000"))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool(
-    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
-    SECURE_HSTS_SECONDS > 0,
-)
-SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", SECURE_HSTS_SECONDS > 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", False)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", False)
 SECURE_CONTENT_TYPE_NOSNIFF = env_bool("SECURE_CONTENT_TYPE_NOSNIFF", True)
 SECURE_REFERRER_POLICY = os.environ.get("SECURE_REFERRER_POLICY", "same-origin")
 X_FRAME_OPTIONS = os.environ.get("X_FRAME_OPTIONS", "DENY")

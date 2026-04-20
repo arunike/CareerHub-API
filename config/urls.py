@@ -7,7 +7,6 @@ urlpatterns = [
     path("api/auth/", include("config.auth_urls")),
     path('api/', include('availability.urls')),
     path('api/career/', include('career.urls')),
-    path('api/analytics/', include('analytics.urls')),
 ]
 
 if settings.ENABLE_ADMIN:

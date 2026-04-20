@@ -9,6 +9,7 @@ from availability.utils import export_data
 
 from ..models import Application, Document
 from ..serializers import DocumentExportSerializer, DocumentSerializer
+from ..upload_validation import validate_document_upload
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -64,6 +65,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+        validate_document_upload(file_obj)
 
         requested_application_id = request.data.get('application')
         if requested_application_id in (None, '', 'null'):

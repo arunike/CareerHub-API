@@ -1,6 +1,8 @@
 from datetime import datetime
 
+from django.conf import settings
 import pandas as pd
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -8,9 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from availability.utils import export_data
-
 from ..models import Application, Company, Offer
 from ..serializers import ApplicationExportSerializer, ApplicationSerializer
+from ..upload_validation import validate_import_row_count, validate_import_upload
 
 
 class ApplicationViewSet(viewsets.ModelViewSet):
@@ -57,17 +59,6 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         fmt = request.query_params.get('fmt', 'csv')
         return export_data(self.get_queryset(), ApplicationExportSerializer, fmt, 'applications')
 
-    @action(detail=True, methods=['post'], url_path='generate-cover-letter')
-    def generate_cover_letter(self, request, pk=None):
-        application = self.get_object()
-        jd_text = request.data.get('jd_text', '')
-        try:
-            from ..llm_matcher import generate_cover_letter as llm_generate_cover_letter
-            cover_letter = llm_generate_cover_letter(application, jd_text, request.user)
-            return Response({'cover_letter': cover_letter})
-        except ValueError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ImportApplicationsView(APIView):
     parser_classes = (MultiPartParser, FormParser)
@@ -78,12 +69,19 @@ class ImportApplicationsView(APIView):
             return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            validate_import_upload(
+                file_obj,
+                {'.csv', '.xlsx'},
+                'Application import file',
+            )
             if file_obj.name.endswith('.csv'):
-                df = pd.read_csv(file_obj)
+                df = pd.read_csv(file_obj, nrows=settings.MAX_IMPORT_ROWS + 1)
             elif file_obj.name.endswith('.xlsx'):
-                df = pd.read_excel(file_obj)
+                df = pd.read_excel(file_obj, nrows=settings.MAX_IMPORT_ROWS + 1)
             else:
                 return Response({'error': 'Unsupported file format'}, status=status.HTTP_400_BAD_REQUEST)
+
+            validate_import_row_count(len(df.index), 'Application import file')
 
             created_count = 0
             for _, row in df.iterrows():
@@ -110,5 +108,8 @@ class ImportApplicationsView(APIView):
                 created_count += 1
 
             return Response({'message': f'Successfully imported {created_count} applications'})
+        except DRFValidationError as exc:
+            detail = exc.detail[0] if isinstance(exc.detail, list) else exc.detail
+            return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)

@@ -7,16 +7,21 @@ from binascii import Error as BinasciiError
 import pandas as pd
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.conf import settings
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from availability.utils import export_data
-
 from ..models import Application, Company, Experience, Offer
 from ..serializers import ExperienceExportSerializer, ExperienceSerializer
-from ..llm_matcher import generate_jd_match_evaluation
+from ..upload_validation import (
+    validate_import_row_count,
+    validate_import_upload,
+    validate_logo_upload,
+)
 
 
 def _empty_value(value):
@@ -192,7 +197,9 @@ def _decode_logo_content(record):
 
     filename = record.get('logo_filename') or 'experience-logo'
     filename = os.path.basename(str(filename)) or 'experience-logo'
-    return ContentFile(decoded, name=filename), filename
+    content_file = ContentFile(decoded, name=filename)
+    validate_logo_upload(content_file)
+    return content_file, filename
 
 
 def _create_offer_from_snapshot(record, offer_map, user):
@@ -261,7 +268,8 @@ class ExperienceViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if 'logo' not in request.FILES:
             return Response({'error': 'No logo file provided.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        validate_logo_upload(request.FILES['logo'])
         if instance.logo:
             instance.logo.delete(save=False)
         instance.logo = request.FILES['logo']
@@ -277,18 +285,6 @@ class ExperienceViewSet(viewsets.ModelViewSet):
             instance.save(update_fields=['logo'])
         return Response(self.get_serializer(instance).data)
 
-class MatchJDView(APIView):
-    def post(self, request, *args, **kwargs):
-        text = request.data.get('text', '')
-        if not text:
-            return Response({'error': 'No job description provided.'}, status=400)
-            
-        try:
-            evaluation = generate_jd_match_evaluation(text, request.user)
-            return Response(evaluation)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=400)
-
 
 class ImportExperiencesView(APIView):
     parser_classes = (MultiPartParser, FormParser)
@@ -299,6 +295,11 @@ class ImportExperiencesView(APIView):
             return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            validate_import_upload(
+                file_obj,
+                {'.json', '.csv', '.xlsx'},
+                'Experience import file',
+            )
             records = self._load_records(file_obj)
             if not isinstance(records, list) or not records:
                 return Response({'error': 'No experiences found in import file'}, status=status.HTTP_400_BAD_REQUEST)
@@ -325,6 +326,9 @@ class ImportExperiencesView(APIView):
                     created_count += 1
 
             return Response({'message': f'Successfully imported {created_count} experiences'})
+        except DRFValidationError as exc:
+            detail = exc.detail[0] if isinstance(exc.detail, list) else exc.detail
+            return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -333,12 +337,17 @@ class ImportExperiencesView(APIView):
         if file_name.endswith('.json'):
             payload = json.loads(file_obj.read().decode('utf-8'))
             if isinstance(payload, dict):
-                return payload.get('experiences') or payload.get('items') or []
-            return payload
+                records = payload.get('experiences') or payload.get('items') or []
+            else:
+                records = payload
+            validate_import_row_count(len(records), 'Experience import file')
+            return records
         if file_name.endswith('.csv'):
-            df = pd.read_csv(file_obj)
+            df = pd.read_csv(file_obj, nrows=settings.MAX_IMPORT_ROWS + 1)
+            validate_import_row_count(len(df.index), 'Experience import file')
             return df.where(pd.notna(df), None).to_dict(orient='records')
         if file_name.endswith('.xlsx'):
-            df = pd.read_excel(file_obj)
+            df = pd.read_excel(file_obj, nrows=settings.MAX_IMPORT_ROWS + 1)
+            validate_import_row_count(len(df.index), 'Experience import file')
             return df.where(pd.notna(df), None).to_dict(orient='records')
         raise ValueError('Unsupported file format')

@@ -2,6 +2,7 @@ import base64
 
 from rest_framework import serializers
 from django.db.models import Q
+
 from .models import (
     Company,
     Application,
@@ -11,6 +12,7 @@ from .models import (
     Experience
 )
 from .skills_extractor import extract_skills_from_text
+from .upload_validation import validate_document_upload, validate_logo_upload
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
@@ -98,6 +100,10 @@ class DocumentSerializer(serializers.ModelSerializer):
         else:
             fields['application'].queryset = Application.objects.none()
         return fields
+
+    def validate_file(self, value):
+        validate_document_upload(value)
+        return value
 
 class DocumentExportSerializer(serializers.ModelSerializer):
     application_role = serializers.CharField(source='application.role_title', read_only=True)
@@ -323,6 +329,10 @@ class ExperienceSerializer(serializers.ModelSerializer):
             fields['offer'].queryset = Offer.objects.none()
         return fields
 
+    def validate_logo(self, value):
+        validate_logo_upload(value)
+        return value
+
     def create(self, validated_data):
         description = validated_data.get('description', '')
         company = validated_data.get('company', '')
@@ -344,15 +354,13 @@ class ExperienceSerializer(serializers.ModelSerializer):
         description = validated_data.get('description', instance.description)
         company = validated_data.get('company', instance.company)
         title = validated_data.get('title', instance.title)
-        
-        print(f"DEBUG VALIDATED DATA (UPDATE): {validated_data}")
+
         if 'skills' in validated_data:
-            print(f"SKILLS PROVIDED! -> {validated_data['skills']}")
-            pass # Keep manual overrides
+            pass  # Keep manual overrides
         elif 'description' in validated_data and validated_data['description'] != instance.description:
             try:
                 validated_data['skills'] = extract_skills_from_text(description, company=company, title=title)
-            except Exception as e:
+            except Exception:
                 validated_data['skills'] = instance.skills or []
-                
+
         return super().update(instance, validated_data)

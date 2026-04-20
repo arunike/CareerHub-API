@@ -1,3 +1,4 @@
+import logging
 import io
 import json
 import zipfile
@@ -21,6 +22,8 @@ from ..serializers import (
     UserSettingsSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ImportViewSet(viewsets.ViewSet):
     def create(self, request):
@@ -37,6 +40,7 @@ class ImportViewSet(viewsets.ViewSet):
 
         items = parse_import_file(file_obj, file_type)
         created_count = 0
+        skipped_count = 0
         for item in items:
             try:
                 if item['classification'] == 'holiday':
@@ -56,9 +60,22 @@ class ImportViewSet(viewsets.ViewSet):
                         timezone='PT',
                     )
                 created_count += 1
-            except Exception as exc:
-                print(f'Skipping item {item}: {exc}')
-        return Response({'message': f'Successfully imported {created_count} items'})
+            except Exception:
+                skipped_count += 1
+
+        if skipped_count:
+            logger.warning(
+                'Availability import skipped %s items for user_id=%s',
+                skipped_count,
+                request.user.id,
+            )
+
+        return Response(
+            {
+                'message': f'Successfully imported {created_count} items',
+                'skipped_count': skipped_count,
+            }
+        )
 
 
 class EventCategoryViewSet(viewsets.ModelViewSet):
