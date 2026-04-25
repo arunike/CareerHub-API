@@ -56,11 +56,13 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and sends it through the authenticated backend relay
 - **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and routes provider requests through the encrypted backend relay
 - **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
+- **Skill Refinement**: the frontend can refine Experience skills through the backend relay when the user's provider key is configured
 - **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
 
 #### Skill Extraction (NLP, background)
-- Extracts skills from Experience descriptions using a lightweight keyword + acronym matcher
+- Extracts fallback skills from Experience descriptions using a lightweight keyword + acronym matcher
 - Runs automatically on `Experience` create/update
+- Remains the default when no AI provider key is configured or provider refinement fails
 - Implemented in `career/skills_extractor.py`
 
 ### 📄 Document Management
@@ -73,7 +75,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 👤 Experience
 - Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
-- Skills are auto-extracted from description on save (NLP pipeline)
+- Skills are auto-extracted from descriptions and can be AI-refined after save when a provider key is configured
 - Experience data is the shared context for all AI features
 - **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; logos are stored as URL-backed assets and use Vercel Blob automatically when `BLOB_READ_WRITE_TOKEN` is configured
 - **Raise History**: each experience can link to an Offer; raise events (date, type, before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field
