@@ -2,7 +2,7 @@
 
 A robust Django REST Framework API powering the CareerHub job search platform.
 
-![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![DRF](https://img.shields.io/badge/DRF-red?style=for-the-badge&logo=django&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white) ![Celery](https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![DRF](https://img.shields.io/badge/DRF-red?style=for-the-badge&logo=django&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white) ![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
 ## 📋 Table of Contents
 - [Overview](#-overview)
@@ -21,12 +21,14 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 **Key Capabilities:**
 - 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
+- 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
 - 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and requests are relayed server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
-- ⚡ **Redis-Powered**: Caching, rate limiting, real-time WebSocket alerts, and async task queue
+- ☁️ **Vercel-Compatible HTTP API**: Django runs as a pure HTTP app with a WSGI entrypoint, external PostgreSQL, and a secured cron endpoint for maintenance jobs
+- ⚡ **Optional Shared Cache**: Redis can still be attached for shared caching/throttling, but local development and Vercel deployments no longer depend on it
 - 🐳 **Docker Ready (Local Dev)**: One-command local startup with Docker Compose bound to localhost
 
 ## ✨ Features
@@ -57,22 +59,23 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
 
 #### Skill Extraction (NLP, background)
-- Extracts skills from Experience descriptions using NLTK + spaCy
+- Extracts skills from Experience descriptions using a lightweight keyword + acronym matcher
 - Runs automatically on `Experience` create/update
 - Implemented in `career/skills_extractor.py`
 
 ### 📄 Document Management
 - **Upload & CRUD**: Store resumes, cover letters, portfolios, and other docs
 - **Versioning**: `version_number` + `is_current`; upload new versions while keeping version history
+- **Hosted private storage**: when `DOCUMENT_BLOB_READ_WRITE_TOKEN` is configured, documents are stored as private Vercel Blob assets and opened through an authenticated download endpoint
 - **Linking**: Documents can optionally link to an application
-- **Locking Rules**: Locked documents cannot be deleted
+- **Locking Rules**: Locked versions preserve the whole document chain from delete-all and single-delete operations
 - **Export**: Export documents in csv/json/xlsx formats
 
 ### 👤 Experience
 - Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
 - Skills are auto-extracted from description on save (NLP pipeline)
 - Experience data is the shared context for all AI features
-- **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; files stored in `media/experience_logos/`
+- **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; logos are stored as URL-backed assets and use Vercel Blob automatically when `BLOB_READ_WRITE_TOKEN` is configured
 - **Raise History**: each experience can link to an Offer; raise events (date, type, before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field
 - **Structured team history**: `team_history` JSON stores named team entries and norms metadata for use in the frontend Team History modal
 - **Internship compensation model**: hourly roles support `hourly_rate`, `hours_per_day`, `working_days_per_week`, `total_hours_worked`, `overtime_hours`, `overtime_rate`, `overtime_multiplier`, and `total_earnings_override`
@@ -85,7 +88,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
 - **Availability Generation**: Generate availability text blocks from work settings, holidays, and event conflicts
 - **Public Booking Links**: Generate/deactivate share links; public slots endpoint; booking creates a locked internal event
-- **Real-Time Conflict Alerts**: WebSocket (`ws://host/ws/conflicts/`) broadcasts conflicts instantly via Django Channels + Redis
+- **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category, and notification preferences
@@ -94,30 +97,28 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
 - **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
 - **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
-- **Auto-Ghosted Logic**: Configurable threshold; Celery task runs daily to mark stale applications as GHOSTED
+- **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
 
-### ⚡ Distributed Systems
+### 🔐 Authentication
+- **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
+- **Bearer-protected API access**: authenticated API routes accept `Authorization: Bearer <access-token>` while session auth remains available for local admin/test workflows
 
-- **Redis Cache** (`django-redis`)
+### ⚡ Runtime & Background Work
+
+- **Optional Redis Cache** (`django-redis`)
   - Analytics widget query results cached with MD5 keys (5 min TTL)
   - `UserSettings` primary timezone cached per booking session (10 min TTL)
   - Cache auto-invalidated via `post_save`/`post_delete` signals on `Event` and `Application`
-  - Graceful fallback to DB when Redis is unavailable
+  - Graceful fallback to in-memory cache when Redis is unavailable or intentionally omitted
 
-- **Celery + Redis Beat** (`celery`, `django-celery-beat`)
-  - `auto_ghost_stale_applications` — daily task; marks applications as GHOSTED past the configured threshold
-  - `expire_stale_share_links` — hourly task; deactivates expired `ShareLink` objects
-  - `clear_widget_cache` — every 10 min fallback cache wipe
-  - Scheduled via `DatabaseScheduler` (configurable from Django admin)
+- **Secured Cron Endpoint**
+  - `GET /api/internal/cron/daily-maintenance/`
+  - guarded by `CRON_SECRET` via the `Authorization: Bearer ...` header that Vercel automatically sends for cron invocations
+  - runs `auto_ghost_stale_applications` and `expire_stale_share_links`
 
-- **Redis Rate Limiting** (DRF `SimpleRateThrottle`)
+- **Rate Limiting**
   - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
   - `PublicBookingCreateThrottle`: 5 POST requests/minute per IP
-
-- **Django Channels WebSocket** (`channels[daphne]`, `channels-redis`)
-  - `ConflictAlertConsumer` at `ws://host/ws/conflicts/`
-  - Broadcasts real-time conflict alerts to all connected clients when event conflicts are detected
-  - Served by Daphne ASGI server (handles both HTTP + WebSocket)
 
 ## 🛠 Tech Stack
 
@@ -128,16 +129,11 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **SQLite** - Local fallback when `DATABASE_URL` is unset
 
 ### AI / NLP
-- **User-provided OpenAI-compatible provider** - Browser-side BYOK for JD matching, cover letters, negotiation advice, and analytics widget fallback
-- **NLTK + spaCy** - Skill extraction from free-text experience descriptions
+- **User-provided OpenAI-compatible provider** - Encrypted backend relay for JD matching, cover letters, negotiation advice, and analytics widget fallback
+- **Lightweight keyword/acronym extractor** - Skill extraction from free-text experience descriptions without heavyweight runtime NLP dependencies
 
 ### Distributed Systems
-- **Redis** - Cache backend, Celery broker/backend, and Channel Layer
-- **Celery** - Distributed task queue for background and scheduled jobs
-- **django-celery-beat** - Database-backed periodic task scheduler
-- **Django Channels + Daphne** - ASGI server with WebSocket support
-- **channels-redis** - Redis channel layer for Channels
-- **django-redis** - Redis cache backend for Django
+- **django-redis** - Optional Redis cache backend for shared caching/throttling
 
 ### Data Processing
 - **Pandas** - CSV/XLSX parsing and data manipulation
@@ -173,27 +169,22 @@ docker compose down
 docker compose logs -f api
 ```
 
-> `docker-compose.yml` is for local development only. It binds Postgres, Redis, and the API to `127.0.0.1`, reads container env from `.env.development`, manages its own local Postgres volume, and is not an internet-facing deployment template.
+> `docker-compose.yml` is for local development only. It binds Postgres and the API to `127.0.0.1`, reads container env from `.env.development`, manages its own local Postgres volume, and is not an internet-facing deployment template.
 
 Services started:
 | Service | Port | Description |
 |---|---|---|
 | Postgres | 5432 | Primary application database |
-| Redis | 6379 | Cache, broker, channel layer |
-| api (Daphne) | 8000 | Django HTTP + WebSocket |
-| worker | — | Celery task worker |
-| beat | — | Celery periodic scheduler |
+| api | 8000 | Django HTTP API |
 
 API: `http://localhost:8000/api`
-WebSocket: `ws://localhost:8000/ws/conflicts/`
 
 ---
 
 ### Option B — Local (venv)
 
 #### Prerequisites
-- Python 3.8+
-- Redis running on `localhost:6379`
+- Python 3.11+
 - PostgreSQL running locally if you set `DATABASE_URL` (otherwise the app falls back to SQLite)
 
 #### Installation
@@ -227,19 +218,9 @@ WebSocket: `ws://localhost:8000/ws/conflicts/`
    python manage.py migrate
    ```
 
-6. **Start Daphne (ASGI — HTTP + WebSocket)**
+6. **Start Django**
    ```bash
-   daphne -b 0.0.0.0 -p 8000 config.asgi:application
-   ```
-
-7. **Start Celery Worker** (new terminal)
-   ```bash
-   celery -A config worker --loglevel=info
-   ```
-
-8. **Start Celery Beat** (new terminal)
-   ```bash
-   celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+   python manage.py runserver 0.0.0.0:8000
    ```
 
 
@@ -250,18 +231,19 @@ All Docker files live in `api/`:
 ```
 api/
 ├── Dockerfile            # Multi-stage build (builder + final)
-├── docker-compose.yml    # Local-development-only services: postgres, redis, api, worker, beat
-├── media/                # Uploaded files (bind-mounted into container at /app/media — persists on host)
+├── docker-compose.yml    # Local-development-only services: postgres + api
+├── media/                # Local fallback uploads when Blob storage is not configured
 ├── .env                  # Pointer file explaining the split env setup
 ├── .env.development      # Local development secrets (git-ignored)
 ├── .env.development.example
 ├── .env.production.example
 ├── .env.example          # Quick start note for the split env workflow
 ├── .dockerignore         # Excludes venv, db, media, etc.
-└── requirements.docker.txt  # Clean minimal dependency list
+├── requirements.docker.txt  # Docker install shim
+└── requirements.runtime.txt # Runtime dependency list for Docker + Vercel
 ```
 
-> **Media persistence**: uploaded files (e.g. experience logos) are stored in `api/media/` on the host via a bind mount (`./media:/app/media`). Files survive container restarts and rebuilds — no data is stored in Docker named volumes.
+> **Media persistence**: when `BLOB_READ_WRITE_TOKEN` and `DOCUMENT_BLOB_READ_WRITE_TOKEN` are unset, logo uploads and document uploads fall back to Django storage in `api/media/` on the host via a bind mount (`./media:/app/media`). Files survive container restarts and rebuilds — no data is stored in Docker named volumes.
 
 ### Environment Modes
 
@@ -279,6 +261,31 @@ Key production flags:
 | `CSRF_COOKIE_SECURE` | `True` |
 | `SECURE_SSL_REDIRECT` | `True` |
 | `SECURE_HSTS_SECONDS` | `31536000` |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS` | `True` |
+
+### Vercel Deployment Shape
+
+CareerHub now deploys cleanly to Vercel as two separate projects:
+
+1. `api/` — Django backend on the Python runtime
+2. `frontend/` — Vite SPA on Vercel static hosting
+
+Backend notes:
+- `api/vercel.json` routes all requests to the Django WSGI entrypoint at `api/wsgi.py`
+- set `DATABASE_URL` to an external PostgreSQL database
+- set `BLOB_READ_WRITE_TOKEN` if you want Experience logos to use public Vercel Blob storage
+- set `DOCUMENT_BLOB_READ_WRITE_TOKEN` if you want documents to use private Vercel Blob storage
+- set `CRON_SECRET` so Vercel can securely invoke `/api/internal/cron/daily-maintenance/`
+- hosted document uploads are capped at 4 MB so they stay within Vercel request limits; local fallback storage can still use your configured `MAX_DOCUMENT_UPLOAD_BYTES`
+- for the zero-domain-cost setup in this repo, set `ALLOWED_HOSTS` to your actual backend `*.vercel.app` alias and `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` to your actual frontend alias
+- JWT Bearer auth does not require cross-origin cookies, so `CORS_ALLOW_CREDENTIALS` can stay off
+- if you later move to a shared custom parent domain and want cookie-based flows for other surfaces, also set:
+  - `SESSION_COOKIE_DOMAIN=.example.com`
+  - `CSRF_COOKIE_DOMAIN=.example.com`
+
+Frontend notes:
+- set `VITE_API_BASE_URL` to your own backend origin plus `/api`, for example `https://your-api-project.vercel.app/api`
+- optionally set `VITE_MEDIA_BASE_URL` if uploaded files are served from a different origin
 
 ### 🤖 Configuring AI for the Current App
 Current AI features are configured in the frontend, with the provider key stored encrypted on the backend:
@@ -314,13 +321,11 @@ api/
 │   │                         #   EventCategory (+ is_locked), ShareLink, PublicBooking
 │   ├── serializers.py        # DRF serializers (all new fields exposed)
 │   ├── views/                # API ViewSets (CRUD + export endpoints)
-│   ├── consumers.py          # WebSocket ConflictAlertConsumer
 │   ├── throttling.py         # Redis rate-limit throttle classes
-│   ├── tasks.py              # Celery tasks (expire links, clear cache)
+│   ├── tasks.py              # HTTP-triggered maintenance helpers (expire links, clear cache)
 │   ├── ai_provider.py        # Encryption helpers and authenticated provider relay
 │   ├── signals.py            # Cache invalidation signals
-│   ├── routing.py            # WebSocket URL routing
-│   ├── migrations/           # Database migrations (0001–0023)
+│   ├── migrations/           # Database migrations (0001–0025)
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
 ├── career/                   # Job applications, offers & AI tools module
@@ -329,28 +334,33 @@ api/
 │   ├── views/                # API ViewSets (package)
 │   │   ├── applications.py   # ApplicationViewSet + import/export helpers
 │   │   ├── offers.py         # OfferViewSet
-│   │   ├── documents.py      # DocumentViewSet with versioning
+│   │   ├── documents.py      # DocumentViewSet with versioning + authenticated downloads
 │   │   ├── experiences.py    # ExperienceViewSet + Experience import/export helpers
 │   │   ├── tasks.py          # TaskViewSet with reorder action
 │   │   ├── companies.py      # CompanyViewSet
 │   │   └── reference.py      # ReferenceDataView, RentEstimateView, WeeklyReviewView
-│   ├── skills_extractor.py   # NLTK + spaCy skill extraction
-│   ├── services/             # Business logic (reference data, rent, weekly review)
-│   ├── tasks.py              # Celery task: auto_ghost_stale_applications
+│   ├── skills_extractor.py   # Lightweight keyword/acronym skill extraction
+│   ├── services/             # Business logic (reference data, rent, weekly review, logo/document storage)
+│   ├── tasks.py              # Maintenance helper: auto_ghost_stale_applications
+│   ├── migrations/           # Database migrations (0001–0039)
 │   └── urls.py               # URL routing
 │
 ├── analytics/                # Analytics app support
 │   └── signals.py            # Cache bust on Event/Application change
 │
 ├── config/                   # Django project settings
-│   ├── settings.py           # Configuration (security, environment modes, PostgreSQL/SQLite, Redis, Celery, Channels, CORS)
-│   ├── asgi.py               # ASGI app (HTTP + WebSocket via Daphne)
+│   ├── settings.py           # Configuration (security, environment modes, PostgreSQL/SQLite, cache, CORS)
+│   ├── asgi.py               # HTTP-only ASGI entrypoint
+│   ├── cron_views.py         # Secured cron endpoint for background maintenance
 │   └── urls.py               # Root URL configuration
 │
-├── celery_app.py             # Celery app definition
+├── api/                      # Vercel Python runtime package
+│   └── wsgi.py               # Public `app` entrypoint for Vercel
 ├── db.sqlite3                # Local SQLite fallback database (optional, not committed)
 ├── manage.py                 # Django management script
-├── requirements.docker.txt   # Minimal Docker dependencies
+├── requirements.docker.txt   # Docker dependency shim
+├── requirements.runtime.txt  # Shared runtime dependencies
+├── vercel.json               # Vercel routing + cron config
 └── docker-compose.yml        # Local-development-only Docker Compose config
 ```
 
@@ -386,7 +396,7 @@ Base prefix: `/api/career/`
 - `DELETE /api/career/experiences/delete_all/` — Delete all unlocked experiences
 - `GET /api/career/experiences/export/?fmt=json` — Export experiences (csv/json/xlsx). JSON is best for full round-trip fidelity
 - `POST /api/career/experiences/import/` — Import experiences from JSON/CSV/XLSX, including linked offer/application snapshots when present
-- `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field)
+- `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field, stores a public logo URL)
 - `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
 
 #### Companies
@@ -399,8 +409,9 @@ Base prefix: `/api/career/`
 - `POST /api/career/documents/` — Upload a document
 - `POST /api/career/documents/{id}/add_version/` — Create new version
 - `GET /api/career/documents/{id}/versions/` — List version history
+- `GET /api/career/documents/{id}/download/` — Stream a document through an authenticated download endpoint
 - `GET /api/career/documents/export/?fmt=csv` — Export documents
-- `DELETE /api/career/documents/delete_all/` — Delete all unlocked documents
+- `DELETE /api/career/documents/delete_all/` — Delete all unlocked document chains
 
 #### Tasks
 - `GET /api/career/tasks/` — List tasks
@@ -417,7 +428,7 @@ Base prefix: `/api/career/`
 
 #### Events
 - `GET /api/events/` — List all events
-- `POST /api/events/` — Create a new event (triggers conflict detection + WebSocket broadcast)
+- `POST /api/events/` — Create a new event (triggers conflict detection)
 - `GET /api/events/{id}/` — Retrieve event details
 - `PUT /api/events/{id}/` — Update event
 - `DELETE /api/events/{id}/` — Delete event
@@ -449,11 +460,20 @@ Base prefix: `/api/career/`
 - `POST /api/booking/{uuid}/book/` — Public: submit a booking (creates locked event)
 
 #### Settings
-- `GET /api/settings/current/` — Retrieve user settings (singleton)
-- `PUT /api/settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, and `work_time_ranges`
+- `GET /api/user-settings/current/` — Retrieve user settings (singleton)
+- `PUT /api/user-settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
+- `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated OpenAI-compatible chat completion request using the user's encrypted provider key
 
-#### WebSocket
-- `ws://host/ws/conflicts/` — Real-time conflict alert stream
+#### Internal Maintenance
+- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs
+
+#### Authentication
+- `POST /api/auth/login/` — Email/password login, returns `user`, `access`, and `refresh`
+- `POST /api/auth/refresh/` — Exchange a refresh token for a rotated access/refresh pair; the previous refresh token is invalidated
+- `POST /api/auth/logout/` — Logout companion endpoint; if a refresh token is supplied it is blacklisted server-side
+- `GET /api/auth/me/` — Fetch the current user with a Bearer access token
+- `GET /api/auth/signup-status/` — Public signup capability metadata
+- `POST /api/auth/signup/` — Create a new account
 
 ## 🔗 Frontend
 
