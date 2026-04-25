@@ -35,3 +35,5 @@ media/
 *.env
 !.env.example
 !.env.*.example
+.vercel
+.env*.local

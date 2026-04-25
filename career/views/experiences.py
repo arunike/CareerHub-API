@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from availability.utils import export_data
 from ..models import Application, Company, Experience, Offer
+from ..services import delete_logo_asset, store_logo_file
 from ..serializers import ExperienceExportSerializer, ExperienceSerializer
 from ..upload_validation import (
     validate_import_row_count,
@@ -269,10 +270,14 @@ class ExperienceViewSet(viewsets.ModelViewSet):
         if 'logo' not in request.FILES:
             return Response({'error': 'No logo file provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        validate_logo_upload(request.FILES['logo'])
-        if instance.logo:
-            instance.logo.delete(save=False)
-        instance.logo = request.FILES['logo']
+        file_obj = request.FILES['logo']
+        validate_logo_upload(file_obj)
+        instance.logo = store_logo_file(
+            file_obj,
+            current_logo=instance.logo,
+            user_id=request.user.id,
+            experience_id=instance.id,
+        )
         instance.save(update_fields=['logo'])
         return Response(self.get_serializer(instance).data)
 
@@ -280,7 +285,7 @@ class ExperienceViewSet(viewsets.ModelViewSet):
     def remove_logo(self, request, pk=None):
         instance = self.get_object()
         if instance.logo:
-            instance.logo.delete(save=False)
+            delete_logo_asset(instance.logo)
             instance.logo = None
             instance.save(update_fields=['logo'])
         return Response(self.get_serializer(instance).data)
@@ -321,7 +326,13 @@ class ImportExperiencesView(APIView):
 
                     logo_content, _ = _decode_logo_content(record)
                     if logo_content is not None:
-                        experience.logo.save(logo_content.name, logo_content, save=True)
+                        experience.logo = store_logo_file(
+                            logo_content,
+                            current_logo=experience.logo,
+                            user_id=request.user.id,
+                            experience_id=experience.id,
+                        )
+                        experience.save(update_fields=['logo'])
 
                     created_count += 1
 

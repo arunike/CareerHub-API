@@ -1,7 +1,8 @@
 import base64
 
-from rest_framework import serializers
 from django.db.models import Q
+from django.urls import reverse
+from rest_framework import serializers
 
 from .models import (
     Company,
@@ -11,8 +12,14 @@ from .models import (
     Task,
     Experience
 )
+from .services import (
+    document_filename,
+    logo_content_type,
+    logo_filename,
+    normalize_logo_url,
+    read_logo_bytes,
+)
 from .skills_extractor import extract_skills_from_text
-from .upload_validation import validate_document_upload, validate_logo_upload
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,6 +49,8 @@ class OfferSerializer(serializers.ModelSerializer):
         }
 
 class DocumentSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField(read_only=True)
+    file_name = serializers.SerializerMethodField(read_only=True)
     application_details = serializers.SerializerMethodField(read_only=True)
     version_count = serializers.SerializerMethodField(read_only=True)
     root_document_id = serializers.SerializerMethodField(read_only=True)
@@ -52,6 +61,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'file',
+            'file_name',
             'document_type',
             'application',
             'application_details',
@@ -86,6 +96,16 @@ class DocumentSerializer(serializers.ModelSerializer):
     def get_root_document_id(self, obj):
         return obj.root_document_id or obj.id
 
+    def get_file(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        relative_url = reverse('document-download', kwargs={'pk': obj.pk})
+        return request.build_absolute_uri(relative_url) if request else relative_url
+
+    def get_file_name(self, obj):
+        return document_filename(obj.file)
+
     def get_version_count(self, obj):
         root_id = obj.root_document_id or obj.id
         return Document.objects.filter(
@@ -101,11 +121,9 @@ class DocumentSerializer(serializers.ModelSerializer):
             fields['application'].queryset = Application.objects.none()
         return fields
 
-    def validate_file(self, value):
-        validate_document_upload(value)
-        return value
-
 class DocumentExportSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField(read_only=True)
+    file_name = serializers.SerializerMethodField(read_only=True)
     application_role = serializers.CharField(source='application.role_title', read_only=True)
     application_company = serializers.CharField(source='application.company.name', read_only=True)
 
@@ -116,6 +134,7 @@ class DocumentExportSerializer(serializers.ModelSerializer):
             'title',
             'document_type',
             'file',
+            'file_name',
             'application_role',
             'application_company',
             'version_number',
@@ -124,6 +143,16 @@ class DocumentExportSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_file(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        relative_url = reverse('document-download', kwargs={'pk': obj.pk})
+        return request.build_absolute_uri(relative_url) if request else relative_url
+
+    def get_file_name(self, obj):
+        return document_filename(obj.file)
 
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)
@@ -281,30 +310,17 @@ class ExperienceExportSerializer(serializers.ModelSerializer):
         return ApplicationImportExportSerializer(obj.offer.application).data
 
     def get_logo_filename(self, obj):
-        if not obj.logo:
-            return None
-        return obj.logo.name.rsplit('/', 1)[-1]
+        return logo_filename(obj.logo)
 
     def get_logo_content_type(self, obj):
-        if not obj.logo:
-            return None
-        file_name = obj.logo.name.lower()
-        if file_name.endswith('.png'):
-            return 'image/png'
-        if file_name.endswith('.jpg') or file_name.endswith('.jpeg'):
-            return 'image/jpeg'
-        if file_name.endswith('.gif'):
-            return 'image/gif'
-        if file_name.endswith('.webp'):
-            return 'image/webp'
-        return 'application/octet-stream'
+        return logo_content_type(obj.logo)
 
     def get_logo_base64(self, obj):
-        if not obj.logo:
+        content = read_logo_bytes(obj.logo)
+        if content is None:
             return None
         try:
-            with obj.logo.open('rb') as file_obj:
-                return base64.b64encode(file_obj.read()).decode('ascii')
+            return base64.b64encode(content).decode('ascii')
         except Exception:
             return None
 
@@ -315,10 +331,15 @@ class TaskSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'status', 'priority', 'due_date', 'position', 'created_at', 'updated_at']
 
 class ExperienceSerializer(serializers.ModelSerializer):
+    logo = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Experience
         fields = ['id', 'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_logo(self, obj):
+        return normalize_logo_url(obj.logo)
 
     def get_fields(self):
         fields = super().get_fields()
@@ -328,10 +349,6 @@ class ExperienceSerializer(serializers.ModelSerializer):
         else:
             fields['offer'].queryset = Offer.objects.none()
         return fields
-
-    def validate_logo(self, value):
-        validate_logo_upload(value)
-        return value
 
     def create(self, validated_data):
         description = validated_data.get('description', '')

@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import timedelta
 from urllib.parse import parse_qsl, unquote, urlparse
 
@@ -45,6 +46,15 @@ def env_list(name, default=""):
     return [item.strip() for item in raw_value.split(",") if item.strip()]
 
 
+def is_test_process():
+    command_names = {Path(arg).name for arg in sys.argv if arg}
+    return (
+        "PYTEST_CURRENT_TEST" in os.environ
+        or "pytest" in command_names
+        or "test" in sys.argv[1:]
+    )
+
+
 def secret_key_is_weak(value):
     if not value:
         return True
@@ -69,6 +79,10 @@ def default_sqlite_database():
 def database_config_from_url():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
+        if ENVIRONMENT == "production":
+            raise ImproperlyConfigured(
+                "DATABASE_URL must be set when DJANGO_ENV=production."
+            )
         return default_sqlite_database()
 
     parsed = urlparse(database_url)
@@ -92,7 +106,7 @@ def database_config_from_url():
         "USER": unquote(parsed.username or ""),
         "PASSWORD": unquote(parsed.password or ""),
         "HOST": parsed.hostname or "",
-        "PORT": str(parsed.port or ""),
+        "PORT": str(parsed.port or 5432),
         "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
         "CONN_HEALTH_CHECKS": env_bool("DB_CONN_HEALTH_CHECKS", True),
     }
@@ -112,7 +126,7 @@ if ENVIRONMENT not in SUPPORTED_ENVIRONMENTS:
 
 load_dotenv(BASE_DIR / f".env.{ENVIRONMENT}")
 IS_PRODUCTION = ENVIRONMENT == "production"
-IS_TEST = ENVIRONMENT == "test"
+IS_TEST = ENVIRONMENT == "test" or is_test_process()
 IS_DEVELOPMENT = not IS_PRODUCTION
 
 
@@ -136,6 +150,10 @@ if IS_PRODUCTION and secret_key_is_weak(SECRET_KEY):
 
 DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1" if IS_DEVELOPMENT else ""
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", DEFAULT_ALLOWED_HOSTS)
+for vercel_host_env in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
+    vercel_host = (os.environ.get(vercel_host_env) or "").strip()
+    if vercel_host and vercel_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(vercel_host)
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("ALLOWED_HOSTS must include your deployed hostnames.")
 
@@ -143,7 +161,6 @@ if not ALLOWED_HOSTS:
 # Application definition
 
 INSTALLED_APPS = [
-    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -151,9 +168,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
-    "channels",
-    "django_celery_beat",
     "availability",
     "career",
     "analytics",
@@ -175,10 +191,12 @@ DEFAULT_FRONTEND_ORIGINS = (
 )
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", DEFAULT_FRONTEND_ORIGINS)
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGIN_REGEXES = env_list("CORS_ALLOWED_ORIGIN_REGEXES", "")
+CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", False)
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", DEFAULT_FRONTEND_ORIGINS)
 
 ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "api.wsgi.app"
 
 TEMPLATES = [
     {
@@ -247,6 +265,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
@@ -255,8 +274,24 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login": os.environ.get("DRF_LOGIN_RATE", "5/minute"),
         "signup": os.environ.get("DRF_SIGNUP_RATE", "3/hour"),
+        "token_refresh": os.environ.get("DRF_TOKEN_REFRESH_RATE", "30/hour"),
         "ai_provider_relay": os.environ.get("DRF_AI_PROVIDER_RELAY_RATE", "20/hour"),
     },
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=int(os.environ.get("JWT_ACCESS_TOKEN_MINUTES", "15"))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=int(os.environ.get("JWT_REFRESH_TOKEN_DAYS", "14"))
+    ),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": False,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": os.environ.get("JWT_SIGNING_KEY", SECRET_KEY),
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 ALLOW_PUBLIC_SIGNUP = env_bool("ALLOW_PUBLIC_SIGNUP", False)
@@ -265,18 +300,26 @@ AUTO_LOGIN_AFTER_SIGNUP = env_bool("AUTO_LOGIN_AFTER_SIGNUP", False)
 # Media configuration for file uploads
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+BLOB_READ_WRITE_TOKEN = (os.environ.get("BLOB_READ_WRITE_TOKEN") or "").strip()
+DOCUMENT_BLOB_READ_WRITE_TOKEN = (os.environ.get("DOCUMENT_BLOB_READ_WRITE_TOKEN") or "").strip()
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(
     os.environ.get("DATA_UPLOAD_MAX_MEMORY_SIZE", str(10 * 1024 * 1024))
 )
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(
     os.environ.get("FILE_UPLOAD_MAX_MEMORY_SIZE", str(2_621_440))
 )
-MAX_DOCUMENT_UPLOAD_BYTES = int(
+_configured_document_upload_bytes = int(
     os.environ.get("MAX_DOCUMENT_UPLOAD_BYTES", str(10 * 1024 * 1024))
 )
-MAX_LOGO_UPLOAD_BYTES = int(
+MAX_DOCUMENT_UPLOAD_BYTES = (
+    min(_configured_document_upload_bytes, 4 * 1024 * 1024)
+    if DOCUMENT_BLOB_READ_WRITE_TOKEN
+    else _configured_document_upload_bytes
+)
+_configured_logo_upload_bytes = int(
     os.environ.get("MAX_LOGO_UPLOAD_BYTES", str(5 * 1024 * 1024))
 )
+MAX_LOGO_UPLOAD_BYTES = min(_configured_logo_upload_bytes, 4 * 1024 * 1024) if BLOB_READ_WRITE_TOKEN else _configured_logo_upload_bytes
 MAX_IMPORT_FILE_BYTES = int(
     os.environ.get("MAX_IMPORT_FILE_BYTES", str(5 * 1024 * 1024))
 )
@@ -289,6 +332,8 @@ SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", IS_PRODUCTION)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", IS_PRODUCTION)
 SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_DOMAIN = os.environ.get("SESSION_COOKIE_DOMAIN") or None
+CSRF_COOKIE_DOMAIN = os.environ.get("CSRF_COOKIE_DOMAIN") or None
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", IS_PRODUCTION)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_HSTS_SECONDS = int(
@@ -309,77 +354,29 @@ AI_PROVIDER_REQUEST_TIMEOUT_SECONDS = int(
     os.environ.get("AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", "30")
 )
 
-# ---------------------------------------------------------------------------
-# Redis
-# ---------------------------------------------------------------------------
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
-
 # Cache TTL used across the project (in seconds)
 CACHE_TTL = 300  # 5 minutes
+REDIS_URL = (os.environ.get("REDIS_URL") or "").strip()
 
-if IS_TEST:
+if IS_TEST or not REDIS_URL:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "careerhub-test-cache",
+            "LOCATION": f"careerhub-{ENVIRONMENT}-cache",
             "TIMEOUT": CACHE_TTL,
         }
     }
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        }
-    }
 else:
-    # Django cache backend — Redis db=1
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": f"{REDIS_URL}/1",
+            "LOCATION": REDIS_URL,
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
             },
             "TIMEOUT": CACHE_TTL,
-            # Use in-memory cache during Django test runs so Redis is not required
             "TEST": {
                 "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             },
         }
     }
-
-    # Django Channels — Redis channel layer, db=2
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [(REDIS_HOST, REDIS_PORT)],
-            },
-        }
-    }
-
-# ---------------------------------------------------------------------------
-# Celery
-# ---------------------------------------------------------------------------
-CELERY_BROKER_URL = f"{REDIS_URL}/0"
-CELERY_RESULT_BACKEND = f"{REDIS_URL}/0"
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-
-CELERY_BEAT_SCHEDULE = {
-    "auto-ghost-stale-applications": {
-        "task": "career.tasks.auto_ghost_stale_applications",
-        "schedule": timedelta(hours=24),
-    },
-    "expire-stale-share-links": {
-        "task": "availability.tasks.expire_stale_share_links",
-        "schedule": timedelta(hours=1),
-    },
-    "clear-widget-cache": {
-        "task": "availability.tasks.clear_widget_cache",
-        "schedule": timedelta(minutes=10),
-    },
-}

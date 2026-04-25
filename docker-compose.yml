@@ -2,7 +2,6 @@
 name: careerhub-dev
 
 services:
-  # PostgreSQL
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -17,30 +16,16 @@ services:
       timeout: 5s
       retries: 10
 
-  # Redis
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # Django API (Daphne ASGI — HTTP + WebSocket)
+  # Django API (HTTP only)
   api:
     build:
       context: .
       dockerfile: Dockerfile
     command: >
       sh -c "python manage.py migrate --noinput &&
-             daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+             python manage.py runserver 0.0.0.0:8000"
     env_file: .env.development
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
       - DATABASE_URL=postgresql://careerhub:careerhub@postgres:5432/careerhub
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
@@ -50,53 +35,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Celery Worker
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: >
-      sh -c "celery -A config worker --loglevel=info --concurrency=2"
-    env_file: .env.development
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - DATABASE_URL=postgresql://careerhub:careerhub@postgres:5432/careerhub
-    volumes:
-      - .:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Celery Beat (periodic task scheduler)
-  beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: >
-      sh -c "celery -A config beat --loglevel=info
-             --scheduler django_celery_beat.schedulers:DatabaseScheduler"
-    env_file: .env.development
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - DATABASE_URL=postgresql://careerhub:careerhub@postgres:5432/careerhub
-    volumes:
-      - .:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      api:
-        condition: service_started
     restart: unless-stopped
 
 volumes:

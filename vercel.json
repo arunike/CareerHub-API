@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pip install -r requirements.runtime.txt",
+  "functions": {
+    "api/wsgi.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{venv/**,media/**,backups/**,dist/**,node_modules/**,__pycache__/**,*.sqlite3,token_dist.json,skill_db_relax_20.json}"
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/wsgi.py"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/internal/cron/daily-maintenance/",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}

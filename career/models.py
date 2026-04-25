@@ -109,7 +109,7 @@ class Document(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to='documents/')
+    file = models.URLField(max_length=2048, null=True, blank=True)
     document_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, default='RESUME')
     application = models.ForeignKey(Application, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
     root_document = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='versions')
@@ -163,7 +163,7 @@ class Experience(models.Model):
     is_current = models.BooleanField(default=False)
     description = models.TextField(blank=True)
     skills = models.JSONField(default=list, blank=True)
-    logo = models.ImageField(upload_to='experience_logos/', null=True, blank=True)
+    logo = models.URLField(max_length=2048, null=True, blank=True)
     employment_type = models.CharField(max_length=20, default='full_time', null=True, blank=True)
     is_promotion = models.BooleanField(default=False, help_text="Groups this role with the previous role at the same company as a promotion")
     is_return_offer = models.BooleanField(default=False, help_text="Marks this role as having originated from a return internship offer")

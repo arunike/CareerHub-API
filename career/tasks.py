@@ -1,12 +1,11 @@
-from celery import shared_task
-from django.utils import timezone
 from datetime import timedelta
+
+from django.utils import timezone
 
 PENDING_STATUSES = ("APPLIED", "OA", "SCREEN", "ONSITE")
 DEFAULT_GHOSTING_THRESHOLD_DAYS = 30
 
 
-@shared_task(name="career.tasks.auto_ghost_stale_applications")
 def auto_ghost_stale_applications():
     from career.models import Application
     from availability.models import UserSettings

@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
  && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.docker.txt .
+# Copy the full requirements chain because requirements.docker.txt
+COPY requirements.docker.txt requirements.runtime.txt requirements.txt ./
 RUN pip install --upgrade pip \
  && pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.docker.txt
 

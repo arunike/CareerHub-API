@@ -29,6 +29,3 @@ env/
 .vscode/
 .idea/
 *.DS_Store
-
-# Anaconda / heavy deps (not needed in Docker)
-requirements.txt

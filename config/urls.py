@@ -3,7 +3,14 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from .cron_views import DailyMaintenanceCronView
+
 urlpatterns = [
+    path(
+        "api/internal/cron/daily-maintenance/",
+        DailyMaintenanceCronView.as_view(),
+        name="daily-maintenance-cron",
+    ),
     path("api/auth/", include("config.auth_urls")),
     path('api/', include('availability.urls')),
     path('api/career/', include('career.urls')),

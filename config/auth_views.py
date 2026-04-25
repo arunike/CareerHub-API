@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth import authenticate, get_user_model, logout
 from django.contrib.auth.password_validation import validate_password
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -11,6 +11,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .user_ownership import claim_legacy_records_for_user, ensure_user_settings
 
@@ -22,6 +25,14 @@ def _serialize_user(user):
         "full_name": user.get_full_name() or user.email,
         "is_staff": user.is_staff,
         "is_superuser": user.is_superuser,
+    }
+
+
+def _issue_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        "refresh": str(refresh),
+        "access": str(refresh.access_token),
     }
 
 
@@ -97,10 +108,15 @@ class AuthLoginView(APIView):
         if not user.is_active:
             return Response({"error": "This account is inactive."}, status=status.HTTP_403_FORBIDDEN)
 
-        login(request, user)
         claim_legacy_records_for_user(user)
         ensure_user_settings(user)
-        return Response({"user": _serialize_user(user)}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "user": _serialize_user(user),
+                **_issue_tokens_for_user(user),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class AuthSignupStatusView(APIView):
@@ -188,13 +204,14 @@ class AuthSignupView(APIView):
 
         ensure_user_settings(user)
         if settings.AUTO_LOGIN_AFTER_SIGNUP:
-            login(request, user)
             claim_legacy_records_for_user(user)
+            tokens = _issue_tokens_for_user(user)
             return Response(
                 {
                     "user": _serialize_user(user),
                     "mode": "public",
                     "authenticated": True,
+                    **tokens,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -214,8 +231,33 @@ class AuthLogoutView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        refresh_token = request.data.get("refresh")
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except TokenError:
+                pass
+
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AuthRefreshView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "token_refresh"
+
+    def post(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 class AuthMeView(APIView):
