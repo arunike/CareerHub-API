@@ -23,6 +23,8 @@ def _serialize_user(user):
         "id": user.id,
         "email": user.email,
         "full_name": user.get_full_name() or user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "is_staff": user.is_staff,
         "is_superuser": user.is_superuser,
     }
@@ -265,3 +267,48 @@ class AuthMeView(APIView):
 
     def get(self, request):
         return Response({"user": _serialize_user(request.user)}, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        user = request.user
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
+
+        if first_name is not None:
+            user.first_name = first_name.strip()
+        if last_name is not None:
+            user.last_name = last_name.strip()
+
+        user.save()
+        return Response({"user": _serialize_user(user)}, status=status.HTTP_200_OK)
+
+
+class AuthPasswordChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response(
+                {"error": "Both old and new passwords are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not request.user.check_password(old_password):
+            return Response(
+                {"error": "Incorrect old password."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_password(new_password, request.user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"error": " ".join(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.user.set_password(new_password)
+        request.user.save()
+        return Response({"message": "Password updated successfully."}, status=status.HTTP_200_OK)

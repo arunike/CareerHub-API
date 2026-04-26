@@ -74,6 +74,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
     )
     ai_provider_api_key_configured = serializers.SerializerMethodField()
     ai_provider_api_key_masked = serializers.SerializerMethodField()
+    email = serializers.EmailField(source='user.email', read_only=True)
 
     class Meta:
         model = UserSettings
@@ -85,6 +86,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
             'ai_provider_adapter', 'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',
             'ai_provider_api_key_configured', 'ai_provider_api_key_masked',
+            'display_name', 'profile_picture', 'email',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -157,12 +159,18 @@ class ShareLinkSerializer(serializers.ModelSerializer):
             'id',
             'uuid',
             'title',
+            'host_display_name',
+            'host_email',
+            'public_note',
             'duration_days',
             'booking_block_minutes',
+            'buffer_minutes',
+            'max_bookings_per_day',
             'created_at',
             'expires_at',
             'is_active',
             'is_expired',
+            'is_locked',
         ]
         read_only_fields = ['created_at', 'is_expired']
 
@@ -173,6 +181,7 @@ class PublicBookingSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'share_link',
+            'share_link_title',
             'name',
             'email',
             'date',
@@ -180,6 +189,9 @@ class PublicBookingSerializer(serializers.ModelSerializer):
             'end_time',
             'timezone',
             'notes',
+            'is_locked',
             'created_at',
         ]
         read_only_fields = ['created_at']
+
+    share_link_title = serializers.CharField(source='share_link.title', read_only=True)

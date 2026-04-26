@@ -8,6 +8,7 @@ from .auth_views import (
     AuthRefreshView,
     AuthSignupStatusView,
     AuthSignupView,
+    AuthPasswordChangeView,
 )
 
 
@@ -19,4 +20,5 @@ urlpatterns = [
     path("signup/", AuthSignupView.as_view(), name="auth-signup"),
     path("logout/", AuthLogoutView.as_view(), name="auth-logout"),
     path("me/", AuthMeView.as_view(), name="auth-me"),
+    path("password-change/", AuthPasswordChangeView.as_view(), name="auth-password-change"),
 ]

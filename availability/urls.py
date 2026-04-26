@@ -14,6 +14,7 @@ router.register(r'share-links', views.ShareLinkViewSet, basename='share-link')
 router.register(r'categories', views.EventCategoryViewSet, basename='category')
 router.register(r'user-settings', views.UserSettingsViewSet, basename='user-settings')
 router.register(r'conflicts', views.ConflictAlertViewSet, basename='conflict')
+router.register(r'public-bookings', views.PublicBookingViewSet, basename='public-booking')
 
 urlpatterns = [
     path('booking/<str:uuid>/slots/', views.PublicBookingSlotsView.as_view(), name='booking-slots'),

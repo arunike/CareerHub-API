@@ -139,6 +139,10 @@ class UserSettings(models.Model):
         help_text="Encrypted AI provider API key for the authenticated user.",
     )
     
+    # Profile information
+    display_name = models.CharField(max_length=120, blank=True, help_text="Public display name for booking links")
+    profile_picture = models.ImageField(upload_to='profile_pics/', null=True, blank=True, help_text="Public profile picture for booking links")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -181,11 +185,17 @@ class ShareLink(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='share_links')
     uuid = models.CharField(max_length=36, unique=True)
     title = models.CharField(max_length=255)
+    host_display_name = models.CharField(max_length=120, blank=True)
+    host_email = models.EmailField(blank=True, null=True)
+    public_note = models.TextField(blank=True)
     duration_days = models.IntegerField(default=7)
     booking_block_minutes = models.IntegerField(default=30)
+    buffer_minutes = models.IntegerField(default=0)
+    max_bookings_per_day = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
+    is_locked = models.BooleanField(default=False, help_text="Locked links cannot be deleted")
 
     @property
     def is_expired(self):
@@ -204,6 +214,7 @@ class PublicBooking(models.Model):
     end_time = models.CharField(max_length=20)
     timezone = models.CharField(max_length=2, default='PT')
     notes = models.TextField(blank=True)
+    is_locked = models.BooleanField(default=False, help_text="Locked bookings cannot be deleted")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

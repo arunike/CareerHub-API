@@ -143,8 +143,28 @@ def _get_share_link_or_none(uuid_value):
 
 def _filter_booked_slots(link, date_obj, slots):
     bookings = PublicBooking.objects.filter(share_link=link, date=date_obj).values_list('start_time', 'end_time')
-    blocked_slots = set(bookings)
-    return [slot for slot in slots if (slot['start_time'], slot['end_time']) not in blocked_slots]
+    buffer_minutes = max(0, int(link.buffer_minutes or 0))
+    available = []
+    for slot in slots:
+        slot_start = datetime.strptime(slot['start_time'], '%H:%M:%S')
+        slot_end = datetime.strptime(slot['end_time'], '%H:%M:%S')
+        is_blocked = False
+        for booking_start_raw, booking_end_raw in bookings:
+            booking_start = datetime.strptime(booking_start_raw, '%H:%M:%S') - timedelta(minutes=buffer_minutes)
+            booking_end = datetime.strptime(booking_end_raw, '%H:%M:%S') + timedelta(minutes=buffer_minutes)
+            if slot_start < booking_end and slot_end > booking_start:
+                is_blocked = True
+                break
+        if not is_blocked:
+            available.append(slot)
+    return available
+
+
+def _has_reached_daily_limit(link, date_obj):
+    max_per_day = int(link.max_bookings_per_day or 0)
+    if max_per_day <= 0:
+        return False
+    return PublicBooking.objects.filter(share_link=link, date=date_obj).count() >= max_per_day
 
 
 def _split_slots_by_block_minutes(slots, block_minutes):
@@ -191,8 +211,17 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def generate(self, request):
         title = request.data.get('title') or 'My Availability'
+        host_display_name = (request.data.get('host_display_name') or '').strip()
+        host_email = (request.data.get('host_email') or '').strip()
+        public_note = (request.data.get('public_note') or '').strip()
+
+        if not host_display_name or not host_email:
+            return Response({'error': 'Display Name and Host Email are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
         duration_days_raw = request.data.get('duration_days', 7)
         block_minutes_raw = request.data.get('booking_block_minutes', 30)
+        buffer_minutes_raw = request.data.get('buffer_minutes', 0)
+        max_bookings_raw = request.data.get('max_bookings_per_day', 0)
         try:
             duration_days = max(1, min(90, int(duration_days_raw)))
         except (TypeError, ValueError):
@@ -203,14 +232,28 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
                 booking_block_minutes = 30
         except (TypeError, ValueError):
             booking_block_minutes = 30
+        try:
+            buffer_minutes = int(buffer_minutes_raw)
+            if buffer_minutes not in {0, 5, 10, 15, 20, 30, 45, 60}:
+                buffer_minutes = 0
+        except (TypeError, ValueError):
+            buffer_minutes = 0
+        try:
+            max_bookings_per_day = max(0, min(20, int(max_bookings_raw)))
+        except (TypeError, ValueError):
+            max_bookings_per_day = 0
 
-        self.get_queryset().filter(is_active=True).update(is_active=False)
         link = ShareLink.objects.create(
             user=request.user,
             uuid=str(uuid4()),
             title=title,
+            host_display_name=host_display_name,
+            host_email=host_email,
+            public_note=public_note,
             duration_days=duration_days,
             booking_block_minutes=booking_block_minutes,
+            buffer_minutes=buffer_minutes,
+            max_bookings_per_day=max_bookings_per_day,
             expires_at=timezone.now() + timedelta(days=duration_days),
             is_active=True,
         )
@@ -221,6 +264,29 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
         now = timezone.now()
         count = self.get_queryset().filter(is_active=True, expires_at__gt=now).update(is_active=False)
         return Response({'message': f'Deactivated {count} active link(s).'})
+
+    @action(detail=True, methods=['post'])
+    def deactivate_link(self, request, pk=None):
+        link = self.get_object()
+        link.is_active = False
+        link.save(update_fields=['is_active'])
+        return Response(self.get_serializer(link).data)
+
+    @action(detail=False, methods=['get'])
+    def bookings(self, request):
+        bookings = (
+            PublicBooking.objects
+            .filter(share_link__user=request.user)
+            .select_related('share_link')
+            .order_by('-date', '-start_time')
+        )
+        return Response(PublicBookingSerializer(bookings, many=True).data)
+
+    @action(detail=True, methods=['get'])
+    def link_bookings(self, request, pk=None):
+        link = self.get_object()
+        bookings = link.bookings.select_related('share_link').order_by('-date', '-start_time')
+        return Response(PublicBookingSerializer(bookings, many=True).data)
 
 
 class PublicBookingSlotsView(APIView):
@@ -257,8 +323,11 @@ class PublicBookingSlotsView(APIView):
             date_key = date_obj.strftime('%Y-%m-%d')
             availability_item = availability_map.get(date_key)
             raw_text = availability_item['availability'] if availability_item else None
-            base_slots = _filter_booked_slots(link, date_obj, _parse_slot_ranges(raw_text))
-            base_slots = _split_slots_by_block_minutes(base_slots, int(link.booking_block_minutes or 30))
+            if _has_reached_daily_limit(link, date_obj):
+                base_slots = []
+            else:
+                base_slots = _split_slots_by_block_minutes(_parse_slot_ranges(raw_text), int(link.booking_block_minutes or 30))
+                base_slots = _filter_booked_slots(link, date_obj, base_slots)
             slots = _convert_slots_between_timezones(
                 date_obj,
                 base_slots,
@@ -274,12 +343,21 @@ class PublicBookingSlotsView(APIView):
                 }
             )
 
+        user_settings = UserSettings.objects.filter(user=link.user).first()
+        host_profile_picture = request.build_absolute_uri(user_settings.profile_picture.url) if user_settings and user_settings.profile_picture else None
+
         return Response(
             {
                 'title': link.title,
+                'host_display_name': link.host_display_name,
+                'host_email': link.host_email,
+                'host_profile_picture': host_profile_picture,
+                'public_note': link.public_note,
                 'expires_at': link.expires_at,
                 'timezone': timezone_code,
                 'booking_block_minutes': int(link.booking_block_minutes or 30),
+                'buffer_minutes': int(link.buffer_minutes or 0),
+                'max_bookings_per_day': int(link.max_bookings_per_day or 0),
                 'days': rows,
             }
         )
@@ -312,13 +390,16 @@ class PublicBookingCreateView(APIView):
         except ValueError:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
 
+        if _has_reached_daily_limit(link, booking_date):
+            return Response({'error': 'This day has reached the booking limit. Please choose another day.'}, status=409)
+
         availability_map = calculate_availability_for_dates([booking_date], base_timezone_code, user=link.user)
         availability_item = availability_map.get(date_str)
-        base_slots = _filter_booked_slots(
-            link,
-            booking_date,
+        base_slots = _split_slots_by_block_minutes(
             _parse_slot_ranges(availability_item['availability'] if availability_item else None),
+            int(link.booking_block_minutes or 30),
         )
+        base_slots = _filter_booked_slots(link, booking_date, base_slots)
         slots = _convert_slots_between_timezones(
             booking_date,
             base_slots,
@@ -366,4 +447,15 @@ class PublicBookingCreateView(APIView):
                 'booking': PublicBookingSerializer(booking).data,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+class PublicBookingViewSet(viewsets.ModelViewSet):
+    serializer_class = PublicBookingSerializer
+
+    def get_queryset(self):
+        return (
+            PublicBooking.objects
+            .filter(share_link__user=self.request.user)
+            .select_related('share_link')
+            .order_by('-date', '-start_time')
         )
