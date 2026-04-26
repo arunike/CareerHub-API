@@ -22,7 +22,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 **Key Capabilities:**
 - 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
 - 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
-- 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and requests are relayed server-side
+- 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and provider adapters relay requests server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
@@ -38,6 +38,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Status Tracking**: Support for 8 application stages (Applied, OA, Screen, Onsite, Offer, Rejected, Accepted, Ghosted)
 - **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
 - **Bulk Import**: Upload CSV/XLSX files to import multiple applications at once
+- **Job Board URL Import**: Extract company, role, location, and job description from public HTTPS job pages, using the user's AI provider when configured and falling back to deterministic parsing
 - **Export Options**: Download data as CSV, JSON, or XLSX
 - **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
 - **Company Timeline**: Persist per-stage application timeline entries with dates, notes, and attached documents
@@ -46,6 +47,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
+- **Simulator Inputs**: Offer and Application records expose tax overrides, monthly rent, commute cost, food perk, PTO, and equity vesting fields used by the frontend compensation simulator
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
@@ -91,11 +93,12 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
 - **Availability Generation**: Generate availability text blocks from work settings, holidays, and event conflicts
-- **Public Booking Links**: Generate/deactivate share links; public slots endpoint; booking creates a locked internal event
+- **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, and max meetings/day; public bookings create locked internal events
 - **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category, and notification preferences
+- **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
 - **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows per day (e.g., 11am–12pm and 2pm–5pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges all ranges after subtracting event conflicts
 - **Employment Types** (`employment_types` JSONField): User-configurable list of `{value, label, color}` employment type definitions — consumed by the Experience page; supports add/edit/delete with 10 color options
 - **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
@@ -103,8 +106,10 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
 - **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
 
-### 🔐 Authentication
+### 🔐 Authentication & Security
 - **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
+- **Account Management**: Supports updating user `first_name` and `last_name` via `PATCH /api/auth/me/`.
+- **Password Security**: `/api/auth/password-change/` handles secure password updates with old-password verification. Passwords are never stored in plain text; they are encrypted using industry-standard hashing algorithms.
 - **Bearer-protected API access**: authenticated API routes accept `Authorization: Bearer <access-token>` while session auth remains available for local admin/test workflows
 
 ### ⚡ Runtime & Background Work
@@ -133,7 +138,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **SQLite** - Local fallback when `DATABASE_URL` is unset
 
 ### AI / NLP
-- **User-provided OpenAI-compatible provider** - Encrypted backend relay for JD matching, cover letters, negotiation advice, and analytics widget fallback
+- **User-provided AI provider** - Encrypted backend relay with Claude, Gemini, OpenAI, and OpenRouter adapters for JD matching, cover letters, job URL import, negotiation advice, and analytics widget fallback
 - **Lightweight keyword/acronym extractor** - Skill extraction from free-text experience descriptions without heavyweight runtime NLP dependencies
 
 ### Distributed Systems
@@ -266,6 +271,7 @@ Key production flags:
 | `SECURE_SSL_REDIRECT` | `True` |
 | `SECURE_HSTS_SECONDS` | `31536000` |
 | `SECURE_HSTS_INCLUDE_SUBDOMAINS` | `True` |
+| `AI_PROVIDER_ALLOWED_HOSTS` | `api.anthropic.com,generativelanguage.googleapis.com,api.openai.com,openrouter.ai` if you enforce an AI relay allowlist |
 
 ### Vercel Deployment Shape
 
@@ -294,7 +300,7 @@ Frontend notes:
 ### 🤖 Configuring AI for the Current App
 Current AI features are configured in the frontend, with the provider key stored encrypted on the backend:
 1. Open the app and go to `Settings` → `AI Provider`.
-2. Enter an OpenAI-compatible endpoint, model, and your own API key.
+2. Choose Claude, Gemini, OpenAI, or OpenRouter, then enter the endpoint, model, and your own API key.
 3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
@@ -383,6 +389,7 @@ Base prefix: `/api/career/`
 - `DELETE /api/career/applications/{id}/` — Delete application (blocked if locked)
 - `DELETE /api/career/applications/delete_all/` — Delete all unlocked applications
 - `POST /api/career/import/` — Bulk import from CSV/XLSX
+- `POST /api/career/job-import/` — Extract application fields from a public HTTPS job board URL with optional AI-assisted parsing
 - `GET /api/career/applications/export/?fmt=csv` — Export applications (csv/json/xlsx)
 - `GET /api/career/application-timeline/?application={id}` — List timeline entries for one application
 - `POST /api/career/application-timeline/` — Create a stage timeline entry with notes/docs
@@ -423,7 +430,7 @@ Base prefix: `/api/career/`
 
 #### Tasks
 - `GET /api/career/tasks/` — List tasks
-- `POST /api/career/tasks/` — Create task
+- `POST /api/career/tasks/` — Create task, including smart reminders parsed by the frontend into normal task due dates
 - `PATCH /api/career/tasks/{id}/` — Update task
 - `POST /api/career/tasks/reorder/` — Reorder tasks
 
@@ -470,7 +477,7 @@ Base prefix: `/api/career/`
 #### Settings
 - `GET /api/user-settings/current/` — Retrieve user settings (singleton)
 - `PUT /api/user-settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
-- `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated OpenAI-compatible chat completion request using the user's encrypted provider key
+- `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, or OpenRouter adapter using the encrypted provider key
 
 #### Internal Maintenance
 - `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs
@@ -482,6 +489,8 @@ Base prefix: `/api/career/`
 - `GET /api/auth/me/` — Fetch the current user with a Bearer access token
 - `GET /api/auth/signup-status/` — Public signup capability metadata
 - `POST /api/auth/signup/` — Create a new account
+- `POST /api/auth/password-change/` — Change user password (requires old password)
+- `PATCH /api/auth/me/` — Update user profile details (first/last name)
 
 ## 🔗 Frontend
 
