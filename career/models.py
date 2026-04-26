@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 class Company(models.Model):
@@ -19,16 +20,7 @@ class Company(models.Model):
         return self.name
 
 class Application(models.Model):
-    STATUS_CHOICES = [
-        ('APPLIED', 'Applied'),
-        ('OA', 'Online Assessment'),
-        ('SCREEN', 'Phone Screen'),
-        ('ONSITE', 'Onsite Interview'),
-        ('OFFER', 'Offer Received'),
-        ('REJECTED', 'Rejected'),
-        ('ACCEPTED', 'Accepted'),
-        ('GHOSTED', 'Ghosted'),
-    ]
+
 
     RTO_CHOICES = [
         ('REMOTE', 'Remote'),
@@ -41,12 +33,25 @@ class Application(models.Model):
         ('MONTHLY', 'Monthly'),
         ('YEARLY', 'Yearly'),
     ]
+    VISA_SPONSORSHIP_CHOICES = [
+        ('', 'Not specified'),
+        ('NOT_NEEDED', 'Not needed'),
+        ('AVAILABLE', 'Sponsorship available'),
+        ('TRANSFER_ONLY', 'Transfer only'),
+        ('NOT_AVAILABLE', 'No sponsorship'),
+    ]
+    DAY_ONE_GC_CHOICES = [
+        ('', 'Not specified'),
+        ('YES', 'Yes'),
+        ('NO', 'No'),
+        ('NOT_APPLICABLE', 'Not applicable'),
+    ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='applications')
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='applications')
     role_title = models.CharField(max_length=255)
     job_link = models.URLField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='APPLIED')
+    status = models.CharField(max_length=50, default='APPLIED')
     
     # Details
     rto_policy = models.CharField(max_length=20, choices=RTO_CHOICES, default='UNKNOWN')
@@ -62,6 +67,32 @@ class Application(models.Model):
     salary_range = models.CharField(max_length=100, blank=True, help_text="e.g. $150k - $180k")
     location = models.CharField(max_length=100, blank=True)
     office_location = models.CharField(max_length=100, blank=True)
+    visa_sponsorship = models.CharField(max_length=20, choices=VISA_SPONSORSHIP_CHOICES, blank=True, default='')
+    day_one_gc = models.CharField(max_length=20, choices=DAY_ONE_GC_CHOICES, blank=True, default='')
+    growth_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Manual growth score from 1 to 5",
+    )
+    work_life_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Manual work-life balance score from 1 to 5",
+    )
+    brand_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Manual company brand score from 1 to 5",
+    )
+    team_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Manual manager/team score from 1 to 5",
+    )
     
     employment_type = models.CharField(max_length=20, default='full_time', null=True, blank=True)
 
@@ -122,6 +153,36 @@ class Document(models.Model):
 
     def __str__(self):
         return f"{self.title} (v{self.version_number})"
+
+
+class ApplicationTimelineEntry(models.Model):
+
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='application_timeline_entries')
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='timeline_entries')
+    stage = models.CharField(max_length=50)
+    stage_order = models.PositiveSmallIntegerField(default=999)
+    event_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    documents = models.ManyToManyField(Document, blank=True, related_name='timeline_entries')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['application_id', 'stage_order']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'application', 'stage'], name='unique_timeline_stage_per_application'),
+        ]
+
+    def save(self, *args, **kwargs):
+        settings_profile = getattr(self.user, 'availability_settings_profile', None)
+        stages = settings_profile.application_stages if settings_profile and settings_profile.application_stages else []
+        order_map = {s['key']: idx * 10 for idx, s in enumerate(stages)}
+        self.stage_order = order_map.get(self.stage, 999)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.stage} for {self.application}"
 
 
 class Task(models.Model):

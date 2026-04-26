@@ -11,6 +11,7 @@ from .views import (
     WeeklyReviewView,
     ExperienceViewSet,
     ImportExperiencesView,
+    ApplicationTimelineEntryViewSet,
 )
 from django.urls import path
 
@@ -21,6 +22,7 @@ router.register(r'offers', OfferViewSet)
 router.register(r'documents', DocumentViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'experiences', ExperienceViewSet)
+router.register(r'application-timeline', ApplicationTimelineEntryViewSet, basename='application-timeline')
 
 urlpatterns = [
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),

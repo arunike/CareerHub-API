@@ -5,6 +5,7 @@ from .experiences import ExperienceViewSet, ImportExperiencesView
 from .offers import OfferViewSet
 from .reference import ReferenceDataView, RentEstimateView, WeeklyReviewView
 from .tasks import TaskViewSet
+from .timeline import ApplicationTimelineEntryViewSet
 
 __all__ = [
     'CompanyViewSet',
@@ -18,4 +19,5 @@ __all__ = [
     'WeeklyReviewView',
     'ExperienceViewSet',
     'ImportExperiencesView',
+    'ApplicationTimelineEntryViewSet',
 ]

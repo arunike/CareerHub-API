@@ -82,7 +82,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'default_event_duration', 'buffer_time', 'primary_timezone',
             'theme', 'notification_preferences', 'global_availability',
             'ghosting_threshold_days', 'default_event_category',
-            'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'hidden_nav_items',
+            'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
             'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',
             'ai_provider_api_key_configured', 'ai_provider_api_key_masked',
             'created_at', 'updated_at'

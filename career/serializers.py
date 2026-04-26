@@ -7,6 +7,7 @@ from rest_framework import serializers
 from .models import (
     Company,
     Application,
+    ApplicationTimelineEntry,
     Offer,
     Document,
     Task,
@@ -154,6 +155,64 @@ class DocumentExportSerializer(serializers.ModelSerializer):
     def get_file_name(self, obj):
         return document_filename(obj.file)
 
+
+class TimelineDocumentSerializer(serializers.ModelSerializer):
+    file_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Document
+        fields = ['id', 'title', 'document_type', 'file_name', 'application']
+
+    def get_file_name(self, obj):
+        return document_filename(obj.file)
+
+
+class ApplicationTimelineEntrySerializer(serializers.ModelSerializer):
+    stage_label = serializers.CharField(source='stage', read_only=True)
+    document_details = TimelineDocumentSerializer(source='documents', many=True, read_only=True)
+
+    class Meta:
+        model = ApplicationTimelineEntry
+        fields = [
+            'id',
+            'application',
+            'stage',
+            'stage_label',
+            'stage_order',
+            'event_date',
+            'notes',
+            'documents',
+            'document_details',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['stage_label', 'stage_order', 'document_details', 'created_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['application'].queryset = Application.objects.filter(user=request.user)
+            document_queryset = Document.objects.filter(user=request.user, is_current=True)
+        else:
+            fields['application'].queryset = Application.objects.none()
+            document_queryset = Document.objects.none()
+
+        documents_field = fields['documents']
+        if hasattr(documents_field, 'child_relation'):
+            documents_field.child_relation.queryset = document_queryset
+        else:
+            documents_field.queryset = document_queryset
+        return fields
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        application = attrs.get('application') or getattr(self.instance, 'application', None)
+        if application and request and application.user_id != request.user.id:
+            raise serializers.ValidationError({'application': 'Selected application was not found for this account.'})
+        return attrs
+
+
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)
     company_details = serializers.SerializerMethodField(read_only=True)
@@ -167,7 +226,9 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'commute_cost_value', 'commute_cost_frequency',
             'free_food_perk_value', 'free_food_perk_frequency',
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
-            'salary_range', 'location', 'office_location', 'notes', 'current_round', 'is_locked',
+            'salary_range', 'location', 'office_location',
+            'visa_sponsorship', 'day_one_gc', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
+            'notes', 'current_round', 'is_locked',
             'date_applied', 'offer', 'created_at'
         ]
         extra_kwargs = {
@@ -203,7 +264,9 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
             'commute_cost_value', 'commute_cost_frequency',
             'free_food_perk_value', 'free_food_perk_frequency',
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
-            'current_round', 'job_link', 'salary_range', 'location', 'office_location', 'notes',
+            'current_round', 'job_link', 'salary_range', 'location', 'office_location',
+            'visa_sponsorship', 'day_one_gc', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
+            'notes',
             'date_applied', 'created_at', 'updated_at'
         ]
 
@@ -238,6 +301,12 @@ class ApplicationImportExportSerializer(serializers.ModelSerializer):
             'salary_range',
             'location',
             'office_location',
+            'visa_sponsorship',
+            'day_one_gc',
+            'growth_score',
+            'work_life_score',
+            'brand_score',
+            'team_score',
             'employment_type',
             'notes',
             'current_round',
