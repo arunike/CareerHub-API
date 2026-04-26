@@ -9,9 +9,11 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from availability.models import UserSettings
 from availability.utils import export_data
 from ..models import Application, Company, Offer
 from ..serializers import ApplicationExportSerializer, ApplicationSerializer
+from ..services.job_board_import import extract_job_posting
 from ..upload_validation import validate_import_row_count, validate_import_upload
 
 
@@ -194,3 +196,17 @@ class ImportApplicationsView(APIView):
             return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class JobBoardImportView(APIView):
+    def post(self, request, *args, **kwargs):
+        url = request.data.get('url', '')
+        try:
+            user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+            return Response(
+                extract_job_posting(url, user_settings=user_settings),
+                status=status.HTTP_200_OK,
+            )
+        except DRFValidationError as exc:
+            detail = exc.detail[0] if isinstance(exc.detail, list) else exc.detail
+            return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)

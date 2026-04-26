@@ -3,6 +3,8 @@ from django.db import models
 from django.utils import timezone
 
 from .ai_provider import (
+    AI_PROVIDER_ADAPTER_CHOICES,
+    DEFAULT_AI_PROVIDER_ADAPTER,
     DEFAULT_AI_PROVIDER_ENDPOINT,
     DEFAULT_AI_PROVIDER_MODEL,
     decrypt_ai_provider_secret,
@@ -113,6 +115,12 @@ class UserSettings(models.Model):
     holiday_tabs = models.JSONField(default=list, blank=True, help_text="User-defined holiday tab definitions [{id, name}]")
     application_stages = models.JSONField(default=list, blank=True, help_text="Custom application timeline stages [{key, label, shortLabel, tone}]")
     hidden_nav_items = models.JSONField(default=list, blank=True, help_text="List of nav route keys to hide from sidebar")
+    ai_provider_adapter = models.CharField(
+        max_length=32,
+        choices=AI_PROVIDER_ADAPTER_CHOICES,
+        default=DEFAULT_AI_PROVIDER_ADAPTER,
+        help_text="Provider protocol used by the authenticated user's BYOK configuration.",
+    )
     ai_provider_endpoint = models.URLField(
         max_length=500,
         blank=True,

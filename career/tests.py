@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 from unittest.mock import patch
 
@@ -7,6 +8,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from availability.models import UserSettings
 from .models import Document, Experience
 from .serializers import ExperienceSerializer
 
@@ -71,6 +73,141 @@ class ExperienceLogoUploadTests(APITestCase):
         serializer = ExperienceSerializer(self.experience)
 
         self.assertEqual(serializer.data["logo"], "/media/experience_logos/legacy-logo.png")
+
+
+class JobBoardImportTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="job-import-user@example.com",
+            email="job-import-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+        self.url = "/api/career/job-import/"
+
+    @patch("career.services.job_board_import._validate_public_dns")
+    @patch("career.services.job_board_import._fetch_html")
+    def test_job_import_falls_back_to_rules_without_ai_provider(
+        self,
+        mock_fetch_html,
+        mock_validate_public_dns,
+    ):
+        mock_fetch_html.return_value = (
+            """
+            <html>
+              <head><title>Software Engineer | Careers at Acme</title></head>
+              <body><h1>Software Engineer</h1><p>Location: Remote</p></body>
+            </html>
+            """,
+            "https://careers.acme.com/jobs/software-engineer",
+        )
+
+        response = self.client.post(
+            self.url,
+            {"url": "https://careers.acme.com/jobs/software-engineer"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["company"], "Acme")
+        self.assertEqual(response.data["role_title"], "Software Engineer")
+        self.assertEqual(response.data["extraction_method"], "rules")
+        self.assertEqual(response.data["ai_status"], "not_configured")
+        self.assertIn("not configured", response.data["ai_message"])
+        mock_validate_public_dns.assert_called()
+
+    @patch("career.services.job_board_import.relay_ai_provider_chat_completion")
+    @patch("career.services.job_board_import._validate_public_dns")
+    @patch("career.services.job_board_import._fetch_html")
+    def test_job_import_uses_ai_when_provider_is_configured(
+        self,
+        mock_fetch_html,
+        mock_validate_public_dns,
+        mock_relay_ai_provider_chat_completion,
+    ):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.set_ai_provider_api_key("secret-key-1234")
+        settings.save()
+        mock_fetch_html.return_value = (
+            """
+            <html>
+              <head><title>Careers | Acme</title></head>
+              <body>
+                <nav>About Acme Products Teams</nav>
+                <main>Senior Backend Engineer Location: New York Build APIs for our payments platform.</main>
+              </body>
+            </html>
+            """,
+            "https://www.acme.com/careers/backend-engineer",
+        )
+        mock_relay_ai_provider_chat_completion.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "company": "Acme",
+                                "role_title": "Senior Backend Engineer",
+                                "location": "New York",
+                                "job_description": "Build APIs for our payments platform.",
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        response = self.client.post(
+            self.url,
+            {"url": "https://www.acme.com/careers/backend-engineer"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["company"], "Acme")
+        self.assertEqual(response.data["role_title"], "Senior Backend Engineer")
+        self.assertEqual(response.data["location"], "New York")
+        self.assertEqual(response.data["extraction_method"], "ai")
+        self.assertEqual(response.data["ai_status"], "success")
+        self.assertIn("succeeded", response.data["ai_message"])
+        mock_validate_public_dns.assert_called()
+        mock_relay_ai_provider_chat_completion.assert_called_once()
+
+    @patch("career.services.job_board_import.relay_ai_provider_chat_completion")
+    @patch("career.services.job_board_import._validate_public_dns")
+    @patch("career.services.job_board_import._fetch_html")
+    def test_job_import_reports_ai_failure_when_falling_back(
+        self,
+        mock_fetch_html,
+        mock_validate_public_dns,
+        mock_relay_ai_provider_chat_completion,
+    ):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.set_ai_provider_api_key("secret-key-1234")
+        settings.save()
+        mock_fetch_html.return_value = (
+            """
+            <html>
+              <head><title>Software Engineer | Careers at Acme</title></head>
+              <body><h1>Software Engineer</h1><p>Location: Remote</p></body>
+            </html>
+            """,
+            "https://careers.acme.com/jobs/software-engineer",
+        )
+        mock_relay_ai_provider_chat_completion.side_effect = ValueError("Provider returned malformed JSON.")
+
+        response = self.client.post(
+            self.url,
+            {"url": "https://careers.acme.com/jobs/software-engineer"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["extraction_method"], "rules")
+        self.assertEqual(response.data["ai_status"], "failed")
+        self.assertIn("malformed JSON", response.data["ai_message"])
+        mock_validate_public_dns.assert_called()
+        mock_relay_ai_provider_chat_completion.assert_called_once()
 
 
 class DocumentStorageFlowTests(APITestCase):
