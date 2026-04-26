@@ -39,6 +39,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
 - **Bulk Import**: Upload CSV/XLSX files to import multiple applications at once
 - **Export Options**: Download data as CSV, JSON, or XLSX
+- **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
+- **Company Timeline**: Persist per-stage application timeline entries with dates, notes, and attached documents
 - **Locking**: Locked applications cannot be deleted
 - **Delete All**: Bulk delete endpoint respects lock status
 
@@ -53,7 +55,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 > AI provider configuration now lives in the frontend Settings page, while the API key is stored encrypted on the backend.
 
-- **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and sends it through the authenticated backend relay
+- **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and sends it through the authenticated backend relay for fit scoring, gap analysis, and resume tailoring suggestions
 - **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and routes provider requests through the encrypted backend relay
 - **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
 - **Skill Refinement**: the frontend can refine Experience skills through the backend relay when the user's provider key is configured
@@ -331,7 +333,8 @@ api/
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
 ├── career/                   # Job applications, offers & AI tools module
-│   ├── models.py             # Company, Application, Offer, Document, Task, Experience models
+│   ├── models.py             # Company, Application, Offer, Document, TimelineEntry, Task, Experience models
+│   │                         #   (+ offer decision scorecard fields on Application)
 │   ├── serializers.py        # DRF serializers with auto company creation, skill extraction, and Experience export payloads
 │   ├── views/                # API ViewSets (package)
 │   │   ├── applications.py   # ApplicationViewSet + import/export helpers
@@ -344,7 +347,7 @@ api/
 │   ├── skills_extractor.py   # Lightweight keyword/acronym skill extraction
 │   ├── services/             # Business logic (reference data, rent, weekly review, logo/document storage)
 │   ├── tasks.py              # Maintenance helper: auto_ghost_stale_applications
-│   ├── migrations/           # Database migrations (0001–0039)
+│   ├── migrations/           # Database migrations (0001–0041)
 │   └── urls.py               # URL routing
 │
 ├── analytics/                # Analytics app support
@@ -381,6 +384,9 @@ Base prefix: `/api/career/`
 - `DELETE /api/career/applications/delete_all/` — Delete all unlocked applications
 - `POST /api/career/import/` — Bulk import from CSV/XLSX
 - `GET /api/career/applications/export/?fmt=csv` — Export applications (csv/json/xlsx)
+- `GET /api/career/application-timeline/?application={id}` — List timeline entries for one application
+- `POST /api/career/application-timeline/` — Create a stage timeline entry with notes/docs
+- `PATCH /api/career/application-timeline/{id}/` — Update a stage timeline entry
 
 #### Offers
 - `GET /api/career/offers/` — List all offers
