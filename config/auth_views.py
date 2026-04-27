@@ -2,8 +2,10 @@ from django.contrib.auth import authenticate, get_user_model, logout
 from django.contrib.auth.password_validation import validate_password
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import validate_email
 from django.db import transaction
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
@@ -19,6 +21,16 @@ from .user_ownership import claim_legacy_records_for_user, ensure_user_settings
 
 
 def _serialize_user(user):
+    account_deletion_requested_at = None
+    account_deletion_scheduled_for = None
+    try:
+        settings_profile = user.availability_settings_profile
+    except ObjectDoesNotExist:
+        settings_profile = None
+    if settings_profile is not None:
+        account_deletion_requested_at = settings_profile.account_deletion_requested_at
+        account_deletion_scheduled_for = settings_profile.account_deletion_scheduled_for
+
     return {
         "id": user.id,
         "email": user.email,
@@ -27,6 +39,8 @@ def _serialize_user(user):
         "last_name": user.last_name,
         "is_staff": user.is_staff,
         "is_superuser": user.is_superuser,
+        "account_deletion_requested_at": account_deletion_requested_at,
+        "account_deletion_scheduled_for": account_deletion_scheduled_for,
     }
 
 
@@ -111,10 +125,28 @@ class AuthLoginView(APIView):
             return Response({"error": "This account is inactive."}, status=status.HTTP_403_FORBIDDEN)
 
         claim_legacy_records_for_user(user)
-        ensure_user_settings(user)
+        user_settings = ensure_user_settings(user)
+        account_deletion_cancelled = False
+        if user_settings.account_deletion_scheduled_for:
+            if user_settings.account_deletion_scheduled_for <= timezone.now():
+                user.delete()
+                return Response(
+                    {"error": "This account deletion grace period has expired."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            user_settings.cancel_account_deletion()
+            user_settings.save(update_fields=[
+                "account_deletion_requested_at",
+                "account_deletion_scheduled_for",
+                "updated_at",
+            ])
+            account_deletion_cancelled = True
+
         return Response(
             {
                 "user": _serialize_user(user),
+                "account_deletion_cancelled": account_deletion_cancelled,
                 **_issue_tokens_for_user(user),
             },
             status=status.HTTP_200_OK,

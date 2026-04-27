@@ -86,10 +86,16 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
             'ai_provider_adapter', 'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',
             'ai_provider_api_key_configured', 'ai_provider_api_key_masked',
+            'account_deletion_requested_at', 'account_deletion_scheduled_for',
             'display_name', 'profile_picture', 'email',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = [
+            'account_deletion_requested_at',
+            'account_deletion_scheduled_for',
+            'created_at',
+            'updated_at',
+        ]
 
     def get_fields(self):
         fields = super().get_fields()

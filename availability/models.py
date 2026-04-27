@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -91,6 +93,8 @@ class Event(models.Model):
         return f"{self.name} ({self.date})"
 
 class UserSettings(models.Model):
+    ACCOUNT_DELETION_GRACE_DAYS = 14
+
     THEME_CHOICES = [
         ('light', 'Light'),
         ('dark', 'Dark'),
@@ -138,6 +142,16 @@ class UserSettings(models.Model):
         default="",
         help_text="Encrypted AI provider API key for the authenticated user.",
     )
+    account_deletion_requested_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the authenticated user requested account deletion.",
+    )
+    account_deletion_scheduled_for = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the account becomes eligible for permanent deletion.",
+    )
     
     # Profile information
     display_name = models.CharField(max_length=120, blank=True, help_text="Public display name for booking links")
@@ -171,6 +185,19 @@ class UserSettings(models.Model):
             return mask_ai_provider_secret(self.get_ai_provider_api_key())
         except Exception:
             return "Saved key"
+
+    @property
+    def account_deletion_pending(self):
+        return self.account_deletion_scheduled_for is not None
+
+    def schedule_account_deletion(self, requested_at=None):
+        requested_at = requested_at or timezone.now()
+        self.account_deletion_requested_at = requested_at
+        self.account_deletion_scheduled_for = requested_at + timedelta(days=self.ACCOUNT_DELETION_GRACE_DAYS)
+
+    def cancel_account_deletion(self):
+        self.account_deletion_requested_at = None
+        self.account_deletion_scheduled_for = None
 
 class ConflictAlert(models.Model):
     event1 = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='conflicts_as_event1')
