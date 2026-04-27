@@ -99,6 +99,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category, and notification preferences
 - **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
+- **Privacy Export Center APIs**: Account-level export, backup restore, and confirmed account deletion endpoints live under `user-settings`.
 - **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows per day (e.g., 11am–12pm and 2pm–5pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges all ranges after subtracting event conflicts
 - **Employment Types** (`employment_types` JSONField): User-configurable list of `{value, label, color}` employment type definitions — consumed by the Experience page; supports add/edit/delete with 10 color options
 - **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
@@ -123,7 +124,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Secured Cron Endpoint**
   - `GET /api/internal/cron/daily-maintenance/`
   - guarded by `CRON_SECRET` via the `Authorization: Bearer ...` header that Vercel automatically sends for cron invocations
-  - runs `auto_ghost_stale_applications` and `expire_stale_share_links`
+  - runs `auto_ghost_stale_applications`, `expire_stale_share_links`, and expired account deletion purges
 
 - **Rate Limiting**
   - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
@@ -477,10 +478,13 @@ Base prefix: `/api/career/`
 #### Settings
 - `GET /api/user-settings/current/` — Retrieve user settings (singleton)
 - `PUT /api/user-settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
+- `GET /api/user-settings/account-export/?fmt=json|zip` — Download account-level CareerHub export data
+- `POST /api/user-settings/restore-backup/` — Restore a CareerHub account export in merge or replace mode
+- `DELETE /api/user-settings/account/` — Schedule authenticated account deletion with a 14-day grace period when the payload includes `confirm=DELETE`
 - `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, or OpenRouter adapter using the encrypted provider key
 
 #### Internal Maintenance
-- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs
+- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
 
 #### Authentication
 - `POST /api/auth/login/` — Email/password login, returns `user`, `access`, and `refresh`
