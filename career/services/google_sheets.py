@@ -143,8 +143,6 @@ def sync_google_sheet(config, force=False):
     header_index = max((config.header_row or 1) - 1, 0)
     if len(rows) <= header_index:
         raise ValidationError('No header row was found in this sheet.')
-    if force:
-        GoogleSheetSyncRow.objects.filter(config=config).delete()
 
     headers = [_dedupe_headers([_clean_cell(value) for value in rows[header_index]])]
     headers = headers[0]
@@ -166,7 +164,7 @@ def sync_google_sheet(config, force=False):
 
         result['scanned_rows'] += 1
         try:
-            action = _sync_row(config, row, offset, mapping)
+            action = _sync_row(config, row, offset, mapping, force=force)
             result[action] += 1
         except Exception as exc:
             result['errors'].append({'row': offset, 'error': str(exc)})
@@ -273,13 +271,13 @@ def _load_service_account_info(silent=False):
         raise ValidationError('Google service account credentials are not valid JSON.') from exc
 
 
-def _sync_row(config, row, row_number, mapping):
+def _sync_row(config, row, row_number, mapping, force=False):
     payload = _mapped_payload(row, mapping)
     external_key = _external_key(payload, row_number)
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
     payload['_user'] = config.user
     tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
-    if tracked and tracked.row_hash == row_hash:
+    if tracked and tracked.row_hash == row_hash and not force:
         return 'skipped'
 
     with transaction.atomic():
@@ -336,13 +334,33 @@ def _upsert_application(config, payload, tracked):
             application.save()
             return application, False
 
-    application, created = Application.objects.update_or_create(
+    existing_application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
+    if existing_application:
+        for field, value in defaults.items():
+            setattr(existing_application, field, value)
+        existing_application.save()
+        return existing_application, False
+
+    application = Application.objects.create(
         user=config.user,
         company=company,
         role_title=role_title,
-        defaults=defaults,
+        **defaults,
     )
-    return application, created
+    return application, True
+
+
+def _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults):
+    identity_fields = ['salary_range', 'location', 'office_location', 'job_link']
+    filters = {
+        'user': config.user,
+        'company': company,
+        'role_title': role_title,
+    }
+    for field in identity_fields:
+        if field in payload:
+            filters[field] = defaults.get(field)
+    return Application.objects.filter(**filters).order_by('id').first()
 
 
 def _application_defaults_from_payload(payload, apply_create_defaults=False):

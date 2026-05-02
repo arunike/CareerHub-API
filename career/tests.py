@@ -9,9 +9,9 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from availability.models import UserSettings
-from .models import Document, Experience
+from .models import Application, Document, Experience, GoogleSheetSyncConfig
 from .serializers import ExperienceSerializer
-from .services.google_sheets import _upsert_application
+from .services.google_sheets import _upsert_application, sync_google_sheet
 
 
 class GoogleSheetApplicationStatusSyncTests(APITestCase):
@@ -66,6 +66,82 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(application.status, 'ROUND_10')
         self.assertEqual(stage['label'], '10th Round')
         self.assertEqual(stage['shortLabel'], 'R10')
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_same_company_and_role_with_different_locations_create_distinct_applications(self, mock_fetch_sheet_rows):
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Salary', 'Location'],
+            ['Plaid', 'Software Engineer', '148800 - 223200', 'New York, NY'],
+            ['Plaid', 'Software Engineer', '148800 - 223200', 'San Francisco, CA'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'salary_range': 'Salary',
+                'location': 'Location',
+            },
+        )
+
+        result = sync_google_sheet(config)
+
+        self.assertEqual(result['created'], 2)
+        applications = Application.objects.filter(
+            user=self.user,
+            company__name='Plaid',
+            role_title='Software Engineer',
+        ).order_by('location')
+        self.assertEqual(applications.count(), 2)
+        self.assertEqual(
+            list(applications.values_list('location', flat=True)),
+            ['New York, NY', 'San Francisco, CA'],
+        )
+
+        resync_result = sync_google_sheet(config, force=True)
+        self.assertEqual(resync_result['created'], 0)
+        self.assertEqual(resync_result['updated'], 2)
+        self.assertEqual(Application.objects.filter(user=self.user, company__name='Plaid').count(), 2)
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_identical_company_role_salary_and_location_dedupes_application(self, mock_fetch_sheet_rows):
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Salary', 'Location'],
+            ['Plaid', 'Software Engineer', '148800 - 223200', 'New York, NY'],
+            ['Plaid', 'Software Engineer', '148800 - 223200', 'New York, NY'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'salary_range': 'Salary',
+                'location': 'Location',
+            },
+        )
+
+        result = sync_google_sheet(config)
+
+        self.assertEqual(result['created'], 1)
+        self.assertEqual(result['updated'], 1)
+        self.assertEqual(
+            Application.objects.filter(
+                user=self.user,
+                company__name='Plaid',
+                role_title='Software Engineer',
+                salary_range='148800 - 223200',
+                location='New York, NY',
+            ).count(),
+            1,
+        )
 
 
 class ExperienceLogoUploadTests(APITestCase):
