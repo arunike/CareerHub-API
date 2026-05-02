@@ -1,0 +1,55 @@
+[
+  {
+    "action": "firewallEnabled",
+    "value": true
+  },
+  {
+    "action": "managedRules.update",
+    "id": "bot_protection",
+    "value": {
+      "active": true,
+      "action": "log"
+    }
+  },
+  {
+    "action": "managedRules.update",
+    "id": "ai_bots",
+    "value": {
+      "active": true,
+      "action": "deny"
+    }
+  },
+  {
+    "action": "rules.insert",
+    "value": {
+      "name": "CareerHub sensitive API flood limit",
+      "description": "Hobby-compatible single WAF rate-limit rule for auth, public booking, AI relay, and manual Google Sheets sync endpoints.",
+      "active": true,
+      "conditionGroup": [
+        {
+          "conditions": [
+            {
+              "type": "path",
+              "op": "re",
+              "value": "^/api/(auth/(login|signup|refresh)/|booking/[^/]+/(slots|book)/|user-settings/ai-provider/chat-completions/|career/google-sheet-syncs/[^/]+/(sync-now|resync)/)$"
+            }
+          ]
+        }
+      ],
+      "action": {
+        "mitigate": {
+          "action": "rate_limit",
+          "rateLimit": {
+            "algo": "fixed_window",
+            "window": 60,
+            "limit": 60,
+            "keys": [
+              "ip"
+            ],
+            "action": "deny"
+          }
+        }
+      }
+    }
+  }
+]

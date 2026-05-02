@@ -10,6 +10,30 @@
   },
   "routes": [
     {
+      "src": "/\\.env(.*)",
+      "mitigate": {
+        "action": "deny"
+      }
+    },
+    {
+      "src": "/\\.git/(.*)",
+      "mitigate": {
+        "action": "deny"
+      }
+    },
+    {
+      "src": "/wp-(admin|login|content|includes)(.*)",
+      "mitigate": {
+        "action": "deny"
+      }
+    },
+    {
+      "src": "/(phpmyadmin|vendor|server-status)(.*)",
+      "mitigate": {
+        "action": "deny"
+      }
+    },
+    {
       "src": "/(.*)",
       "dest": "api/wsgi.py"
     }
