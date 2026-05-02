@@ -7,10 +7,12 @@ import os
 import re
 from datetime import datetime
 from datetime import timedelta
+from datetime import time
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.db import transaction
 from django.utils import timezone
@@ -116,16 +118,26 @@ def fetch_sheet_rows(config):
     if not config.spreadsheet_id:
         raise ValidationError('Enter a valid Google Sheets link.')
 
+    errors = []
+    try:
+        return _fetch_google_oauth_rows(config)
+    except Exception as oauth_error:
+        errors.append(f'Google OAuth error: {oauth_error}')
+
     try:
         return _fetch_public_csv_rows(config)
     except Exception as public_error:
-        try:
-            return _fetch_google_api_rows(config)
-        except Exception as api_error:
-            raise ValidationError(
-                'Could not read this sheet. Share it publicly as CSV or share it with the configured service account. '
-                f'Public CSV error: {public_error}. Google API error: {api_error}'
-            )
+        errors.append(f'Public CSV error: {public_error}')
+
+    try:
+        return _fetch_google_api_rows(config)
+    except Exception as api_error:
+        errors.append(f'Service account error: {api_error}')
+        raise ValidationError(
+            'Could not read this sheet. Connect Google for private access, share it publicly as CSV, '
+            'or share it with the configured service account. '
+            + ' '.join(errors)
+        )
 
 
 def preview_sheet(config, limit=5):
@@ -181,7 +193,7 @@ def sync_google_sheet(config, force=False):
     return result
 
 
-def sync_enabled_google_sheets():
+def sync_enabled_google_sheets(only_due=False, now=None):
     summary = {
         'configs': 0,
         'created': 0,
@@ -191,6 +203,9 @@ def sync_enabled_google_sheets():
     }
     for config in GoogleSheetSyncConfig.objects.filter(enabled=True).select_related('user'):
         summary['configs'] += 1
+        if only_due and not _is_sync_config_due(config, now=now):
+            summary['skipped'] += 1
+            continue
         try:
             result = sync_google_sheet(config)
             summary['created'] += result.get('created', 0)
@@ -205,6 +220,25 @@ def sync_enabled_google_sheets():
             config.save(update_fields=['last_synced_at', 'last_status', 'last_error', 'updated_at'])
             summary['errors'].append({'config': config.name, 'error': str(exc)})
     return summary
+
+
+def _is_sync_config_due(config, now=None):
+    now = now or timezone.now()
+    try:
+        sync_timezone = ZoneInfo(config.sync_timezone or 'America/Los_Angeles')
+    except ZoneInfoNotFoundError:
+        sync_timezone = ZoneInfo('UTC')
+
+    local_now = now.astimezone(sync_timezone)
+    scheduled_time = config.sync_time or time(22, 0)
+    if local_now.time() < scheduled_time:
+        return False
+
+    if not config.last_synced_at:
+        return True
+
+    last_local = config.last_synced_at.astimezone(sync_timezone)
+    return not (last_local.date() == local_now.date() and last_local.time() >= scheduled_time)
 
 
 def _fetch_public_csv_rows(config):
@@ -248,6 +282,27 @@ def _fetch_google_api_rows(config):
     return response.get('values', [])
 
 
+def _fetch_google_oauth_rows(config):
+    from .google_oauth import get_google_oauth_credentials
+
+    credentials = get_google_oauth_credentials(config.user)
+    if not credentials:
+        raise ValidationError('Google is not connected.')
+    try:
+        from googleapiclient.discovery import build
+    except ImportError as exc:
+        raise ValidationError('Install google-api-python-client to read private sheets.') from exc
+
+    service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
+    range_name = f"'{config.worksheet_name}'" if config.worksheet_name else 'A:ZZ'
+    response = service.spreadsheets().values().get(
+        spreadsheetId=config.spreadsheet_id,
+        range=range_name,
+        majorDimension='ROWS',
+    ).execute()
+    return response.get('values', [])
+
+
 def _load_service_account_info(silent=False):
     raw = (
         os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
@@ -277,7 +332,7 @@ def _sync_row(config, row, row_number, mapping, force=False):
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
     payload['_user'] = config.user
     tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
-    if tracked and tracked.row_hash == row_hash and not force:
+    if tracked and tracked.row_hash == row_hash and not force and not _needs_application_date_backfill(config, payload, tracked):
         return 'skipped'
 
     with transaction.atomic():
@@ -315,6 +370,15 @@ def _external_key(payload, row_number):
     return explicit or f'row:{row_number}'
 
 
+def _needs_application_date_backfill(config, payload, tracked):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS or not tracked:
+        return False
+    if 'date_applied' in payload:
+        return False
+    application = Application.objects.filter(id=tracked.local_object_id, user=config.user).only('date_applied').first()
+    return bool(application and not application.date_applied)
+
+
 def _upsert_application(config, payload, tracked):
     company_name = payload.get('company_name') or payload.get('company') or ''
     role_title = payload.get('role_title') or ''
@@ -329,6 +393,8 @@ def _upsert_application(config, payload, tracked):
         if application:
             application.company = company
             application.role_title = role_title
+            if 'date_applied' not in payload and not application.date_applied:
+                defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
             for field, value in defaults.items():
                 setattr(application, field, value)
             application.save()

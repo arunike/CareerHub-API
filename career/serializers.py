@@ -271,6 +271,8 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
             'target_type',
             'column_mapping',
             'enabled',
+            'sync_time',
+            'sync_timezone',
             'header_row',
             'last_synced_at',
             'last_status',
@@ -300,6 +302,16 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
     def validate_header_row(self, value):
         if value < 1:
             raise serializers.ValidationError('Header row must be 1 or greater.')
+        return value
+
+    def validate_sync_timezone(self, value):
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        value = (value or '').strip() or 'America/Los_Angeles'
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise serializers.ValidationError('Enter a valid IANA timezone, such as America/Los_Angeles.') from exc
         return value
 
     def validate_column_mapping(self, value):

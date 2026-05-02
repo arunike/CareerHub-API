@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, time, timezone as dt_timezone
 from io import BytesIO
 from unittest.mock import patch
 
@@ -11,7 +12,7 @@ from rest_framework.test import APITestCase
 from availability.models import UserSettings
 from .models import Application, Document, Experience, GoogleSheetSyncConfig
 from .serializers import ExperienceSerializer
-from .services.google_sheets import _upsert_application, sync_google_sheet
+from .services.google_sheets import _is_sync_config_due, _upsert_application, sync_google_sheet
 
 
 class GoogleSheetApplicationStatusSyncTests(APITestCase):
@@ -142,6 +143,59 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             ).count(),
             1,
         )
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_unchanged_tracked_row_backfills_missing_date_applied(self, mock_fetch_sheet_rows):
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Location'],
+            ['1Password', 'Developer, Backend', 'Remote'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'location': 'Location',
+            },
+        )
+
+        sync_google_sheet(config)
+        application = Application.objects.get(user=self.user, company__name='1Password')
+        original_date = application.date_applied
+        application.date_applied = None
+        application.save(update_fields=['date_applied'])
+
+        result = sync_google_sheet(config)
+
+        application.refresh_from_db()
+        self.assertEqual(result['updated'], 1)
+        self.assertEqual(result['skipped'], 0)
+        self.assertEqual(application.date_applied, original_date)
+
+    def test_sync_config_due_respects_local_time_and_same_day_sync(self):
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            sync_time=time(10, 0),
+            sync_timezone='America/Los_Angeles',
+        )
+
+        before_window = datetime(2026, 5, 2, 16, 30, tzinfo=dt_timezone.utc)
+        after_window = datetime(2026, 5, 2, 17, 30, tzinfo=dt_timezone.utc)
+
+        self.assertFalse(_is_sync_config_due(config, now=before_window))
+        self.assertTrue(_is_sync_config_due(config, now=after_window))
+
+        config.last_synced_at = after_window
+        self.assertFalse(_is_sync_config_due(config, now=datetime(2026, 5, 2, 18, 30, tzinfo=dt_timezone.utc)))
+        self.assertTrue(_is_sync_config_due(config, now=datetime(2026, 5, 3, 17, 30, tzinfo=dt_timezone.utc)))
 
 
 class ExperienceLogoUploadTests(APITestCase):

@@ -13,6 +13,8 @@ from .views import (
     ExperienceViewSet,
     ImportExperiencesView,
     ApplicationTimelineEntryViewSet,
+    GoogleOAuthCallbackView,
+    GoogleOAuthViewSet,
     GoogleSheetSyncConfigViewSet,
 )
 from django.urls import path
@@ -25,6 +27,7 @@ router.register(r'documents', DocumentViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'experiences', ExperienceViewSet)
 router.register(r'application-timeline', ApplicationTimelineEntryViewSet, basename='application-timeline')
+router.register(r'google-oauth', GoogleOAuthViewSet, basename='google-oauth')
 router.register(r'google-sheet-syncs', GoogleSheetSyncConfigViewSet, basename='google-sheet-sync')
 
 urlpatterns = [
@@ -34,4 +37,5 @@ urlpatterns = [
     path('reference-data/', ReferenceDataView.as_view(), name='career-reference-data'),
     path('rent-estimate/', RentEstimateView.as_view(), name='career-rent-estimate'),
     path('weekly-review/', WeeklyReviewView.as_view(), name='career-weekly-review'),
+    path('google-oauth/callback/', GoogleOAuthCallbackView.as_view(), name='google-oauth-callback'),
 ] + router.urls

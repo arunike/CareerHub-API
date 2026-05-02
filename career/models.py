@@ -1,3 +1,5 @@
+from datetime import time
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -212,6 +214,8 @@ class GoogleSheetSyncConfig(models.Model):
     target_type = models.CharField(max_length=20, choices=TARGET_CHOICES)
     column_mapping = models.JSONField(default=dict, blank=True)
     enabled = models.BooleanField(default=True)
+    sync_time = models.TimeField(default=time(22, 0), help_text='Preferred daily sync time in sync_timezone.')
+    sync_timezone = models.CharField(max_length=64, default='America/Los_Angeles')
     header_row = models.PositiveSmallIntegerField(default=1)
     last_synced_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_IDLE)
@@ -247,6 +251,29 @@ class GoogleSheetSyncRow(models.Model):
 
     def __str__(self):
         return f"{self.config_id}:{self.external_key}"
+
+
+class GoogleOAuthCredential(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='google_oauth_credential')
+    google_email = models.EmailField(blank=True)
+    scopes = models.JSONField(default=list, blank=True)
+    refresh_token_encrypted = models.TextField(blank=True, default='')
+    token_uri = models.URLField(default='https://oauth2.googleapis.com/token')
+    connected_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Google OAuth for {self.user_id}"
+
+
+class GoogleOAuthState(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='google_oauth_states')
+    state = models.CharField(max_length=128, unique=True)
+    redirect_url = models.URLField(max_length=2048, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Google OAuth state for {self.user_id}"
 
 
 class Task(models.Model):
