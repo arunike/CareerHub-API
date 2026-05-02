@@ -13,6 +13,7 @@ from .views import (
     ExperienceViewSet,
     ImportExperiencesView,
     ApplicationTimelineEntryViewSet,
+    GoogleSheetSyncConfigViewSet,
 )
 from django.urls import path
 
@@ -24,6 +25,7 @@ router.register(r'documents', DocumentViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'experiences', ExperienceViewSet)
 router.register(r'application-timeline', ApplicationTimelineEntryViewSet, basename='application-timeline')
+router.register(r'google-sheet-syncs', GoogleSheetSyncConfigViewSet, basename='google-sheet-sync')
 
 urlpatterns = [
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),

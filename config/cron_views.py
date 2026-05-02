@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from availability.tasks import expire_stale_share_links, purge_expired_account_deletions
 from career.tasks import auto_ghost_stale_applications
+from career.services.google_sheets import sync_enabled_google_sheets
 
 
 class DailyMaintenanceCronView(APIView):
@@ -21,6 +22,7 @@ class DailyMaintenanceCronView(APIView):
 
         results = {
             "applications": auto_ghost_stale_applications(),
+            "google_sheet_syncs": sync_enabled_google_sheets(),
             "share_links": expire_stale_share_links(),
             "account_deletions": purge_expired_account_deletions(),
         }

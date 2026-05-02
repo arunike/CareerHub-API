@@ -11,6 +11,61 @@ from rest_framework.test import APITestCase
 from availability.models import UserSettings
 from .models import Document, Experience
 from .serializers import ExperienceSerializer
+from .services.google_sheets import _upsert_application
+
+
+class GoogleSheetApplicationStatusSyncTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="sheet-status-user@example.com",
+            email="sheet-status-user@example.com",
+            password="StrongPassw0rd!",
+        )
+
+    def test_parenthesized_round_status_reuses_existing_round_stage(self):
+        UserSettings.objects.create(
+            user=self.user,
+            application_stages=[
+                {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': 'bg-blue-500'},
+                {'key': 'ROUND_2', 'label': '2nd Round', 'shortLabel': 'R2', 'tone': 'bg-amber-500'},
+            ],
+        )
+
+        application, _ = _upsert_application(
+            config=type('Config', (), {'user': self.user})(),
+            payload={
+                '_user': self.user,
+                'company_name': 'Acme',
+                'role_title': 'Software Engineer',
+                'status': '2nd round (technical interview)',
+            },
+            tracked=None,
+        )
+
+        settings = UserSettings.objects.get(user=self.user)
+        self.assertEqual(application.status, 'ROUND_2')
+        self.assertEqual(
+            sum(1 for stage in settings.application_stages if stage['key'] == 'ROUND_2'),
+            1,
+        )
+
+    def test_unknown_round_status_adds_timeline_stage(self):
+        application, _ = _upsert_application(
+            config=type('Config', (), {'user': self.user})(),
+            payload={
+                '_user': self.user,
+                'company_name': 'Acme',
+                'role_title': 'Backend Engineer',
+                'status': '10th round (bar raiser)',
+            },
+            tracked=None,
+        )
+
+        settings = UserSettings.objects.get(user=self.user)
+        stage = next(stage for stage in settings.application_stages if stage['key'] == 'ROUND_10')
+        self.assertEqual(application.status, 'ROUND_10')
+        self.assertEqual(stage['label'], '10th Round')
+        self.assertEqual(stage['shortLabel'], 'R10')
 
 
 class ExperienceLogoUploadTests(APITestCase):

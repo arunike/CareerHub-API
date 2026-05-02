@@ -2,6 +2,7 @@ from .applications import ApplicationViewSet, ImportApplicationsView, JobBoardIm
 from .companies import CompanyViewSet
 from .documents import DocumentViewSet
 from .experiences import ExperienceViewSet, ImportExperiencesView
+from .google_sheets import GoogleSheetSyncConfigViewSet
 from .offers import OfferViewSet
 from .reference import ReferenceDataView, RentEstimateView, WeeklyReviewView
 from .tasks import TaskViewSet
@@ -21,4 +22,5 @@ __all__ = [
     'ExperienceViewSet',
     'ImportExperiencesView',
     'ApplicationTimelineEntryViewSet',
+    'GoogleSheetSyncConfigViewSet',
 ]
