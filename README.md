@@ -24,6 +24,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
 - 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and provider adapters relay requests server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
+- 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, with manual runs and daily cron refreshes
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
@@ -38,6 +39,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Status Tracking**: Support for 8 application stages (Applied, OA, Screen, Onsite, Offer, Rejected, Accepted, Ghosted)
 - **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
 - **Bulk Import**: Upload CSV/XLSX files to import multiple applications at once
+- **Google Sheets Sync**: Link a Google Sheet, auto-map columns from headers, optionally adjust fields, and import changed rows into Applications from the Settings integration UI
 - **Job Board URL Import**: Extract company, role, location, and job description from public HTTPS job pages, using the user's AI provider when configured and falling back to deterministic parsing
 - **Export Options**: Download data as CSV, JSON, or XLSX
 - **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
@@ -106,6 +108,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
 - **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
 - **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
+- **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, row hashes, last run status, and import results
 
 ### 🔐 Authentication & Security
 - **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
@@ -124,7 +127,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Secured Cron Endpoint**
   - `GET /api/internal/cron/daily-maintenance/`
   - guarded by `CRON_SECRET` via the `Authorization: Bearer ...` header that Vercel automatically sends for cron invocations
-  - runs `auto_ghost_stale_applications`, `expire_stale_share_links`, and expired account deletion purges
+  - runs `auto_ghost_stale_applications`, Google Sheets syncs, `expire_stale_share_links`, and expired account deletion purges
 
 - **Rate Limiting**
   - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
@@ -148,6 +151,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### Data Processing
 - **Pandas** - CSV/XLSX parsing and data manipulation
 - **openpyxl** - Excel file handling
+- **Google API Client** - Optional private Google Sheets reads through service account credentials
 
 ### Utilities
 - **django-cors-headers** - CORS middleware for frontend integration
@@ -287,6 +291,7 @@ Backend notes:
 - set `BLOB_READ_WRITE_TOKEN` if you want Experience logos to use public Vercel Blob storage
 - set `DOCUMENT_BLOB_READ_WRITE_TOKEN` if you want documents to use private Vercel Blob storage
 - set `CRON_SECRET` so Vercel can securely invoke `/api/internal/cron/daily-maintenance/`
+- set `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_INFO` if you want private Google Sheets sync; public sheet CSV export works without it
 - hosted document uploads are capped at 4 MB so they stay within Vercel request limits; local fallback storage can still use your configured `MAX_DOCUMENT_UPLOAD_BYTES`
 - for the zero-domain-cost setup in this repo, set `ALLOWED_HOSTS` to your actual backend `*.vercel.app` alias and `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` to your actual frontend alias
 - JWT Bearer auth does not require cross-origin cookies, so `CORS_ALLOW_CREDENTIALS` can stay off
@@ -340,7 +345,7 @@ api/
 │   └── utils.py              # Utilities (holiday fetching, export helpers)
 │
 ├── career/                   # Job applications, offers & AI tools module
-│   ├── models.py             # Company, Application, Offer, Document, TimelineEntry, Task, Experience models
+│   ├── models.py             # Company, Application, Offer, Document, TimelineEntry, Google Sheet sync, Task, Experience models
 │   │                         #   (+ offer decision scorecard fields on Application)
 │   ├── serializers.py        # DRF serializers with auto company creation, skill extraction, and Experience export payloads
 │   ├── views/                # API ViewSets (package)
@@ -352,9 +357,9 @@ api/
 │   │   ├── companies.py      # CompanyViewSet
 │   │   └── reference.py      # ReferenceDataView, RentEstimateView, WeeklyReviewView
 │   ├── skills_extractor.py   # Lightweight keyword/acronym skill extraction
-│   ├── services/             # Business logic (reference data, rent, weekly review, logo/document storage)
+│   ├── services/             # Business logic (reference data, rent, weekly review, Google Sheets, logo/document storage)
 │   ├── tasks.py              # Maintenance helper: auto_ghost_stale_applications
-│   ├── migrations/           # Database migrations (0001–0041)
+│   ├── migrations/           # Database migrations (0001–0045)
 │   └── urls.py               # URL routing
 │
 ├── analytics/                # Analytics app support
@@ -440,6 +445,13 @@ Base prefix: `/api/career/`
 - `GET /api/career/rent-estimate/?city=San+Jose,+CA,+United+States` — Rent estimate (HUD/fallback)
 - `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` — Weekly summary
 
+#### Google Sheets Sync
+- `GET /api/career/google-sheet-syncs/` — List saved Google Sheet sync configs
+- `POST /api/career/google-sheet-syncs/` — Create a sheet sync config for Applications or Events
+- `PATCH /api/career/google-sheet-syncs/{id}/` — Update mapping, worksheet, enabled state, or target settings
+- `POST /api/career/google-sheet-syncs/{id}/test/` — Read headers and preview rows from the linked sheet
+- `POST /api/career/google-sheet-syncs/{id}/sync-now/` — Run the sync immediately
+
 ### Availability Endpoints
 
 #### Events
@@ -484,7 +496,7 @@ Base prefix: `/api/career/`
 - `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, or OpenRouter adapter using the encrypted provider key
 
 #### Internal Maintenance
-- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
+- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; syncs enabled Google Sheets, expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
 
 #### Authentication
 - `POST /api/auth/login/` — Email/password login, returns `user`, `access`, and `refresh`
