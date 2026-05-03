@@ -2,9 +2,9 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..models import GoogleSheetSyncConfig
-from ..serializers import GoogleSheetSyncConfigSerializer
-from ..services.google_sheets import apply_import_review, build_import_review, parse_google_sheet_url, preview_sheet, sync_google_sheet
+from ..models import GoogleSheetSyncConfig, GoogleSheetSyncRun
+from ..serializers import GoogleSheetSyncConfigSerializer, GoogleSheetSyncRunSerializer
+from ..services.google_sheets import apply_import_review, build_import_review, parse_google_sheet_url, preview_sheet, sync_google_sheet, rollback_sync_run
 
 
 class GoogleSheetSyncConfigViewSet(viewsets.ModelViewSet):
@@ -90,3 +90,22 @@ class GoogleSheetSyncConfigViewSet(viewsets.ModelViewSet):
             force=bool(request.data.get('force', False)),
         )
         return Response({'ok': True, 'result': result}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='runs')
+    def get_runs(self, request, pk=None):
+        config = self.get_object()
+        runs = config.runs.all().order_by('-started_at')[:50]
+        serializer = GoogleSheetSyncRunSerializer(runs, many=True)
+        return Response({'ok': True, 'runs': serializer.data}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='rollback')
+    def rollback(self, request, pk=None):
+        config = self.get_object()
+        run_id = request.data.get('run_id')
+        if not run_id:
+            return Response({'error': 'run_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            rollback_sync_run(run_id, request.user)
+            return Response({'ok': True}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

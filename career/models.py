@@ -244,6 +244,7 @@ class GoogleSheetSyncConfig(models.Model):
     gid = models.CharField(max_length=64, blank=True)
     target_type = models.CharField(max_length=20, choices=TARGET_CHOICES)
     column_mapping = models.JSONField(default=dict, blank=True)
+    overwrite_strategies = models.JSONField(default=dict, blank=True)
     enabled = models.BooleanField(default=True)
     sync_time = models.TimeField(default=time(22, 0), help_text='Preferred daily sync time in sync_timezone.')
     sync_timezone = models.CharField(max_length=64, default='America/Los_Angeles')
@@ -263,6 +264,31 @@ class GoogleSheetSyncConfig(models.Model):
 
     def __str__(self):
         return f"{self.name} -> {self.target_type}"
+
+
+class GoogleSheetSyncRun(models.Model):
+    STATUS_SUCCESS = 'SUCCESS'
+    STATUS_ERROR = 'ERROR'
+    STATUS_ROLLED_BACK = 'ROLLED_BACK'
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, 'Success'),
+        (STATUS_ERROR, 'Error'),
+        (STATUS_ROLLED_BACK, 'Rolled Back'),
+    ]
+
+    config = models.ForeignKey(GoogleSheetSyncConfig, on_delete=models.CASCADE, related_name='runs')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    started_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+    summary = models.JSONField(default=dict, blank=True)
+    changes = models.JSONField(default=list, blank=True)
+    error_details = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"{self.config.name} Run at {self.started_at}"
 
 
 class GoogleSheetSyncRow(models.Model):

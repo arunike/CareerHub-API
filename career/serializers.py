@@ -10,6 +10,7 @@ from .models import (
     Application,
     ApplicationTimelineEntry,
     GoogleSheetSyncConfig,
+    GoogleSheetSyncRun,
     Offer,
     OfferDecisionSnapshot,
     Document,
@@ -380,6 +381,7 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
             'gid',
             'target_type',
             'column_mapping',
+            'overwrite_strategies',
             'enabled',
             'sync_time',
             'sync_timezone',
@@ -450,6 +452,22 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get('request')
         return GoogleSheetSyncConfig.objects.create(user=request.user, **validated_data)
+
+
+class GoogleSheetSyncRunSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GoogleSheetSyncRun
+        fields = [
+            'id',
+            'config',
+            'status',
+            'started_at',
+            'completed_at',
+            'summary',
+            'changes',
+            'error_details',
+        ]
+        read_only_fields = fields
 
 class ApplicationExportSerializer(serializers.ModelSerializer):
     company = serializers.CharField(source='company.name', read_only=True)

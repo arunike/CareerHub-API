@@ -19,7 +19,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from availability.models import Event, EventCategory, UserSettings
-from career.models import Application, Company, GoogleSheetSyncConfig, GoogleSheetSyncRow
+from career.models import Application, Company, GoogleSheetSyncConfig, GoogleSheetSyncRow, GoogleSheetSyncRun
 
 
 APPLICATION_DEFAULT_MAPPING = {
@@ -155,48 +155,126 @@ def preview_sheet(config, limit=5):
 
 
 def sync_google_sheet(config, force=False):
-    rows = fetch_sheet_rows(config)
-    header_index = max((config.header_row or 1) - 1, 0)
-    if len(rows) <= header_index:
-        raise ValidationError('No header row was found in this sheet.')
+    run = GoogleSheetSyncRun.objects.create(
+        config=config,
+        status=GoogleSheetSyncRun.STATUS_ERROR, # Default to error until completion
+        started_at=timezone.now()
+    )
 
-    headers = [_dedupe_headers([_clean_cell(value) for value in rows[header_index]])]
-    headers = headers[0]
-    mapping = config.column_mapping or default_mapping_for_target(config.target_type)
-    result = {
-        'target_type': config.target_type,
-        'created': 0,
-        'updated': 0,
-        'skipped': 0,
-        'errors': [],
-        'history': [],
-        'scanned_rows': 0,
-    }
+    try:
+        rows = fetch_sheet_rows(config)
+        header_index = max((config.header_row or 1) - 1, 0)
+        if len(rows) <= header_index:
+            raise ValidationError('No header row was found in this sheet.')
 
-    for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
-        row = _row_to_dict(headers, raw_row)
-        if not any(str(value).strip() for value in row.values()):
-            result['skipped'] += 1
-            continue
+        headers = [_dedupe_headers([_clean_cell(value) for value in rows[header_index]])]
+        headers = headers[0]
+        mapping = config.column_mapping or default_mapping_for_target(config.target_type)
+        result = {
+            'target_type': config.target_type,
+            'created': 0,
+            'updated': 0,
+            'skipped': 0,
+            'errors': [],
+            'history': [],
+            'scanned_rows': 0,
+        }
 
-        result['scanned_rows'] += 1
-        try:
-            action, history = _sync_row_with_history(config, row, offset, mapping, force=force)
-            result[action] += 1
-            result['history'].extend(history)
-        except Exception as exc:
-            result['errors'].append({'row': offset, 'error': str(exc)})
+        changes_list = []
 
-    config.last_synced_at = timezone.now()
-    config.last_result = result
-    if result['errors']:
+        for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
+            row = _row_to_dict(headers, raw_row)
+            if not any(str(value).strip() for value in row.values()):
+                result['skipped'] += 1
+                continue
+
+            result['scanned_rows'] += 1
+            try:
+                action, history, diff = _sync_row_with_history(config, row, offset, mapping, force=force)
+                result[action] += 1
+                result['history'].extend(history)
+                if action in ['created', 'updated']:
+                    changes_list.append({
+                        'action': action,
+                        'row_number': offset,
+                        'diff': diff,
+                        'history_id': history[0].id if history else None,
+                        'local_object_id': history[0].application_id if history and config.target_type == GoogleSheetSyncConfig.TARGET_APPLICATIONS else None
+                    })
+            except Exception as exc:
+                result['errors'].append({'row': offset, 'error': str(exc)})
+
+        run.status = GoogleSheetSyncRun.STATUS_SUCCESS if not result['errors'] else GoogleSheetSyncRun.STATUS_ERROR
+        run.summary = {k: v for k, v in result.items() if k != 'history'}
+        run.changes = changes_list
+        if result['errors']:
+            run.error_details = f"{len(result['errors'])} row(s) failed."
+            
+        config.last_synced_at = timezone.now()
+        config.last_result = result
+        if result['errors']:
+            config.last_status = GoogleSheetSyncConfig.STATUS_ERROR
+            config.last_error = f"{len(result['errors'])} row(s) failed."
+        else:
+            config.last_status = GoogleSheetSyncConfig.STATUS_SUCCESS
+            config.last_error = ''
+        config.save(update_fields=['last_synced_at', 'last_result', 'last_status', 'last_error', 'spreadsheet_id', 'gid', 'updated_at'])
+        
+    except Exception as e:
+        run.status = GoogleSheetSyncRun.STATUS_ERROR
+        run.error_details = str(e)
+        
+        config.last_synced_at = timezone.now()
         config.last_status = GoogleSheetSyncConfig.STATUS_ERROR
-        config.last_error = f"{len(result['errors'])} row(s) failed."
-    else:
-        config.last_status = GoogleSheetSyncConfig.STATUS_SUCCESS
-        config.last_error = ''
-    config.save(update_fields=['last_synced_at', 'last_result', 'last_status', 'last_error', 'spreadsheet_id', 'gid', 'updated_at'])
+        config.last_error = str(e)
+        config.save(update_fields=['last_synced_at', 'last_status', 'last_error', 'updated_at'])
+        raise e
+    finally:
+        run.completed_at = timezone.now()
+        run.save()
+
     return result
+
+def rollback_sync_run(run_id, user):
+    run = GoogleSheetSyncRun.objects.select_related('config').filter(id=run_id, config__user=user).first()
+    if not run:
+        raise ValidationError('Sync run not found.')
+    if run.status == GoogleSheetSyncRun.STATUS_ROLLED_BACK:
+        raise ValidationError('This run is already rolled back.')
+        
+    config = run.config
+    changes = run.changes
+    
+    with transaction.atomic():
+        # Iterate in reverse to safely undo
+        for change in reversed(changes):
+            local_id = change.get('local_object_id')
+            if not local_id:
+                continue
+                
+            if config.target_type == GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+                app = Application.objects.filter(id=local_id, user=user).first()
+                if not app:
+                    continue
+                    
+                if change['action'] == 'created':
+                    app.delete()
+                elif change['action'] == 'updated' and change.get('diff'):
+                    # Revert diffs
+                    for field, values in change['diff'].items():
+                        old_val = values.get('old')
+                        
+                        # Company requires special handling since it's an FK
+                        if field == 'company_name' and old_val is not None:
+                            company, _ = Company.objects.get_or_create(user=user, name=old_val)
+                            app.company = company
+                        elif field != 'company_name':
+                            # Best effort type casting back
+                            setattr(app, field, old_val)
+                    app.save()
+
+        run.status = GoogleSheetSyncRun.STATUS_ROLLED_BACK
+        run.save()
 
 
 def build_import_review(config, force=False):
@@ -449,10 +527,10 @@ def _sync_row_with_history(config, row, row_number, mapping, force=False, duplic
 
     with transaction.atomic():
         if config.target_type == GoogleSheetSyncConfig.TARGET_EVENTS:
-            instance, created = _upsert_event(config, payload, tracked)
+            instance, created, diff = _upsert_event(config, payload, tracked)
             local_type = 'availability.Event'
         else:
-            instance, created = _upsert_application(
+            instance, created, diff = _upsert_application(
                 config,
                 payload,
                 tracked,
@@ -473,7 +551,7 @@ def _sync_row_with_history(config, row, row_number, mapping, force=False, duplic
         )
     action = 'created' if created else 'updated'
     history = _history_for_sync_result(action, row_number, payload, instance, history_context)
-    return action, history
+    return action, history, diff
 
 
 def _review_application_row(config, row, row_number, mapping, seen_identities, force=False):
@@ -850,6 +928,45 @@ def _needs_application_date_backfill(config, payload, tracked):
     return bool(application and not application.date_applied)
 
 
+def _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False):
+    diff = {}
+    
+    if application.company_id != company.id:
+        if is_new or strategies.get('company_name', 'always') == 'always':
+            diff['company_name'] = {'old': application.company.name if application.company else None, 'new': company.name}
+            application.company = company
+            
+    if application.role_title != role_title:
+        if is_new or strategies.get('role_title', 'always') == 'always':
+            diff['role_title'] = {'old': application.role_title, 'new': role_title}
+            application.role_title = role_title
+            
+    for field, new_value in defaults.items():
+        old_value = getattr(application, field, None)
+        if old_value == new_value:
+            continue
+            
+        strategy = strategies.get(field, 'always')
+        if is_new:
+            strategy = 'always'
+            
+        should_update = False
+        if strategy == 'always':
+            should_update = True
+        elif strategy == 'if_empty':
+            if old_value is None or old_value == '':
+                should_update = True
+        
+        if should_update:
+            # We cast to string for diffing to avoid JSON serialization issues with Decimals/Dates
+            old_str = str(old_value) if old_value is not None else None
+            new_str = str(new_value) if new_value is not None else None
+            diff[field] = {'old': old_str, 'new': new_str}
+            setattr(application, field, new_value)
+            
+    return diff
+
+
 def _upsert_application(config, payload, tracked, history_context=None, duplicate_resolution='merge'):
     company_name = payload.get('company_name') or payload.get('company') or ''
     role_title = payload.get('role_title') or ''
@@ -863,18 +980,18 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         stage_events=history_context.setdefault('created_stages', []),
     )
     company, _ = Company.objects.get_or_create(user=config.user, name=company_name)
+    strategies = config.overwrite_strategies or {}
 
     if tracked:
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).first()
         if application:
-            application.company = company
-            application.role_title = role_title
             if not payload.get('date_applied') and not application.date_applied:
                 defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
-            for field, value in defaults.items():
-                setattr(application, field, value)
-            application.save()
-            return application, False
+            diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False)
+            if diff:
+                application.save()
+                return application, False, diff
+            return application, False, {}
 
     existing_application = None
     if duplicate_resolution not in {'keep_separate', 'intentional_duplicate'}:
@@ -882,21 +999,23 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
     if existing_application:
         if not payload.get('date_applied') and not existing_application.date_applied:
             defaults['date_applied'] = timezone.localtime(tracked.created_at).date() if tracked else timezone.localdate()
-        for field, value in defaults.items():
-            setattr(existing_application, field, value)
-        existing_application.save()
-        return existing_application, False
+        diff = _apply_field_updates(existing_application, company, role_title, defaults, strategies, is_new=False)
+        if diff:
+            existing_application.save()
+            return existing_application, False, diff
+        return existing_application, False, {}
 
     if not payload.get('date_applied'):
         defaults['date_applied'] = timezone.localtime(tracked.created_at).date() if tracked else timezone.localdate()
 
-    application = Application.objects.create(
+    application = Application(
         user=config.user,
         company=company,
         role_title=role_title,
-        **defaults,
     )
-    return application, True
+    diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=True)
+    application.save()
+    return application, True, diff
 
 
 def _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults):
@@ -1068,7 +1187,7 @@ def _upsert_event(config, payload, tracked):
             for field, value in defaults.items():
                 setattr(event, field, value)
             event.save()
-            return event, False
+        return event, False, {}
 
     event, created = Event.objects.update_or_create(
         user=config.user,
@@ -1077,7 +1196,7 @@ def _upsert_event(config, payload, tracked):
         start_time=start_time,
         defaults=defaults,
     )
-    return event, created
+    return event, created, {}
 
 
 def _row_to_dict(headers, row):
