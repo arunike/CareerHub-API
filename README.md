@@ -24,7 +24,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
 - 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and provider adapters relay requests server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
-- 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, with manual runs and configurable daily cron refreshes
+- 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, review detected application imports, resolve possible duplicates, approve selected changes, inspect last-run change history, run manual syncs, and configure daily cron refreshes
+- 📊 **Timeline Analytics**: Application timeline entries and Google Sheet row provenance power time-to-interview, stage conversion, stale-stage warnings, and offer-rate breakdowns
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
@@ -44,6 +45,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Export Options**: Download data as CSV, JSON, or XLSX
 - **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
 - **Company Timeline**: Persist per-stage application timeline entries with dates, notes, and attached documents
+- **Timeline Analytics**: Aggregate timeline and sheet sync history into average time from applied to interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 - **Locking**: Locked applications cannot be deleted
 - **Delete All**: Bulk delete endpoint respects lock status
 
@@ -108,7 +110,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
 - **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
 - **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
-- **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, preferred daily sync time/timezone, row hashes, last run status, and import results
+- **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, preferred daily sync time/timezone, row hashes, last run status, import results, and last-run change history
 
 ### 🔐 Authentication & Security
 - **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
@@ -301,7 +303,7 @@ Backend notes:
 - set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for user-owned private Google Sheets sync; add `https://your-api-project.vercel.app/api/career/google-oauth/callback/` as an authorized redirect URI in Google Cloud
 - set `GOOGLE_OAUTH_SUCCESS_REDIRECT_URL` to your frontend Settings integrations URL, for example `https://your-frontend.vercel.app/settings?tab=integrations`
 - optional fallback: set `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_INFO` if you want private Google Sheets sync by service account sharing; public sheet CSV export still works without either credential path
-- optional WAF setup: run `VERCEL_TOKEN=... python scripts/apply_vercel_firewall.py` from `api/` to apply the firewall actions in `vercel-firewall-actions.json`
+- optional WAF setup: run `VERCEL_TOKEN=... python scripts/apply_vercel_firewall.py` from `api/` to apply the supported firewall actions in `vercel-firewall-actions.json`; Vercel Firewall rate limiting is omitted from the dashboard when the active plan does not support it.
 - hosted document uploads are capped at 4 MB so they stay within Vercel request limits; local fallback storage can still use your configured `MAX_DOCUMENT_UPLOAD_BYTES`
 - for the zero-domain-cost setup in this repo, set `ALLOWED_HOSTS` to your actual backend `*.vercel.app` alias and `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` to your actual frontend alias
 - JWT Bearer auth does not require cross-origin cookies, so `CORS_ALLOW_CREDENTIALS` can stay off
@@ -410,6 +412,7 @@ Base prefix: `/api/career/`
 - `GET /api/career/application-timeline/?application={id}` — List timeline entries for one application
 - `POST /api/career/application-timeline/` — Create a stage timeline entry with notes/docs
 - `PATCH /api/career/application-timeline/{id}/` — Update a stage timeline entry
+- `GET /api/career/application-timeline-analytics/` — Return timeline-driven application analytics, including time-to-interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 
 #### Offers
 - `GET /api/career/offers/` — List all offers
@@ -466,6 +469,8 @@ Base prefix: `/api/career/`
 - `POST /api/career/google-sheet-syncs/` — Create a sheet sync config for Applications or Events
 - `PATCH /api/career/google-sheet-syncs/{id}/` — Update mapping, worksheet, enabled state, or target settings
 - `POST /api/career/google-sheet-syncs/{id}/test/` — Read headers and preview rows from the linked sheet
+- `POST /api/career/google-sheet-syncs/{id}/import-review/` — Scan an application sync and summarize new applications, status changes, possible duplicates, and other updates without writing records
+- `POST /api/career/google-sheet-syncs/{id}/apply-import-review/` — Apply only approved review item IDs, with optional duplicate resolutions for merge, keep separate, or intentional duplicate
 - `POST /api/career/google-sheet-syncs/{id}/sync-now/` — Run the sync immediately
 
 ### Availability Endpoints
@@ -504,6 +509,7 @@ Base prefix: `/api/career/`
 - `POST /api/booking/{uuid}/book/` — Public: submit a booking (creates locked event)
 
 #### Settings
+- `GET /api/security/dashboard/` — Authenticated security posture summary for Settings, including environment flags, auth throttles, Google sync health, and Vercel WAF setup hints
 - `GET /api/user-settings/current/` — Retrieve user settings (singleton)
 - `PUT /api/user-settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
 - `GET /api/user-settings/account-export/?fmt=json|zip` — Download account-level CareerHub export data
