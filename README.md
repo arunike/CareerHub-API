@@ -24,7 +24,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
 - 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and provider adapters relay requests server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
-- 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, with manual runs and daily cron refreshes
+- 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, with manual runs and configurable daily cron refreshes
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
@@ -108,7 +108,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
 - **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
 - **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
-- **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, row hashes, last run status, and import results
+- **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, preferred daily sync time/timezone, row hashes, last run status, and import results
 
 ### 🔐 Authentication & Security
 - **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
@@ -126,12 +126,15 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 - **Secured Cron Endpoint**
   - `GET /api/internal/cron/daily-maintenance/`
+  - `GET /api/internal/cron/google-sheet-syncs/`
   - guarded by `CRON_SECRET` via the `Authorization: Bearer ...` header that Vercel automatically sends for cron invocations
-  - runs `auto_ghost_stale_applications`, Google Sheets syncs, `expire_stale_share_links`, and expired account deletion purges
+  - Hobby-safe Vercel deploys run one daily cron at `0 5 * * *`; daily maintenance handles stale applications, share links, account deletion purges, and enabled Google Sheets syncs
 
 - **Rate Limiting**
   - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
   - `PublicBookingCreateThrottle`: 5 POST requests/minute per IP
+  - Vercel edge mitigation denies common scanner paths such as `.env`, `.git`, WordPress probes, and phpMyAdmin probes before they reach Django
+  - `vercel-firewall-actions.json` contains the Hobby-compatible Vercel Firewall actions for bot logging, AI bot blocking, and one sensitive API flood-limit rule
 
 ## 🛠 Tech Stack
 
@@ -277,6 +280,9 @@ Key production flags:
 | `SECURE_HSTS_SECONDS` | `31536000` |
 | `SECURE_HSTS_INCLUDE_SUBDOMAINS` | `True` |
 | `AI_PROVIDER_ALLOWED_HOSTS` | `api.anthropic.com,generativelanguage.googleapis.com,api.openai.com,openrouter.ai` if you enforce an AI relay allowlist |
+| `GOOGLE_OAUTH_CLIENT_ID` | Google Cloud OAuth web client ID for private Google Sheets access |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Cloud OAuth web client secret |
+| `GOOGLE_OAUTH_SUCCESS_REDIRECT_URL` | Frontend Settings URL to use if OAuth callback cannot use stored state redirect |
 
 ### Vercel Deployment Shape
 
@@ -291,7 +297,11 @@ Backend notes:
 - set `BLOB_READ_WRITE_TOKEN` if you want Experience logos to use public Vercel Blob storage
 - set `DOCUMENT_BLOB_READ_WRITE_TOKEN` if you want documents to use private Vercel Blob storage
 - set `CRON_SECRET` so Vercel can securely invoke `/api/internal/cron/daily-maintenance/`
-- set `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_INFO` if you want private Google Sheets sync; public sheet CSV export works without it
+- enable both Google Sheets API and Google Drive API in Google Cloud for private sheet sync and spreadsheet selection
+- set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` for user-owned private Google Sheets sync; add `https://your-api-project.vercel.app/api/career/google-oauth/callback/` as an authorized redirect URI in Google Cloud
+- set `GOOGLE_OAUTH_SUCCESS_REDIRECT_URL` to your frontend Settings integrations URL, for example `https://your-frontend.vercel.app/settings?tab=integrations`
+- optional fallback: set `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_INFO` if you want private Google Sheets sync by service account sharing; public sheet CSV export still works without either credential path
+- optional WAF setup: run `VERCEL_TOKEN=... python scripts/apply_vercel_firewall.py` from `api/` to apply the firewall actions in `vercel-firewall-actions.json`
 - hosted document uploads are capped at 4 MB so they stay within Vercel request limits; local fallback storage can still use your configured `MAX_DOCUMENT_UPLOAD_BYTES`
 - for the zero-domain-cost setup in this repo, set `ALLOWED_HOSTS` to your actual backend `*.vercel.app` alias and `CORS_ALLOWED_ORIGINS` / `CSRF_TRUSTED_ORIGINS` to your actual frontend alias
 - JWT Bearer auth does not require cross-origin cookies, so `CORS_ALLOW_CREDENTIALS` can stay off
@@ -446,6 +456,12 @@ Base prefix: `/api/career/`
 - `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` — Weekly summary
 
 #### Google Sheets Sync
+- `GET /api/career/google-oauth/status/` — Check whether Google OAuth is configured and connected
+- `POST /api/career/google-oauth/connect/` — Create a Google OAuth consent URL for read-only Sheets access and Drive metadata access for spreadsheet selection
+- `GET /api/career/google-oauth/callback/` — OAuth callback registered with Google Cloud
+- `POST /api/career/google-oauth/disconnect/` — Remove the authenticated user's Google OAuth refresh token
+- `GET /api/career/google-oauth/spreadsheets/` — List the connected Google account's spreadsheet files for the Settings picker
+- `GET /api/career/google-oauth/spreadsheet-tabs/` — List worksheet tabs for the selected spreadsheet
 - `GET /api/career/google-sheet-syncs/` — List saved Google Sheet sync configs
 - `POST /api/career/google-sheet-syncs/` — Create a sheet sync config for Applications or Events
 - `PATCH /api/career/google-sheet-syncs/{id}/` — Update mapping, worksheet, enabled state, or target settings
@@ -496,7 +512,8 @@ Base prefix: `/api/career/`
 - `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, or OpenRouter adapter using the encrypted provider key
 
 #### Internal Maintenance
-- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; syncs enabled Google Sheets, expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
+- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
+- `GET /api/internal/cron/google-sheet-syncs/` — Secured Google Sheets cron hook kept for future Pro/custom-worker scheduling; Hobby deploys use the single daily cron in `vercel.json`
 
 #### Authentication
 - `POST /api/auth/login/` — Email/password login, returns `user`, `access`, and `refresh`
