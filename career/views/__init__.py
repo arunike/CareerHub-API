@@ -1,4 +1,5 @@
 from .applications import ApplicationViewSet, ImportApplicationsView, JobBoardImportView
+from .analytics import ApplicationTimelineAnalyticsView
 from .companies import CompanyViewSet
 from .documents import DocumentViewSet
 from .experiences import ExperienceViewSet, ImportExperiencesView
@@ -12,6 +13,7 @@ from .timeline import ApplicationTimelineEntryViewSet
 __all__ = [
     'CompanyViewSet',
     'ApplicationViewSet',
+    'ApplicationTimelineAnalyticsView',
     'ImportApplicationsView',
     'JobBoardImportView',
     'OfferViewSet',

@@ -2,6 +2,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CompanyViewSet,
     ApplicationViewSet,
+    ApplicationTimelineAnalyticsView,
     ImportApplicationsView,
     JobBoardImportView,
     OfferViewSet,
@@ -37,5 +38,6 @@ urlpatterns = [
     path('reference-data/', ReferenceDataView.as_view(), name='career-reference-data'),
     path('rent-estimate/', RentEstimateView.as_view(), name='career-rent-estimate'),
     path('weekly-review/', WeeklyReviewView.as_view(), name='career-weekly-review'),
+    path('application-timeline-analytics/', ApplicationTimelineAnalyticsView.as_view(), name='application-timeline-analytics'),
     path('google-oauth/callback/', GoogleOAuthCallbackView.as_view(), name='google-oauth-callback'),
 ] + router.urls

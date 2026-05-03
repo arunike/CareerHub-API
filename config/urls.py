@@ -4,8 +4,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .cron_views import DailyMaintenanceCronView, GoogleSheetSyncCronView
+from .security_views import SecurityDashboardView
 
 urlpatterns = [
+    path(
+        "api/security/dashboard/",
+        SecurityDashboardView.as_view(),
+        name="security-dashboard",
+    ),
     path(
         "api/internal/cron/daily-maintenance/",
         DailyMaintenanceCronView.as_view(),

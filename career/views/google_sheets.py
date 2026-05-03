@@ -4,7 +4,7 @@ from rest_framework.response import Response
 
 from ..models import GoogleSheetSyncConfig
 from ..serializers import GoogleSheetSyncConfigSerializer
-from ..services.google_sheets import parse_google_sheet_url, preview_sheet, sync_google_sheet
+from ..services.google_sheets import apply_import_review, build_import_review, parse_google_sheet_url, preview_sheet, sync_google_sheet
 
 
 class GoogleSheetSyncConfigViewSet(viewsets.ModelViewSet):
@@ -60,4 +60,33 @@ class GoogleSheetSyncConfigViewSet(viewsets.ModelViewSet):
     def resync(self, request, pk=None):
         config = self.get_object()
         result = sync_google_sheet(config, force=True)
+        return Response({'ok': True, 'result': result}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='import-review')
+    def import_review(self, request, pk=None):
+        config = self.get_object()
+        review = build_import_review(config, force=bool(request.data.get('force', False)))
+        return Response({'ok': True, 'review': review}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='apply-import-review')
+    def apply_review(self, request, pk=None):
+        config = self.get_object()
+        approved_item_ids = request.data.get('approved_item_ids') or []
+        if not isinstance(approved_item_ids, list):
+            return Response(
+                {'approved_item_ids': ['Expected a list of review item IDs.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        duplicate_resolutions = request.data.get('duplicate_resolutions') or {}
+        if not isinstance(duplicate_resolutions, dict):
+            return Response(
+                {'duplicate_resolutions': ['Expected an object keyed by review item ID.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        result = apply_import_review(
+            config,
+            approved_item_ids=approved_item_ids,
+            duplicate_resolutions=duplicate_resolutions,
+            force=bool(request.data.get('force', False)),
+        )
         return Response({'ok': True, 'result': result}, status=status.HTTP_200_OK)

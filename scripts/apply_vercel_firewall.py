@@ -44,6 +44,7 @@ def main():
             return 1
         print(f"Applied {action.get('action')}")
 
+    print("Supported Vercel Firewall actions applied.")
     return 0
 
 

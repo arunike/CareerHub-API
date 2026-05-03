@@ -10,9 +10,105 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from availability.models import UserSettings
-from .models import Application, Document, Experience, GoogleSheetSyncConfig
+from .models import Application, ApplicationTimelineEntry, Company, Document, Experience, GoogleSheetSyncConfig, GoogleSheetSyncRow
 from .serializers import ExperienceSerializer
-from .services.google_sheets import _is_sync_config_due, _upsert_application, sync_google_sheet
+from .services.google_sheets import _is_sync_config_due, _upsert_application, apply_import_review, build_import_review, sync_google_sheet
+from .services.timeline_analytics import build_application_timeline_analytics
+
+
+class ApplicationTimelineAnalyticsTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="timeline-analytics-user@example.com",
+            email="timeline-analytics-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+        UserSettings.objects.create(
+            user=self.user,
+            ghosting_threshold_days=10,
+            application_stages=[
+                {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': 'bg-blue-500'},
+                {'key': 'SCREEN', 'label': 'Phone Screen', 'shortLabel': 'Screen', 'tone': 'bg-sky-500'},
+                {'key': 'OFFER', 'label': 'Offer', 'shortLabel': 'Offer', 'tone': 'bg-emerald-500'},
+            ],
+        )
+
+    def test_timeline_analytics_connects_timeline_and_sheet_source(self):
+        company = Company.objects.create(user=self.user, name='Plaid')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='OFFER',
+            date_applied='2026-04-01',
+            salary_range='148800 - 223200',
+            location='New York, NY',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='APPLIED',
+            event_date='2026-04-01',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='SCREEN',
+            event_date='2026-04-06',
+        )
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Job Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={},
+        )
+        GoogleSheetSyncRow.objects.create(
+            config=config,
+            external_key='plaid-software-engineer',
+            row_number=2,
+            row_hash='abc',
+            local_object_type='career.Application',
+            local_object_id=application.id,
+        )
+
+        analytics = build_application_timeline_analytics(self.user)
+
+        self.assertEqual(analytics['average_time_to_interview_days'], 5)
+        self.assertEqual(analytics['time_to_interview_sample_size'], 1)
+        screen_stage = next(stage for stage in analytics['stage_conversion'] if stage['key'] == 'SCREEN')
+        self.assertEqual(screen_stage['reached_count'], 1)
+        self.assertEqual(screen_stage['conversion_rate'], 1)
+        self.assertEqual(analytics['offer_rate_by_source'][0]['name'], 'Job Applications')
+        self.assertEqual(analytics['offer_rate_by_source'][0]['offers'], 1)
+
+        response = self.client.get('/api/career/application-timeline-analytics/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['average_time_to_interview_days'], 5)
+
+    def test_stale_in_stage_uses_settings_threshold(self):
+        company = Company.objects.create(user=self.user, name='Acme')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Backend Engineer',
+            status='SCREEN',
+            date_applied='2026-03-01',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='SCREEN',
+            event_date='2026-03-15',
+        )
+
+        analytics = build_application_timeline_analytics(self.user)
+
+        self.assertEqual(analytics['stale_threshold_days'], 10)
+        self.assertEqual(analytics['stale_in_stage'][0]['application_id'], application.id)
 
 
 class GoogleSheetApplicationStatusSyncTests(APITestCase):
@@ -175,6 +271,9 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(result['updated'], 1)
         self.assertEqual(result['skipped'], 0)
         self.assertEqual(application.date_applied, original_date)
+        self.assertTrue(
+            any(entry['type'] == 'date_applied_backfilled' for entry in result['history'])
+        )
 
     def test_sync_config_due_respects_local_time_and_same_day_sync(self):
         config = GoogleSheetSyncConfig.objects.create(
@@ -196,6 +295,185 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         config.last_synced_at = after_window
         self.assertFalse(_is_sync_config_due(config, now=datetime(2026, 5, 2, 18, 30, tzinfo=dt_timezone.utc)))
         self.assertTrue(_is_sync_config_due(config, now=datetime(2026, 5, 3, 17, 30, tzinfo=dt_timezone.utc)))
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_import_review_detects_new_status_changes_and_possible_duplicates(self, mock_fetch_sheet_rows):
+        company = Company.objects.create(user=self.user, name='Acme')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Backend Engineer',
+            status='ROUND_1',
+            salary_range='100000 - 120000',
+            location='Remote',
+        )
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'external_id': 'External ID',
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'status': 'Status',
+                'salary_range': 'Salary',
+                'location': 'Location',
+            },
+        )
+        GoogleSheetSyncRow.objects.create(
+            config=config,
+            external_key='acme-backend',
+            row_number=2,
+            row_hash='old',
+            local_object_type='career.Application',
+            local_object_id=application.id,
+        )
+
+        mock_fetch_sheet_rows.return_value = [
+            ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
+            ['acme-backend', 'Acme', 'Backend Engineer', 'Offer', '100000 - 120000', 'Remote'],
+            ['', 'Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+            ['', 'Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+        ]
+
+        review = build_import_review(config)
+
+        self.assertEqual(review['summary']['status_changes'], 1)
+        self.assertEqual(review['summary']['new_applications'], 1)
+        self.assertEqual(review['summary']['possible_duplicates'], 1)
+        self.assertEqual(len(review['items']), 3)
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_apply_import_review_only_applies_approved_items(self, mock_fetch_sheet_rows):
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status', 'Salary', 'Location'],
+            ['Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+            ['Stripe', 'Backend Engineer', 'Applied', '150000 - 180000', 'Remote'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'status': 'Status',
+                'salary_range': 'Salary',
+                'location': 'Location',
+            },
+        )
+        review = build_import_review(config)
+        plaid_item = next(item for item in review['items'] if item['company_name'] == 'Plaid')
+
+        result = apply_import_review(config, approved_item_ids=[plaid_item['id']])
+
+        self.assertEqual(result['created'], 1)
+        self.assertEqual(result['rejected'], 1)
+        self.assertTrue(Application.objects.filter(user=self.user, company__name='Plaid').exists())
+        self.assertFalse(Application.objects.filter(user=self.user, company__name='Stripe').exists())
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_apply_import_review_can_keep_possible_duplicate_separate(self, mock_fetch_sheet_rows):
+        company = Company.objects.create(user=self.user, name='Plaid')
+        Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='APPLIED',
+            salary_range='148800 - 223200',
+            location='New York, NY',
+        )
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status', 'Salary', 'Location'],
+            ['Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'status': 'Status',
+                'salary_range': 'Salary',
+                'location': 'Location',
+            },
+        )
+        review = build_import_review(config)
+        duplicate_item = review['items'][0]
+
+        result = apply_import_review(
+            config,
+            approved_item_ids=[duplicate_item['id']],
+            duplicate_resolutions={duplicate_item['id']: 'keep_separate'},
+        )
+
+        self.assertEqual(result['created'], 1)
+        self.assertEqual(
+            Application.objects.filter(
+                user=self.user,
+                company__name='Plaid',
+                role_title='Software Engineer',
+                salary_range='148800 - 223200',
+                location='New York, NY',
+            ).count(),
+            2,
+        )
+        self.assertTrue(any(entry['type'] == 'duplicate_kept_separate' for entry in result['history']))
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_sync_result_history_records_status_custom_stage_and_duplicate_events(self, mock_fetch_sheet_rows):
+        company = Company.objects.create(user=self.user, name='Plaid')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='APPLIED',
+            salary_range='148800 - 223200',
+            location='New York, NY',
+        )
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'external_id': 'External ID',
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'status': 'Status',
+                'salary_range': 'Salary',
+                'location': 'Location',
+            },
+        )
+        GoogleSheetSyncRow.objects.create(
+            config=config,
+            external_key='plaid-ny',
+            row_number=2,
+            row_hash='old',
+            local_object_type='career.Application',
+            local_object_id=application.id,
+        )
+        mock_fetch_sheet_rows.return_value = [
+            ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
+            ['plaid-ny', 'Plaid', 'Software Engineer', '1st Round', '148800 - 223200', 'New York, NY'],
+            ['', 'Acme', 'Backend Engineer', '10th round (bar raiser)', '120000 - 140000', 'Remote'],
+            ['', 'Plaid', 'Software Engineer', '1st Round', '148800 - 223200', 'New York, NY'],
+        ]
+
+        result = sync_google_sheet(config)
+
+        messages = [entry['message'] for entry in result['history']]
+        self.assertTrue(any('Applied -> 1st Round' in message for message in messages))
+        self.assertTrue(any(entry['type'] == 'custom_stage_created' and entry['after'] == 'ROUND_10' for entry in result['history']))
+        self.assertTrue(any(entry['type'] == 'duplicate_matched' for entry in result['history']))
 
 
 class ExperienceLogoUploadTests(APITestCase):

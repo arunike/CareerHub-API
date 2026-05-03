@@ -165,6 +165,7 @@ def sync_google_sheet(config, force=False):
         'updated': 0,
         'skipped': 0,
         'errors': [],
+        'history': [],
         'scanned_rows': 0,
     }
 
@@ -176,8 +177,108 @@ def sync_google_sheet(config, force=False):
 
         result['scanned_rows'] += 1
         try:
-            action = _sync_row(config, row, offset, mapping, force=force)
+            action, history = _sync_row_with_history(config, row, offset, mapping, force=force)
             result[action] += 1
+            result['history'].extend(history)
+        except Exception as exc:
+            result['errors'].append({'row': offset, 'error': str(exc)})
+
+    config.last_synced_at = timezone.now()
+    config.last_result = result
+    if result['errors']:
+        config.last_status = GoogleSheetSyncConfig.STATUS_ERROR
+        config.last_error = f"{len(result['errors'])} row(s) failed."
+    else:
+        config.last_status = GoogleSheetSyncConfig.STATUS_SUCCESS
+        config.last_error = ''
+    config.save(update_fields=['last_synced_at', 'last_result', 'last_status', 'last_error', 'spreadsheet_id', 'gid', 'updated_at'])
+    return result
+
+
+def build_import_review(config, force=False):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+        raise ValidationError('Import review is currently available for application syncs.')
+
+    rows = fetch_sheet_rows(config)
+    header_index = max((config.header_row or 1) - 1, 0)
+    if len(rows) <= header_index:
+        raise ValidationError('No header row was found in this sheet.')
+
+    headers = _dedupe_headers([_clean_cell(value) for value in rows[header_index]])
+    mapping = config.column_mapping or default_mapping_for_target(config.target_type)
+    review = {
+        'target_type': config.target_type,
+        'summary': {
+            'new_applications': 0,
+            'status_changes': 0,
+            'possible_duplicates': 0,
+            'updates': 0,
+            'unchanged': 0,
+            'errors': 0,
+        },
+        'items': [],
+        'errors': [],
+        'scanned_rows': 0,
+    }
+    seen_identities = {}
+
+    for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
+        row = _row_to_dict(headers, raw_row)
+        if not any(str(value).strip() for value in row.values()):
+            continue
+        review['scanned_rows'] += 1
+        try:
+            item = _review_application_row(config, row, offset, mapping, seen_identities, force=force)
+        except Exception as exc:
+            review['summary']['errors'] += 1
+            review['errors'].append({'row': offset, 'error': str(exc)})
+            continue
+        if item:
+            review['items'].append(item)
+            review['summary'][_review_summary_key(item['action'])] += 1
+
+    return review
+
+
+def apply_import_review(config, approved_item_ids, duplicate_resolutions=None, force=False):
+    approved_item_ids = set(approved_item_ids or [])
+    duplicate_resolutions = duplicate_resolutions or {}
+    review = build_import_review(config, force=force)
+    rows = fetch_sheet_rows(config)
+    header_index = max((config.header_row or 1) - 1, 0)
+    headers = _dedupe_headers([_clean_cell(value) for value in rows[header_index]])
+    mapping = config.column_mapping or default_mapping_for_target(config.target_type)
+    approved_by_id = {item['id']: item for item in review['items'] if item['id'] in approved_item_ids}
+    result = {
+        'target_type': config.target_type,
+        'created': 0,
+        'updated': 0,
+        'skipped': 0,
+        'rejected': max(len(review['items']) - len(approved_by_id), 0),
+        'errors': list(review.get('errors', [])),
+        'history': [],
+        'scanned_rows': review.get('scanned_rows', 0),
+        'review': review['summary'],
+    }
+
+    row_numbers = {item['row'] for item in approved_by_id.values()}
+    for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
+        if offset not in row_numbers:
+            continue
+        row = _row_to_dict(headers, raw_row)
+        try:
+            approved_item = next((item for item in approved_by_id.values() if item['row'] == offset), {})
+            resolution = duplicate_resolutions.get(approved_item.get('id'), 'merge')
+            action, history = _sync_row_with_history(
+                config,
+                row,
+                offset,
+                mapping,
+                force=force,
+                duplicate_resolution=resolution,
+            )
+            result[action] += 1
+            result['history'].extend(history)
         except Exception as exc:
             result['errors'].append({'row': offset, 'error': str(exc)})
 
@@ -327,20 +428,33 @@ def _load_service_account_info(silent=False):
 
 
 def _sync_row(config, row, row_number, mapping, force=False):
+    action, _history = _sync_row_with_history(config, row, row_number, mapping, force=force)
+    return action
+
+
+def _sync_row_with_history(config, row, row_number, mapping, force=False, duplicate_resolution='merge'):
     payload = _mapped_payload(row, mapping)
     external_key = _external_key(payload, row_number)
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
     payload['_user'] = config.user
     tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
     if tracked and tracked.row_hash == row_hash and not force and not _needs_application_date_backfill(config, payload, tracked):
-        return 'skipped'
+        return 'skipped', [_history_entry('skipped', row_number, payload, 'No changes detected since the last sync.')]
+
+    history_context = _build_history_context(config, payload, tracked, row_number, duplicate_resolution=duplicate_resolution)
 
     with transaction.atomic():
         if config.target_type == GoogleSheetSyncConfig.TARGET_EVENTS:
             instance, created = _upsert_event(config, payload, tracked)
             local_type = 'availability.Event'
         else:
-            instance, created = _upsert_application(config, payload, tracked)
+            instance, created = _upsert_application(
+                config,
+                payload,
+                tracked,
+                history_context=history_context,
+                duplicate_resolution=duplicate_resolution,
+            )
             local_type = 'career.Application'
 
         GoogleSheetSyncRow.objects.update_or_create(
@@ -353,7 +467,358 @@ def _sync_row(config, row, row_number, mapping, force=False):
                 'local_object_id': instance.id,
             },
         )
-    return 'created' if created else 'updated'
+    action = 'created' if created else 'updated'
+    history = _history_for_sync_result(action, row_number, payload, instance, history_context)
+    return action, history
+
+
+def _review_application_row(config, row, row_number, mapping, seen_identities, force=False):
+    payload = _mapped_payload(row, mapping)
+    external_key = _external_key(payload, row_number)
+    row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
+    payload['_user'] = config.user
+    tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
+    if tracked and tracked.row_hash == row_hash and not force and not _needs_application_date_backfill(config, payload, tracked):
+        return None
+
+    company_name = payload.get('company_name') or payload.get('company') or ''
+    role_title = payload.get('role_title') or ''
+    if not company_name or not role_title:
+        raise ValidationError('Application rows need Company and Role values.')
+
+    defaults = _application_defaults_from_payload(
+        payload,
+        apply_create_defaults=tracked is None,
+        ensure_stages=False,
+    )
+    application = None
+    duplicate_row = None
+    duplicate_candidate = None
+    incoming_fields = _incoming_application_fields(company_name, role_title, payload, defaults)
+
+    if tracked:
+        application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
+    else:
+        company = Company.objects.filter(user=config.user, name=company_name).first()
+        if company:
+            application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
+            if application:
+                duplicate_candidate = {
+                    'local_object_id': application.id,
+                    'row': None,
+                    'fields': _application_snapshot(application),
+                }
+        identity = _sheet_identity(company_name, role_title, payload, defaults)
+        seen_match = seen_identities.get(identity)
+        duplicate_row = seen_match.get('row') if seen_match else None
+        if seen_match and not duplicate_candidate:
+            duplicate_candidate = {
+                'local_object_id': None,
+                'row': seen_match.get('row'),
+                'fields': seen_match.get('fields') or {},
+            }
+        seen_identities.setdefault(identity, {'row': row_number, 'fields': incoming_fields})
+
+    changes = _application_changes(application, company_name, role_title, defaults) if application else {}
+    if application and not changes and not force:
+        return None
+
+    if not tracked and (application or duplicate_row):
+        action = 'possible_duplicate'
+    elif application and changes.keys() == {'status'}:
+        action = 'status_change'
+    elif application:
+        action = 'update'
+    else:
+        action = 'create'
+
+    item = {
+        'id': _review_item_id(config, external_key, row_hash, action),
+        'row': row_number,
+        'external_key': external_key,
+        'action': action,
+        'company_name': company_name,
+        'role_title': role_title,
+        'status': defaults.get('status') or '',
+        'salary_range': defaults.get('salary_range') or payload.get('salary_range') or '',
+        'location': defaults.get('location') or payload.get('location') or '',
+        'job_link': defaults.get('job_link') or payload.get('job_link') or '',
+        'local_object_id': application.id if application else None,
+        'changes': changes,
+        'duplicate_row': duplicate_row,
+        'duplicate_candidate': duplicate_candidate,
+        'incoming_fields': incoming_fields,
+        'title': f'{company_name} - {role_title}',
+        'detail': _review_detail(action, application, changes, duplicate_row),
+    }
+    return item
+
+
+def _review_item_id(config, external_key, row_hash, action):
+    raw = f'{config.id}:{external_key}:{row_hash}:{action}'
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()[:24]
+
+
+def _review_summary_key(action):
+    return {
+        'create': 'new_applications',
+        'status_change': 'status_changes',
+        'possible_duplicate': 'possible_duplicates',
+        'update': 'updates',
+    }.get(action, 'updates')
+
+
+def _review_detail(action, application, changes, duplicate_row):
+    if action == 'create':
+        return 'New application detected.'
+    if action == 'possible_duplicate':
+        if application:
+            return 'Matches an existing application. Approving will update/link that record instead of creating another duplicate.'
+        return f'Looks like a duplicate of sheet row {duplicate_row}.'
+    if action == 'status_change':
+        change = changes.get('status') or {}
+        return f"Status changes from {change.get('from') or 'blank'} to {change.get('to') or 'blank'}."
+    if changes:
+        return f"{len(changes)} field change(s) detected."
+    return 'No changes detected.'
+
+
+def _application_changes(application, company_name, role_title, defaults):
+    if not application:
+        return {}
+    desired = {
+        'company_name': company_name,
+        'role_title': role_title,
+        **defaults,
+    }
+    current = {
+        'company_name': application.company.name,
+        'role_title': application.role_title,
+        'status': application.status,
+        'job_link': application.job_link or '',
+        'salary_range': application.salary_range or '',
+        'location': application.location or '',
+        'office_location': application.office_location or '',
+        'date_applied': application.date_applied.isoformat() if application.date_applied else '',
+        'notes': application.notes or '',
+    }
+    changes = {}
+    for field, next_value in desired.items():
+        current_value = current.get(field, '')
+        if hasattr(next_value, 'isoformat'):
+            next_value = next_value.isoformat()
+        if next_value is None:
+            next_value = ''
+        if str(current_value) != str(next_value):
+            changes[field] = {'from': current_value, 'to': next_value}
+    return changes
+
+
+def _sheet_identity(company_name, role_title, payload, defaults):
+    parts = [company_name, role_title]
+    for field in ['salary_range', 'location', 'office_location', 'job_link']:
+        if field in payload:
+            parts.append(defaults.get(field) or '')
+    return tuple(_clean_cell(part).lower() for part in parts)
+
+
+def _incoming_application_fields(company_name, role_title, payload, defaults):
+    fields = {
+        'company_name': company_name,
+        'role_title': role_title,
+    }
+    for field in ['status', 'salary_range', 'location', 'office_location', 'job_link', 'date_applied', 'notes']:
+        if field in defaults:
+            value = defaults.get(field)
+        else:
+            value = payload.get(field, '')
+        if hasattr(value, 'isoformat'):
+            value = value.isoformat()
+        fields[field] = value or ''
+    return fields
+
+
+def _build_history_context(config, payload, tracked, row_number, duplicate_resolution='merge'):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+        return {}
+
+    company_name = payload.get('company_name') or payload.get('company') or ''
+    role_title = payload.get('role_title') or ''
+    context = {
+        'row_number': row_number,
+        'tracked': bool(tracked),
+        'date_backfilled': False,
+        'matched_duplicate': False,
+        'duplicate_resolution': duplicate_resolution,
+        'created_stages': [],
+        'before': None,
+        'changes': {},
+    }
+
+    application = None
+    if tracked:
+        application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
+    else:
+        preview_defaults = _application_defaults_from_payload(
+            payload,
+            apply_create_defaults=True,
+            ensure_stages=False,
+        )
+        company = Company.objects.filter(user=config.user, name=company_name).first()
+        if company:
+            application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, preview_defaults)
+            context['matched_duplicate'] = bool(application)
+            if application and duplicate_resolution in {'keep_separate', 'intentional_duplicate'}:
+                application = None
+
+    if application:
+        context['before'] = _application_snapshot(application)
+        preview_defaults = _application_defaults_from_payload(
+            payload,
+            apply_create_defaults=tracked is None,
+            ensure_stages=False,
+        )
+        if tracked and 'date_applied' not in payload and not application.date_applied:
+            preview_defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
+            context['date_backfilled'] = True
+        context['changes'] = _application_changes(application, company_name, role_title, preview_defaults)
+
+    return context
+
+
+def _application_snapshot(application):
+    return {
+        'company_name': application.company.name,
+        'role_title': application.role_title,
+        'status': application.status,
+        'job_link': application.job_link or '',
+        'salary_range': application.salary_range or '',
+        'location': application.location or '',
+        'office_location': application.office_location or '',
+        'date_applied': application.date_applied.isoformat() if application.date_applied else '',
+        'notes': application.notes or '',
+    }
+
+
+def _history_for_sync_result(action, row_number, payload, instance, context):
+    if not isinstance(instance, Application):
+        return [_history_entry(action, row_number, payload, f'{instance.name} synced.')]
+
+    history = []
+    base_payload = {
+        **payload,
+        'company_name': instance.company.name,
+        'role_title': instance.role_title,
+    }
+
+    if action == 'created':
+        history.append(_history_entry(
+            'created',
+            row_number,
+            base_payload,
+            f'{instance.company.name} {instance.role_title}: new application created.',
+            local_object_id=instance.id,
+        ))
+
+    if context.get('matched_duplicate') and context.get('duplicate_resolution') in {'keep_separate', 'intentional_duplicate'}:
+        history.append(_history_entry(
+            'intentional_duplicate_created' if context.get('duplicate_resolution') == 'intentional_duplicate' else 'duplicate_kept_separate',
+            row_number,
+            base_payload,
+            f'{instance.company.name} {instance.role_title}: duplicate kept as a separate application.',
+            local_object_id=instance.id,
+        ))
+    elif context.get('matched_duplicate'):
+        history.append(_history_entry(
+            'duplicate_matched',
+            row_number,
+            base_payload,
+            f'{instance.company.name} {instance.role_title}: duplicate skipped because company, role, pay, and location matched an existing application.',
+            local_object_id=instance.id,
+        ))
+
+    for field, change in (context.get('changes') or {}).items():
+        if field == 'status':
+            before = _application_stage_label(instance.user, change.get('from'))
+            after = _application_stage_label(instance.user, change.get('to'))
+            history.append(_history_entry(
+                'status_changed',
+                row_number,
+                base_payload,
+                f'{instance.company.name} {instance.role_title}: {before} -> {after}.',
+                field='status',
+                before=change.get('from') or '',
+                after=change.get('to') or '',
+                local_object_id=instance.id,
+            ))
+        elif field == 'date_applied' and context.get('date_backfilled'):
+            history.append(_history_entry(
+                'date_applied_backfilled',
+                row_number,
+                base_payload,
+                f'{instance.company.name} {instance.role_title}: date applied backfilled to {change.get("to") or "blank"}.',
+                field='date_applied',
+                before=change.get('from') or '',
+                after=change.get('to') or '',
+                local_object_id=instance.id,
+            ))
+        else:
+            history.append(_history_entry(
+                'field_changed',
+                row_number,
+                base_payload,
+                f'{instance.company.name} {instance.role_title}: {field.replace("_", " ")} changed from {change.get("from") or "blank"} to {change.get("to") or "blank"}.',
+                field=field,
+                before=change.get('from') or '',
+                after=change.get('to') or '',
+                local_object_id=instance.id,
+            ))
+
+    for stage in context.get('created_stages') or []:
+        history.append(_history_entry(
+            'custom_stage_created',
+            row_number,
+            base_payload,
+            f'New application timeline stage created: {stage.get("label")}.',
+            field='status',
+            after=stage.get('key') or '',
+            local_object_id=instance.id,
+        ))
+
+    if action == 'updated' and not history:
+        history.append(_history_entry(
+            'updated',
+            row_number,
+            base_payload,
+            f'{instance.company.name} {instance.role_title}: synced with no visible field changes.',
+            local_object_id=instance.id,
+        ))
+
+    return history
+
+
+def _history_entry(kind, row_number, payload, message, field='', before='', after='', local_object_id=None):
+    return {
+        'type': kind,
+        'row': row_number,
+        'company_name': payload.get('company_name') or payload.get('company') or '',
+        'role_title': payload.get('role_title') or '',
+        'field': field,
+        'before': before,
+        'after': after,
+        'message': message,
+        'local_object_id': local_object_id,
+        'created_at': timezone.now().isoformat(),
+    }
+
+
+def _application_stage_label(user, key):
+    if not key:
+        return 'blank'
+    settings_profile = UserSettings.objects.filter(user=user).first()
+    stages = (settings_profile.application_stages if settings_profile and settings_profile.application_stages else DEFAULT_APPLICATION_STAGES)
+    stage = next((candidate for candidate in stages if candidate.get('key') == key), None)
+    return stage.get('label') if stage else _title_status(str(key).replace('_', ' ').lower())
 
 
 def _mapped_payload(row, mapping):
@@ -379,13 +844,18 @@ def _needs_application_date_backfill(config, payload, tracked):
     return bool(application and not application.date_applied)
 
 
-def _upsert_application(config, payload, tracked):
+def _upsert_application(config, payload, tracked, history_context=None, duplicate_resolution='merge'):
     company_name = payload.get('company_name') or payload.get('company') or ''
     role_title = payload.get('role_title') or ''
     if not company_name or not role_title:
         raise ValidationError('Application rows need Company and Role values.')
 
-    defaults = _application_defaults_from_payload(payload, apply_create_defaults=tracked is None)
+    history_context = history_context if history_context is not None else {}
+    defaults = _application_defaults_from_payload(
+        payload,
+        apply_create_defaults=tracked is None,
+        stage_events=history_context.setdefault('created_stages', []),
+    )
     company, _ = Company.objects.get_or_create(user=config.user, name=company_name)
 
     if tracked:
@@ -400,7 +870,9 @@ def _upsert_application(config, payload, tracked):
             application.save()
             return application, False
 
-    existing_application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
+    existing_application = None
+    if duplicate_resolution not in {'keep_separate', 'intentional_duplicate'}:
+        existing_application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
     if existing_application:
         for field, value in defaults.items():
             setattr(existing_application, field, value)
@@ -429,14 +901,19 @@ def _find_existing_application_by_sheet_identity(config, company, role_title, pa
     return Application.objects.filter(**filters).order_by('id').first()
 
 
-def _application_defaults_from_payload(payload, apply_create_defaults=False):
+def _application_defaults_from_payload(payload, apply_create_defaults=False, ensure_stages=True, stage_events=None):
     defaults = {}
     if apply_create_defaults:
         defaults['status'] = 'APPLIED'
         defaults['date_applied'] = timezone.localdate()
 
     if 'status' in payload:
-        defaults['status'] = _normalize_application_status(payload.get('status'), payload.get('_user'))
+        defaults['status'] = _normalize_application_status(
+            payload.get('status'),
+            payload.get('_user'),
+            ensure_stage=ensure_stages,
+            stage_events=stage_events,
+        )
     if 'job_link' in payload:
         defaults['job_link'] = payload.get('job_link') or None
     if 'salary_range' in payload:
@@ -454,7 +931,7 @@ def _application_defaults_from_payload(payload, apply_create_defaults=False):
     return defaults
 
 
-def _normalize_application_status(value, user):
+def _normalize_application_status(value, user, ensure_stage=True, stage_events=None):
     cleaned = _clean_status_text(value)
     if not cleaned:
         return 'APPLIED'
@@ -463,17 +940,20 @@ def _normalize_application_status(value, user):
     if round_match:
         round_number = int(round_match.group(1))
         key = f'ROUND_{round_number}'
-        _ensure_application_stage(user, key, _round_label(round_number), f'R{round_number}', _round_tone(round_number))
+        if ensure_stage:
+            _ensure_application_stage(user, key, _round_label(round_number), f'R{round_number}', _round_tone(round_number), stage_events=stage_events)
         return key
 
     alias_key = STATUS_ALIASES.get(cleaned)
     if alias_key:
-        _ensure_known_stage(user, alias_key)
+        if ensure_stage:
+            _ensure_known_stage(user, alias_key, stage_events=stage_events)
         return alias_key
 
     key = re.sub(r'[^A-Z0-9]+', '_', cleaned.upper()).strip('_') or 'APPLIED'
     label = _title_status(cleaned)
-    _ensure_application_stage(user, key, label, _short_label(label), _custom_stage_tone(user))
+    if ensure_stage:
+        _ensure_application_stage(user, key, label, _short_label(label), _custom_stage_tone(user), stage_events=stage_events)
     return key
 
 
@@ -484,14 +964,14 @@ def _clean_status_text(value):
     return text.strip().lower()
 
 
-def _ensure_known_stage(user, key):
+def _ensure_known_stage(user, key, stage_events=None):
     known = {stage['key']: stage for stage in DEFAULT_APPLICATION_STAGES}
     stage = known.get(key)
     if stage:
-        _ensure_application_stage(user, stage['key'], stage['label'], stage['shortLabel'], stage['tone'])
+        _ensure_application_stage(user, stage['key'], stage['label'], stage['shortLabel'], stage['tone'], stage_events=stage_events)
 
 
-def _ensure_application_stage(user, key, label, short_label, tone):
+def _ensure_application_stage(user, key, label, short_label, tone, stage_events=None):
     if not user:
         return
     settings_profile, _ = UserSettings.objects.get_or_create(user=user)
@@ -504,6 +984,8 @@ def _ensure_application_stage(user, key, label, short_label, tone):
     stages.append({'key': key, 'label': label, 'shortLabel': short_label, 'tone': tone})
     settings_profile.application_stages = stages
     settings_profile.save(update_fields=['application_stages', 'updated_at'])
+    if stage_events is not None:
+        stage_events.append({'key': key, 'label': label, 'shortLabel': short_label, 'tone': tone})
 
 
 def _round_label(round_number):
