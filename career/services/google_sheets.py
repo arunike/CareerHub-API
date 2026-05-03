@@ -89,6 +89,10 @@ STATUS_ALIASES = {
 ROUND_TONES = ['bg-amber-400', 'bg-amber-500', 'bg-orange-500', 'bg-orange-600', 'bg-red-500']
 CUSTOM_STAGE_TONES = ['bg-blue-500', 'bg-violet-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500']
 
+US_STATES = {
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR'
+}
+
 
 def default_mapping_for_target(target_type):
     if target_type == GoogleSheetSyncConfig.TARGET_EVENTS:
@@ -498,6 +502,8 @@ def _review_application_row(config, row, row_number, mapping, seen_identities, f
 
     if tracked:
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
+        if application and not payload.get('date_applied') and not application.date_applied:
+            defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
     else:
         company = Company.objects.filter(user=config.user, name=company_name).first()
         if company:
@@ -678,7 +684,7 @@ def _build_history_context(config, payload, tracked, row_number, duplicate_resol
             apply_create_defaults=tracked is None,
             ensure_stages=False,
         )
-        if tracked and 'date_applied' not in payload and not application.date_applied:
+        if tracked and not payload.get('date_applied') and not application.date_applied:
             preview_defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
             context['date_backfilled'] = True
         context['changes'] = _application_changes(application, company_name, role_title, preview_defaults)
@@ -838,7 +844,7 @@ def _external_key(payload, row_number):
 def _needs_application_date_backfill(config, payload, tracked):
     if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS or not tracked:
         return False
-    if 'date_applied' in payload:
+    if payload.get('date_applied'):
         return False
     application = Application.objects.filter(id=tracked.local_object_id, user=config.user).only('date_applied').first()
     return bool(application and not application.date_applied)
@@ -863,7 +869,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         if application:
             application.company = company
             application.role_title = role_title
-            if 'date_applied' not in payload and not application.date_applied:
+            if not payload.get('date_applied') and not application.date_applied:
                 defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
             for field, value in defaults.items():
                 setattr(application, field, value)
@@ -874,10 +880,15 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
     if duplicate_resolution not in {'keep_separate', 'intentional_duplicate'}:
         existing_application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
     if existing_application:
+        if not payload.get('date_applied') and not existing_application.date_applied:
+            defaults['date_applied'] = timezone.localtime(tracked.created_at).date() if tracked else timezone.localdate()
         for field, value in defaults.items():
             setattr(existing_application, field, value)
         existing_application.save()
         return existing_application, False
+
+    if not payload.get('date_applied'):
+        defaults['date_applied'] = timezone.localtime(tracked.created_at).date() if tracked else timezone.localdate()
 
     application = Application.objects.create(
         user=config.user,
@@ -919,9 +930,9 @@ def _application_defaults_from_payload(payload, apply_create_defaults=False, ens
     if 'salary_range' in payload:
         defaults['salary_range'] = payload.get('salary_range') or ''
     if 'location' in payload:
-        defaults['location'] = payload.get('location') or ''
+        defaults['location'] = _normalize_location_string(payload.get('location'))
     if 'office_location' in payload:
-        defaults['office_location'] = payload.get('office_location') or ''
+        defaults['office_location'] = _normalize_location_string(payload.get('office_location'))
     if 'date_applied' in payload:
         parsed_date = _parse_date(payload.get('date_applied'))
         if parsed_date:
@@ -1118,6 +1129,20 @@ def _location_type_value(value):
         'hybrid': 'hybrid',
     }
     return aliases.get(value, 'virtual')
+
+
+def _normalize_location_string(value):
+    val = (value or '').strip()
+    if not val:
+        return ''
+    match = re.match(r'^([^,]+),\s*([A-Za-z]{2})$', val)
+    if match:
+        state = match.group(2).strip().upper()
+        if state in US_STATES:
+            city = match.group(1).strip()
+            city = ' '.join(word.capitalize() for word in city.split())
+            return f"{city}, {state}, United States"
+    return val
 
 
 def _parse_date(value):
