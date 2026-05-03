@@ -44,6 +44,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Job Board URL Import**: Extract company, role, location, and job description from public HTTPS job pages, using the user's AI provider when configured and falling back to deterministic parsing
 - **Export Options**: Download data as CSV, JSON, or XLSX
 - **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
+- **Detail Aggregation Ready**: Application records expose linked timeline, event, document, AI artifact, and notes data consumed by the frontend detail drawer
 - **Company Timeline**: Persist per-stage application timeline entries with dates, notes, and attached documents
 - **Timeline Analytics**: Aggregate timeline and sheet sync history into average time from applied to interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 - **Locking**: Locked applications cannot be deleted
@@ -55,6 +56,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
+- **Decision Snapshots**: Persist point-in-time offer decisions with scorecard rank, adjusted value, tax/rent/commute assumptions, offer snapshot, and notes
 - **Negotiation Context API**: Offer and Application data power the frontend negotiation advisor and backend relay flow
 
 ### 🤖 Frontend BYOK AI
@@ -66,6 +68,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
 - **Skill Refinement**: the frontend can refine Experience skills through the backend relay when the user's provider key is configured
 - **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
+- **AI Artifact Library**: generated JD reports, cover letters, and negotiation results are persisted as authenticated `AIArtifact` records so they sync across browsers/devices, keep lock/delete semantics, and participate in account export/restore
 
 #### Skill Extraction (NLP, background)
 - Extracts fallback skills from Experience descriptions using a lightweight keyword + acronym matcher
@@ -92,6 +95,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Multi-phase internship schedules**: `schedule_phases` JSON stores phase-by-phase internship schedule and compensation overrides
 - **Experience import/export**: export all experiences in CSV/JSON/XLSX; JSON preserves the richest payload including `schedule_phases`, `team_history`, linked `offer` snapshots, linked `application` snapshots, and logo data
 - **Atomic import pipeline**: experience import reconstructs related `Company`, `Application`, and `Offer` records when present, then restores logo files and Experience records inside a DB transaction
+- **AI artifact backup**: account exports include backend-saved JD reports, cover letters, and negotiation results, and backup restore can recreate them in merge or replace mode
+- **Offer decision history backup**: account exports include offer decision snapshots; restore can recreate snapshots and their linked offers from exported point-in-time offer data when needed
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
