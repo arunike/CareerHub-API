@@ -15,11 +15,23 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
-from career.models import Application, ApplicationTimelineEntry, Company, Document, Experience, Offer, Task
+from career.models import (
+    AIArtifact,
+    Application,
+    ApplicationTimelineEntry,
+    Company,
+    Document,
+    Experience,
+    Offer,
+    OfferDecisionSnapshot,
+    Task,
+)
 from career.serializers import (
+    AIArtifactSerializer,
     ApplicationExportSerializer,
     DocumentExportSerializer,
     ExperienceExportSerializer,
+    OfferDecisionSnapshotSerializer,
     OfferExportSerializer,
     TaskSerializer,
 )
@@ -256,6 +268,19 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
                         'application', 'application__company'
                     )
                 ],
+                'ai_artifacts': AIArtifactSerializer(
+                    AIArtifact.objects.filter(user=user), many=True, context=serializer_context
+                ).data,
+                'offer_decision_snapshots': [
+                    {
+                        **OfferDecisionSnapshotSerializer(snapshot, context=serializer_context).data,
+                        'offer_company': snapshot.offer.application.company.name,
+                        'offer_role': snapshot.offer.application.role_title,
+                    }
+                    for snapshot in OfferDecisionSnapshot.objects.filter(user=user).select_related(
+                        'offer', 'offer__application', 'offer__application__company'
+                    )
+                ],
             },
         }
 
@@ -311,11 +336,15 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
             'companies': 0,
             'applications': 0,
             'tasks': 0,
+            'ai_artifacts': 0,
+            'offer_decision_snapshots': 0,
         }
 
         with transaction.atomic():
             if restore_mode == 'replace':
                 ApplicationTimelineEntry.objects.filter(user=user).delete()
+                AIArtifact.objects.filter(user=user).delete()
+                OfferDecisionSnapshot.objects.filter(user=user).delete()
                 Task.objects.filter(user=user).delete()
                 Offer.objects.filter(application__user=user).delete()
                 Document.objects.filter(user=user).delete()
@@ -467,6 +496,91 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
                 )
                 if created:
                     created_counts['tasks'] += 1
+
+            for item in career_data.get('ai_artifacts') or []:
+                payload_item = {
+                    key: item.get(key)
+                    for key in (
+                        'artifact_type',
+                        'client_id',
+                        'title',
+                        'summary',
+                        'payload',
+                        'is_locked',
+                        'saved_at',
+                    )
+                }
+                if not payload_item.get('artifact_type') or not payload_item.get('client_id'):
+                    continue
+                _, created = AIArtifact.objects.update_or_create(
+                    user=user,
+                    client_id=payload_item['client_id'],
+                    defaults=payload_item,
+                )
+                if created:
+                    created_counts['ai_artifacts'] += 1
+
+            for item in career_data.get('offer_decision_snapshots') or []:
+                offer_company = item.get('offer_company') or item.get('company_name')
+                offer_role = item.get('offer_role') or item.get('role_title')
+                offer = None
+                if offer_company and offer_role:
+                    offer = Offer.objects.filter(
+                        application__user=user,
+                        application__company__name=offer_company,
+                        application__role_title=offer_role,
+                    ).select_related('application').first()
+                if not offer:
+                    application = Application.objects.filter(
+                        user=user,
+                        company__name=offer_company,
+                        role_title=offer_role,
+                    ).first()
+                    offer_snapshot = item.get('offer_snapshot') or {}
+                    if application:
+                        offer, _ = Offer.objects.get_or_create(
+                            application=application,
+                            defaults={
+                                'base_salary': offer_snapshot.get('base_salary') or 0,
+                                'bonus': offer_snapshot.get('bonus') or 0,
+                                'equity': offer_snapshot.get('equity') or 0,
+                                'sign_on': offer_snapshot.get('sign_on') or 0,
+                                'benefits_value': offer_snapshot.get('benefits_value') or 0,
+                                'benefit_items': offer_snapshot.get('benefit_items') or [],
+                                'pto_days': offer_snapshot.get('pto_days') or 15,
+                                'is_unlimited_pto': offer_snapshot.get('is_unlimited_pto') or False,
+                                'holiday_days': offer_snapshot.get('holiday_days') or 11,
+                            },
+                        )
+                if not offer:
+                    continue
+                payload_item = {
+                    key: item.get(key)
+                    for key in (
+                        'title',
+                        'notes',
+                        'decision_score',
+                        'rank',
+                        'total_comp',
+                        'adjusted_value',
+                        'monthly_rent',
+                        'commute_cost_annual',
+                        'tax_snapshot',
+                        'score_categories',
+                        'offer_snapshot',
+                        'adjustment_snapshot',
+                        'is_locked',
+                    )
+                }
+                _, created = OfferDecisionSnapshot.objects.get_or_create(
+                    user=user,
+                    offer=offer,
+                    title=payload_item.get('title') or '',
+                    captured_at=item.get('captured_at'),
+                    defaults=payload_item,
+                )
+                if created:
+                    created_counts['offer_decision_snapshots'] += 1
 
         return Response(
             {

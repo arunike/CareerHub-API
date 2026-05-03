@@ -10,10 +10,335 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from availability.models import UserSettings
-from .models import Application, ApplicationTimelineEntry, Company, Document, Experience, GoogleSheetSyncConfig, GoogleSheetSyncRow
+from .models import Application, ApplicationTimelineEntry, Company, Document, Experience, GoogleSheetSyncConfig, GoogleSheetSyncRow, Offer
 from .serializers import ExperienceSerializer
 from .services.google_sheets import _is_sync_config_due, _upsert_application, apply_import_review, build_import_review, sync_google_sheet
 from .services.timeline_analytics import build_application_timeline_analytics
+
+
+class AIArtifactAPITests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="artifact-user@example.com",
+            email="artifact-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="other-artifact-user@example.com",
+            email="other-artifact-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_artifacts_are_persisted_searchable_and_user_scoped(self):
+        response = self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'JD_REPORT',
+                'client_id': 'local-report-1',
+                'title': 'Backend Engineer @ Acme',
+                'summary': 'Strong backend match',
+                'payload': {
+                    'score': 86,
+                    'matched_skills': ['Django', 'React'],
+                    'missing_skills': ['Kafka'],
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['client_id'], 'local-report-1')
+
+        # Same client_id for the same user updates the existing artifact.
+        second_response = self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'JD_REPORT',
+                'client_id': 'local-report-1',
+                'title': 'Backend Engineer @ Acme v2',
+                'summary': 'Updated',
+                'payload': {'score': 91},
+            },
+            format='json',
+        )
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.data['id'], response.data['id'])
+
+        other_client = self.client_class()
+        other_client.force_authenticate(self.other_user)
+        other_client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'COVER_LETTER',
+                'client_id': 'other-letter',
+                'title': 'Hidden Letter',
+                'summary': 'Should not leak',
+                'payload': {'coverLetter': 'private'},
+            },
+            format='json',
+        )
+
+        list_response = self.client.get('/api/career/ai-artifacts/', {'search': 'acme'})
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]['title'], 'Backend Engineer @ Acme v2')
+        self.assertEqual(list_response.data[0]['payload']['score'], 91)
+
+    def test_locked_artifacts_are_preserved_from_delete_actions(self):
+        locked = self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'NEGOTIATION_RESULT',
+                'client_id': 'locked-result',
+                'title': 'Locked Result',
+                'payload': {'advice': {'leverage_points': []}},
+                'is_locked': True,
+            },
+            format='json',
+        ).data
+        unlocked = self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'COVER_LETTER',
+                'client_id': 'unlocked-letter',
+                'title': 'Unlocked Letter',
+                'payload': {'coverLetter': 'hello'},
+            },
+            format='json',
+        ).data
+
+        delete_locked = self.client.delete(f"/api/career/ai-artifacts/{locked['id']}/")
+        self.assertEqual(delete_locked.status_code, status.HTTP_403_FORBIDDEN)
+
+        delete_all = self.client.delete('/api/career/ai-artifacts/delete_all/')
+        self.assertEqual(delete_all.status_code, status.HTTP_200_OK)
+        self.assertEqual(delete_all.data['deleted'], 1)
+
+        remaining = self.client.get('/api/career/ai-artifacts/').data
+        self.assertEqual([item['id'] for item in remaining], [locked['id']])
+        self.assertFalse(any(item['id'] == unlocked['id'] for item in remaining))
+
+    def test_account_export_and_restore_include_ai_artifacts(self):
+        self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'COVER_LETTER',
+                'client_id': 'letter-export',
+                'title': 'Exported Letter',
+                'summary': 'Letter summary',
+                'payload': {
+                    'applicationId': 123,
+                    'companyName': 'Acme',
+                    'roleTitle': 'Backend Engineer',
+                    'coverLetter': 'Dear team...',
+                },
+                'is_locked': True,
+            },
+            format='json',
+        )
+
+        export_response = self.client.get('/api/user-settings/account-export/', {'fmt': 'json'})
+        self.assertEqual(export_response.status_code, status.HTTP_200_OK)
+        payload = json.loads(export_response.content.decode('utf-8'))
+        artifacts = payload['career']['ai_artifacts']
+        self.assertEqual(len(artifacts), 1)
+        self.assertEqual(artifacts[0]['client_id'], 'letter-export')
+        self.assertEqual(artifacts[0]['payload']['coverLetter'], 'Dear team...')
+
+        backup_file = SimpleUploadedFile(
+            'careerhub-account-export.json',
+            json.dumps(payload).encode('utf-8'),
+            content_type='application/json',
+        )
+        restore_response = self.client.post(
+            '/api/user-settings/restore-backup/',
+            {'file': backup_file, 'mode': 'replace'},
+            format='multipart',
+        )
+
+        self.assertEqual(restore_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(restore_response.data['created_counts']['ai_artifacts'], 1)
+        restored = self.client.get('/api/career/ai-artifacts/').data
+        self.assertEqual(len(restored), 1)
+        self.assertEqual(restored[0]['title'], 'Exported Letter')
+        self.assertTrue(restored[0]['is_locked'])
+
+
+class OfferDecisionSnapshotAPITests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="snapshot-user@example.com",
+            email="snapshot-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="other-snapshot-user@example.com",
+            email="other-snapshot-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+        company = Company.objects.create(user=self.user, name="Acme")
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Backend Engineer",
+            status="OFFER",
+            location="San Francisco, CA",
+            office_location="San Francisco, CA",
+            rto_policy="HYBRID",
+            rto_days_per_week=3,
+            commute_cost_value=20,
+            commute_cost_frequency="DAILY",
+            tax_base_rate=32,
+            monthly_rent_override=3500,
+        )
+        self.offer = Offer.objects.create(
+            application=application,
+            base_salary=180000,
+            bonus=25000,
+            equity=60000,
+            sign_on=30000,
+            benefits_value=12000,
+            pto_days=20,
+            holiday_days=11,
+        )
+        other_company = Company.objects.create(user=self.other_user, name="OtherCo")
+        other_application = Application.objects.create(
+            user=self.other_user,
+            company=other_company,
+            role_title="Hidden Engineer",
+            status="OFFER",
+        )
+        self.other_offer = Offer.objects.create(
+            application=other_application,
+            base_salary=1,
+            bonus=0,
+            equity=0,
+            sign_on=0,
+            benefits_value=0,
+            pto_days=10,
+        )
+
+    def _snapshot_payload(self, **overrides):
+        payload = {
+            "offer": self.offer.id,
+            "title": "Decision before onsite counter",
+            "notes": "Leaning Acme because adjusted value and team score are strong.",
+            "decision_score": 87,
+            "rank": 1,
+            "total_comp": "307000.00",
+            "adjusted_value": "241500.50",
+            "monthly_rent": "3500.00",
+            "commute_cost_annual": "5200.00",
+            "tax_snapshot": {
+                "base": 32,
+                "bonus": 40,
+                "equity": 42,
+            },
+            "score_categories": [
+                {"key": "financial", "label": "Financial", "score": 100, "weight": 44},
+                {"key": "team", "label": "Team", "score": 80, "weight": 6},
+            ],
+            "offer_snapshot": {
+                "base_salary": 180000,
+                "bonus": 25000,
+                "equity": 60000,
+                "sign_on": 30000,
+                "benefits_value": 12000,
+                "company": "Acme",
+                "role": "Backend Engineer",
+            },
+            "adjustment_snapshot": {
+                "marital_status": "SINGLE",
+                "reference_location": "San Francisco, CA",
+            },
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_snapshots_are_created_listed_and_user_scoped(self):
+        response = self.client.post(
+            "/api/career/offer-decision-snapshots/",
+            self._snapshot_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["company_name"], "Acme")
+        self.assertEqual(response.data["role_title"], "Backend Engineer")
+
+        forbidden = self.client.post(
+            "/api/career/offer-decision-snapshots/",
+            self._snapshot_payload(offer=self.other_offer.id),
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_400_BAD_REQUEST)
+
+        list_response = self.client.get(
+            "/api/career/offer-decision-snapshots/",
+            {"offer": self.offer.id},
+        )
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["decision_score"], 87)
+
+    def test_locked_snapshots_are_preserved_from_delete_actions(self):
+        locked = self.client.post(
+            "/api/career/offer-decision-snapshots/",
+            self._snapshot_payload(title="Locked", is_locked=True),
+            format="json",
+        ).data
+        unlocked = self.client.post(
+            "/api/career/offer-decision-snapshots/",
+            self._snapshot_payload(title="Unlocked"),
+            format="json",
+        ).data
+
+        delete_locked = self.client.delete(f"/api/career/offer-decision-snapshots/{locked['id']}/")
+        self.assertEqual(delete_locked.status_code, status.HTTP_403_FORBIDDEN)
+
+        delete_all = self.client.delete("/api/career/offer-decision-snapshots/delete_all/")
+        self.assertEqual(delete_all.status_code, status.HTTP_200_OK)
+        self.assertEqual(delete_all.data["deleted"], 1)
+
+        remaining = self.client.get("/api/career/offer-decision-snapshots/").data
+        self.assertEqual([item["id"] for item in remaining], [locked["id"]])
+        self.assertFalse(any(item["id"] == unlocked["id"] for item in remaining))
+
+    def test_account_export_and_restore_include_offer_decision_snapshots(self):
+        self.client.post(
+            "/api/career/offer-decision-snapshots/",
+            self._snapshot_payload(is_locked=True),
+            format="json",
+        )
+
+        export_response = self.client.get("/api/user-settings/account-export/", {"fmt": "json"})
+        self.assertEqual(export_response.status_code, status.HTTP_200_OK)
+        payload = json.loads(export_response.content.decode("utf-8"))
+        snapshots = payload["career"]["offer_decision_snapshots"]
+        self.assertEqual(len(snapshots), 1)
+        self.assertEqual(snapshots[0]["offer_company"], "Acme")
+        self.assertEqual(snapshots[0]["decision_score"], 87)
+
+        backup_file = SimpleUploadedFile(
+            "careerhub-account-export.json",
+            json.dumps(payload).encode("utf-8"),
+            content_type="application/json",
+        )
+        restore_response = self.client.post(
+            "/api/user-settings/restore-backup/",
+            {"file": backup_file, "mode": "replace"},
+            format="multipart",
+        )
+
+        self.assertEqual(restore_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(restore_response.data["created_counts"]["offer_decision_snapshots"], 1)
+        restored = self.client.get("/api/career/offer-decision-snapshots/").data
+        self.assertEqual(len(restored), 1)
+        self.assertEqual(restored[0]["title"], "Decision before onsite counter")
+        self.assertTrue(restored[0]["is_locked"])
 
 
 class ApplicationTimelineAnalyticsTests(APITestCase):

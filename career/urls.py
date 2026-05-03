@@ -1,11 +1,13 @@
 from rest_framework.routers import DefaultRouter
 from .views import (
+    AIArtifactViewSet,
     CompanyViewSet,
     ApplicationViewSet,
     ApplicationTimelineAnalyticsView,
     ImportApplicationsView,
     JobBoardImportView,
     OfferViewSet,
+    OfferDecisionSnapshotViewSet,
     DocumentViewSet,
     TaskViewSet,
     ReferenceDataView,
@@ -21,9 +23,11 @@ from .views import (
 from django.urls import path
 
 router = DefaultRouter()
+router.register(r'ai-artifacts', AIArtifactViewSet, basename='ai-artifact')
 router.register(r'companies', CompanyViewSet)
 router.register(r'applications', ApplicationViewSet)
 router.register(r'offers', OfferViewSet)
+router.register(r'offer-decision-snapshots', OfferDecisionSnapshotViewSet, basename='offer-decision-snapshot')
 router.register(r'documents', DocumentViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'experiences', ExperienceViewSet)

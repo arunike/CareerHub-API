@@ -133,6 +133,37 @@ class Offer(models.Model):
     def __str__(self):
         return f"Offer for {self.application}"
 
+
+class OfferDecisionSnapshot(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='offer_decision_snapshots')
+    offer = models.ForeignKey(Offer, on_delete=models.CASCADE, related_name='decision_snapshots')
+    title = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)
+    decision_score = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    rank = models.PositiveSmallIntegerField(null=True, blank=True)
+    total_comp = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    adjusted_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    commute_cost_annual = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tax_snapshot = models.JSONField(default=dict, blank=True)
+    score_categories = models.JSONField(default=list, blank=True)
+    offer_snapshot = models.JSONField(default=dict, blank=True)
+    adjustment_snapshot = models.JSONField(default=dict, blank=True)
+    is_locked = models.BooleanField(default=False)
+    captured_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-captured_at']
+
+    def __str__(self):
+        return self.title or f"Decision snapshot for offer {self.offer_id}"
+
+
 class Document(models.Model):
     DOCUMENT_TYPES = [
         ('RESUME', 'Resume'),
@@ -274,6 +305,51 @@ class GoogleOAuthState(models.Model):
 
     def __str__(self):
         return f"Google OAuth state for {self.user_id}"
+
+
+class AIArtifact(models.Model):
+    TYPE_JD_REPORT = 'JD_REPORT'
+    TYPE_COVER_LETTER = 'COVER_LETTER'
+    TYPE_NEGOTIATION_RESULT = 'NEGOTIATION_RESULT'
+    ARTIFACT_TYPE_CHOICES = [
+        (TYPE_JD_REPORT, 'JD Report'),
+        (TYPE_COVER_LETTER, 'Cover Letter'),
+        (TYPE_NEGOTIATION_RESULT, 'Negotiation Result'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_artifacts')
+    artifact_type = models.CharField(max_length=40, choices=ARTIFACT_TYPE_CHOICES)
+    client_id = models.CharField(max_length=120)
+    title = models.CharField(max_length=255, blank=True)
+    summary = models.TextField(blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    source_application = models.ForeignKey(
+        Application,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ai_artifacts',
+    )
+    source_offer = models.ForeignKey(
+        Offer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ai_artifacts',
+    )
+    is_locked = models.BooleanField(default=False)
+    saved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-saved_at', '-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'client_id'], name='unique_ai_artifact_client_id_per_user'),
+        ]
+
+    def __str__(self):
+        return self.title or f"{self.artifact_type} {self.client_id}"
 
 
 class Task(models.Model):

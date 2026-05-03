@@ -5,11 +5,13 @@ from django.urls import reverse
 from rest_framework import serializers
 
 from .models import (
+    AIArtifact,
     Company,
     Application,
     ApplicationTimelineEntry,
     GoogleSheetSyncConfig,
     Offer,
+    OfferDecisionSnapshot,
     Document,
     Task,
     Experience
@@ -27,6 +29,51 @@ class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = ['id', 'name', 'website', 'industry', 'created_at', 'updated_at']
+
+
+class AIArtifactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AIArtifact
+        fields = [
+            'id',
+            'artifact_type',
+            'client_id',
+            'title',
+            'summary',
+            'payload',
+            'source_application',
+            'source_offer',
+            'is_locked',
+            'saved_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['source_application'].queryset = Application.objects.filter(user=request.user)
+            fields['source_offer'].queryset = Offer.objects.filter(application__user=request.user)
+        else:
+            fields['source_application'].queryset = Application.objects.none()
+            fields['source_offer'].queryset = Offer.objects.none()
+        return fields
+
+    def validate_payload(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Artifact payload must be an object.')
+        return value
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        artifact, _ = AIArtifact.objects.update_or_create(
+            user=request.user,
+            client_id=validated_data['client_id'],
+            defaults=validated_data,
+        )
+        return artifact
 
 class OfferSerializer(serializers.ModelSerializer):
     application_details = serializers.SerializerMethodField(read_only=True)
@@ -49,6 +96,69 @@ class OfferSerializer(serializers.ModelSerializer):
             'company': obj.application.company.name,
             'role_title': obj.application.role_title,
         }
+
+
+class OfferDecisionSnapshotSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='offer.application.company.name', read_only=True)
+    role_title = serializers.CharField(source='offer.application.role_title', read_only=True)
+
+    class Meta:
+        model = OfferDecisionSnapshot
+        fields = [
+            'id',
+            'offer',
+            'company_name',
+            'role_title',
+            'title',
+            'notes',
+            'decision_score',
+            'rank',
+            'total_comp',
+            'adjusted_value',
+            'monthly_rent',
+            'commute_cost_annual',
+            'tax_snapshot',
+            'score_categories',
+            'offer_snapshot',
+            'adjustment_snapshot',
+            'is_locked',
+            'captured_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'company_name', 'role_title', 'captured_at', 'updated_at']
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            fields['offer'].queryset = Offer.objects.filter(application__user=request.user)
+        else:
+            fields['offer'].queryset = Offer.objects.none()
+        return fields
+
+    def validate_score_categories(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Score categories must be a list.')
+        return value
+
+    def validate_tax_snapshot(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Tax snapshot must be an object.')
+        return value
+
+    def validate_offer_snapshot(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Offer snapshot must be an object.')
+        return value
+
+    def validate_adjustment_snapshot(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Adjustment snapshot must be an object.')
+        return value
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        return OfferDecisionSnapshot.objects.create(user=request.user, **validated_data)
 
 class DocumentSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField(read_only=True)
