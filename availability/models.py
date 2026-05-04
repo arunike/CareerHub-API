@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -219,6 +220,12 @@ class ShareLink(models.Model):
     booking_block_minutes = models.IntegerField(default=30)
     buffer_minutes = models.IntegerField(default=0)
     max_bookings_per_day = models.IntegerField(default=0)
+    allow_reschedule_cancel = models.BooleanField(default=True, help_text="Allow users to reschedule or cancel bookings")
+    intake_questions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Custom questions for booking intake [{id, label, type, required}]",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
@@ -233,7 +240,16 @@ class ShareLink(models.Model):
 
 
 class PublicBooking(models.Model):
+    STATUS_ACTIVE = 'active'
+    STATUS_CANCELED = 'canceled'
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, 'Active'),
+        (STATUS_CANCELED, 'Canceled'),
+    ]
+
     share_link = models.ForeignKey(ShareLink, on_delete=models.CASCADE, related_name='bookings')
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    event = models.OneToOneField(Event, on_delete=models.SET_NULL, null=True, blank=True, related_name='public_booking')
     name = models.CharField(max_length=120)
     email = models.EmailField()
     date = models.DateField()
@@ -241,12 +257,20 @@ class PublicBooking(models.Model):
     end_time = models.CharField(max_length=20)
     timezone = models.CharField(max_length=2, default='PT')
     notes = models.TextField(blank=True)
+    intake_answers = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     is_locked = models.BooleanField(default=False, help_text="Locked bookings cannot be deleted")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['date', 'start_time']
-        unique_together = ('share_link', 'date', 'start_time', 'end_time')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['share_link', 'date', 'start_time', 'end_time'],
+                condition=models.Q(status='active'),
+                name='unique_active_public_booking_slot',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} booking on {self.date} {self.start_time}-{self.end_time}"

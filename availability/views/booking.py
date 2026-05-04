@@ -1,9 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 from uuid import uuid4
 
-from django.core.cache import cache
 from django.conf import settings as django_settings
+from django.core.cache import cache
+from django.core.mail import EmailMessage
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -141,8 +143,23 @@ def _get_share_link_or_none(uuid_value):
     return link
 
 
+def _get_share_link_for_existing_booking(uuid_value, booking_uuid):
+    if not booking_uuid:
+        return None
+    link = ShareLink.objects.filter(uuid=uuid_value).first()
+    if not link or link.user_id is None:
+        return None
+    if not PublicBooking.objects.filter(share_link=link, uuid=booking_uuid).exists():
+        return None
+    return link
+
+
 def _filter_booked_slots(link, date_obj, slots):
-    bookings = PublicBooking.objects.filter(share_link=link, date=date_obj).values_list('start_time', 'end_time')
+    bookings = (
+        PublicBooking.objects
+        .filter(share_link=link, date=date_obj, status=PublicBooking.STATUS_ACTIVE)
+        .values_list('start_time', 'end_time')
+    )
     buffer_minutes = max(0, int(link.buffer_minutes or 0))
     available = []
     for slot in slots:
@@ -164,7 +181,12 @@ def _has_reached_daily_limit(link, date_obj):
     max_per_day = int(link.max_bookings_per_day or 0)
     if max_per_day <= 0:
         return False
-    return PublicBooking.objects.filter(share_link=link, date=date_obj).count() >= max_per_day
+    return (
+        PublicBooking.objects
+        .filter(share_link=link, date=date_obj, status=PublicBooking.STATUS_ACTIVE)
+        .count()
+        >= max_per_day
+    )
 
 
 def _split_slots_by_block_minutes(slots, block_minutes):
@@ -187,6 +209,213 @@ def _split_slots_by_block_minutes(slots, block_minutes):
             )
             cursor = next_dt
     return out
+
+
+def _normalize_intake_questions(value):
+    if not isinstance(value, list):
+        return []
+    questions = []
+    for index, item in enumerate(value[:10]):
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get('label') or '').strip()
+        if not label:
+            continue
+        question_id = str(item.get('id') or f'q_{index + 1}').strip()[:80]
+        questions.append(
+            {
+                'id': question_id,
+                'label': label[:240],
+                'required': bool(item.get('required', False)),
+            }
+        )
+    return questions
+
+
+def _coerce_bool(value, default=True):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in {'false', '0', 'no', 'off'}
+
+
+def _validate_intake_answers(questions, raw_answers):
+    answers = raw_answers if isinstance(raw_answers, dict) else {}
+    normalized = {}
+    for question in questions:
+        question_id = question['id']
+        value = str(answers.get(question_id) or '').strip()
+        if question.get('required') and not value:
+            return None, f'{question["label"]} is required.'
+        if value:
+            normalized[question_id] = value[:2000]
+    return normalized, None
+
+
+def _format_public_booking_notes(booking, intake_answers=None):
+    intake_answers = intake_answers if intake_answers is not None else booking.intake_answers
+    lines = [f'Public booking via share link ({booking.email})']
+    if booking.notes:
+        lines.extend(['', booking.notes])
+    questions = _normalize_intake_questions(booking.share_link.intake_questions)
+    answer_lines = []
+    for question in questions:
+        answer = intake_answers.get(question['id'])
+        if answer:
+            answer_lines.append(f'{question["label"]}: {answer}')
+    if answer_lines:
+        lines.extend(['', 'Intake answers:', *answer_lines])
+    return '\n'.join(lines).strip()
+
+
+def _booking_manage_url(request, booking, action):
+    path = f'/book/{booking.share_link.uuid}/{booking.uuid}/{action}'
+    frontend_base_url = getattr(django_settings, 'PUBLIC_FRONTEND_BASE_URL', '')
+    if frontend_base_url:
+        return f'{frontend_base_url}{path}'
+    return request.build_absolute_uri(path)
+
+
+def _booking_api_url(request, booking, suffix):
+    return request.build_absolute_uri(f'/api/booking/{booking.share_link.uuid}/manage/{booking.uuid}/{suffix}/')
+
+
+def _ics_escape(value):
+    return str(value or '').replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\n', '\\n')
+
+
+def _generate_booking_ics(booking):
+    timezone_code = booking.event.timezone if booking.event_id else _base_timezone_code(booking.share_link.user)
+    tz_name = TIMEZONE_CODE_TO_NAME.get(_normalize_timezone_code(timezone_code), TIMEZONE_CODE_TO_NAME['PT'])
+    start_dt = datetime.combine(booking.date, datetime.strptime(booking.start_time, '%H:%M:%S').time())
+    end_dt = datetime.combine(booking.date, datetime.strptime(booking.end_time, '%H:%M:%S').time())
+    created = booking.created_at.astimezone(dt_timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    status_value = 'CANCELLED' if booking.status == PublicBooking.STATUS_CANCELED else 'CONFIRMED'
+    lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//CareerHub//Public Booking//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        f'UID:{booking.uuid}@careerhub',
+        f'DTSTAMP:{timezone.now().astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")}',
+        f'CREATED:{created}',
+        f'DTSTART;TZID={tz_name}:{start_dt.strftime("%Y%m%dT%H%M%S")}',
+        f'DTEND;TZID={tz_name}:{end_dt.strftime("%Y%m%dT%H%M%S")}',
+        f'SUMMARY:{_ics_escape(f"Booking - {booking.name}")}',
+        f'DESCRIPTION:{_ics_escape(_format_public_booking_notes(booking))}',
+        f'ORGANIZER;CN={_ics_escape(booking.share_link.host_display_name or "CareerHub Host")}:MAILTO:{booking.share_link.host_email or ""}',
+        f'ATTENDEE;CN={_ics_escape(booking.name)};ROLE=REQ-PARTICIPANT:MAILTO:{booking.email}',
+        f'STATUS:{status_value}',
+        'END:VEVENT',
+        'END:VCALENDAR',
+        '',
+    ]
+    return '\r\n'.join(lines)
+
+
+def _send_host_booking_email(request, booking, action):
+    host_email = booking.share_link.host_email
+    if not host_email:
+        return
+    action_label = {
+        'created': 'New public booking',
+        'rescheduled': 'Public booking rescheduled',
+        'canceled': 'Public booking canceled',
+    }.get(action, 'Public booking update')
+    body_lines = [
+        f'{action_label}: {booking.name}',
+        '',
+        f'When: {booking.date} {booking.start_time[:5]}-{booking.end_time[:5]} {booking.timezone}',
+        f'Guest: {booking.name} <{booking.email}>',
+        f'Booking link: {booking.share_link.title}',
+    ]
+    if booking.notes:
+        body_lines.extend(['', 'Notes:', booking.notes])
+    questions = _normalize_intake_questions(booking.share_link.intake_questions)
+    intake_lines = [
+        f'{question["label"]}: {booking.intake_answers.get(question["id"])}'
+        for question in questions
+        if booking.intake_answers.get(question['id'])
+    ]
+    if intake_lines:
+        body_lines.extend(['', 'Intake answers:', *intake_lines])
+    if booking.share_link.allow_reschedule_cancel:
+        body_lines.extend(
+            [
+                '',
+                f'Reschedule: {_booking_manage_url(request, booking, "reschedule")}',
+                f'Cancel: {_booking_manage_url(request, booking, "cancel")}',
+            ]
+        )
+    body_lines.extend(['', f'ICS: {_booking_api_url(request, booking, "ics")}'])
+
+    email = EmailMessage(
+        subject=f'CareerHub: {action_label}',
+        body='\n'.join(body_lines),
+        from_email=getattr(django_settings, 'DEFAULT_FROM_EMAIL', None),
+        to=[host_email],
+    )
+    email.attach(f'careerhub-booking-{booking.uuid}.ics', _generate_booking_ics(booking), 'text/calendar')
+    email.send(fail_silently=True)
+
+
+def _serialize_booking(request, booking):
+    return PublicBookingSerializer(booking, context={'request': request}).data
+
+
+def _validate_requested_slot(link, booking_date, start_time, end_time, timezone_code, exclude_booking=None):
+    base_timezone_code = _base_timezone_code(link.user)
+    if _has_reached_daily_limit(link, booking_date):
+        if not exclude_booking or exclude_booking.date != booking_date:
+            return None, 'This day has reached the booking limit. Please choose another day.'
+
+    availability_map = calculate_availability_for_dates([booking_date], base_timezone_code, user=link.user)
+    availability_item = availability_map.get(booking_date.strftime('%Y-%m-%d'))
+    base_slots = _split_slots_by_block_minutes(
+        _parse_slot_ranges(availability_item['availability'] if availability_item else None),
+        int(link.booking_block_minutes or 30),
+    )
+    if exclude_booking:
+        base_slots = _filter_booked_slots_excluding(link, booking_date, base_slots, exclude_booking)
+    else:
+        base_slots = _filter_booked_slots(link, booking_date, base_slots)
+    slots = _convert_slots_between_timezones(
+        booking_date,
+        base_slots,
+        base_timezone_code,
+        timezone_code,
+    )
+    matched_slot = any(slot['start_time'] == start_time and slot['end_time'] == end_time for slot in slots)
+    if not matched_slot:
+        return None, 'Selected slot is no longer available. Please refresh and pick another.'
+    return _convert_slot_to_base(booking_date, start_time, end_time, timezone_code, base_timezone_code), None
+
+
+def _filter_booked_slots_excluding(link, date_obj, slots, excluded_booking):
+    bookings = (
+        PublicBooking.objects
+        .filter(share_link=link, date=date_obj, status=PublicBooking.STATUS_ACTIVE)
+        .exclude(pk=excluded_booking.pk)
+        .values_list('start_time', 'end_time')
+    )
+    buffer_minutes = max(0, int(link.buffer_minutes or 0))
+    available = []
+    for slot in slots:
+        slot_start = datetime.strptime(slot['start_time'], '%H:%M:%S')
+        slot_end = datetime.strptime(slot['end_time'], '%H:%M:%S')
+        is_blocked = False
+        for booking_start_raw, booking_end_raw in bookings:
+            booking_start = datetime.strptime(booking_start_raw, '%H:%M:%S') - timedelta(minutes=buffer_minutes)
+            booking_end = datetime.strptime(booking_end_raw, '%H:%M:%S') + timedelta(minutes=buffer_minutes)
+            if slot_start < booking_end and slot_end > booking_start:
+                is_blocked = True
+                break
+        if not is_blocked:
+            available.append(slot)
+    return available
 
 
 class ShareLinkViewSet(viewsets.ModelViewSet):
@@ -222,6 +451,8 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
         block_minutes_raw = request.data.get('booking_block_minutes', 30)
         buffer_minutes_raw = request.data.get('buffer_minutes', 0)
         max_bookings_raw = request.data.get('max_bookings_per_day', 0)
+        allow_reschedule_cancel = _coerce_bool(request.data.get('allow_reschedule_cancel'), True)
+        intake_questions = _normalize_intake_questions(request.data.get('intake_questions', []))
         try:
             duration_days = max(1, min(90, int(duration_days_raw)))
         except (TypeError, ValueError):
@@ -254,6 +485,8 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
             booking_block_minutes=booking_block_minutes,
             buffer_minutes=buffer_minutes,
             max_bookings_per_day=max_bookings_per_day,
+            allow_reschedule_cancel=allow_reschedule_cancel,
+            intake_questions=intake_questions,
             expires_at=timezone.now() + timedelta(days=duration_days),
             is_active=True,
         )
@@ -280,13 +513,13 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
             .select_related('share_link')
             .order_by('-date', '-start_time')
         )
-        return Response(PublicBookingSerializer(bookings, many=True).data)
+        return Response(PublicBookingSerializer(bookings, many=True, context={'request': request}).data)
 
     @action(detail=True, methods=['get'])
     def link_bookings(self, request, pk=None):
         link = self.get_object()
         bookings = link.bookings.select_related('share_link').order_by('-date', '-start_time')
-        return Response(PublicBookingSerializer(bookings, many=True).data)
+        return Response(PublicBookingSerializer(bookings, many=True, context={'request': request}).data)
 
 
 class PublicBookingSlotsView(APIView):
@@ -296,6 +529,8 @@ class PublicBookingSlotsView(APIView):
 
     def get(self, request, uuid):
         link = _get_share_link_or_none(uuid)
+        if not link:
+            link = _get_share_link_for_existing_booking(uuid, request.query_params.get('booking_uuid'))
         if not link:
             return Response({'error': 'This booking link is invalid or expired.'}, status=404)
 
@@ -358,6 +593,8 @@ class PublicBookingSlotsView(APIView):
                 'booking_block_minutes': int(link.booking_block_minutes or 30),
                 'buffer_minutes': int(link.buffer_minutes or 0),
                 'max_bookings_per_day': int(link.max_bookings_per_day or 0),
+                'allow_reschedule_cancel': link.allow_reschedule_cancel,
+                'intake_questions': _normalize_intake_questions(link.intake_questions),
                 'days': rows,
             }
         )
@@ -380,7 +617,12 @@ class PublicBookingCreateView(APIView):
         end_time = request.data.get('end_time')
         notes = (request.data.get('notes') or '').strip()
         timezone_code = _normalize_timezone_code(request.data.get('timezone') or 'PT')
-        base_timezone_code = _base_timezone_code(link.user)
+        intake_answers, intake_error = _validate_intake_answers(
+            _normalize_intake_questions(link.intake_questions),
+            request.data.get('intake_answers', {}),
+        )
+        if intake_error:
+            return Response({'error': intake_error}, status=400)
 
         if not name or not email or not date_str or not start_time or not end_time:
             return Response({'error': 'name, email, date, start_time, and end_time are required.'}, status=400)
@@ -390,46 +632,13 @@ class PublicBookingCreateView(APIView):
         except ValueError:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
 
-        if _has_reached_daily_limit(link, booking_date):
-            return Response({'error': 'This day has reached the booking limit. Please choose another day.'}, status=409)
+        normalized_slot, slot_error = _validate_requested_slot(link, booking_date, start_time, end_time, timezone_code)
+        if slot_error:
+            return Response({'error': slot_error}, status=409)
+        normalized_date, normalized_start_time, normalized_end_time = normalized_slot
+        base_timezone_code = _base_timezone_code(link.user)
 
-        availability_map = calculate_availability_for_dates([booking_date], base_timezone_code, user=link.user)
-        availability_item = availability_map.get(date_str)
-        base_slots = _split_slots_by_block_minutes(
-            _parse_slot_ranges(availability_item['availability'] if availability_item else None),
-            int(link.booking_block_minutes or 30),
-        )
-        base_slots = _filter_booked_slots(link, booking_date, base_slots)
-        slots = _convert_slots_between_timezones(
-            booking_date,
-            base_slots,
-            base_timezone_code,
-            timezone_code,
-        )
-        matched_slot = any(slot['start_time'] == start_time and slot['end_time'] == end_time for slot in slots)
-        if not matched_slot:
-            return Response({'error': 'Selected slot is no longer available. Please refresh and pick another.'}, status=409)
-
-        normalized_date, normalized_start_time, normalized_end_time = _convert_slot_to_base(
-            booking_date,
-            start_time,
-            end_time,
-            timezone_code,
-            base_timezone_code,
-        )
-
-        booking = PublicBooking.objects.create(
-            share_link=link,
-            name=name,
-            email=email,
-            date=normalized_date,
-            start_time=normalized_start_time,
-            end_time=normalized_end_time,
-            timezone=timezone_code,
-            notes=notes,
-        )
-
-        Event.objects.create(
+        event = Event.objects.create(
             user=link.user,
             name=f'Booking - {name}',
             date=normalized_date,
@@ -437,14 +646,29 @@ class PublicBookingCreateView(APIView):
             end_time=normalized_end_time,
             timezone=base_timezone_code,
             location_type='virtual',
-            notes=f'Public booking via share link ({email})\n{notes}'.strip(),
+            notes='',
             is_locked=True,
         )
+        booking = PublicBooking.objects.create(
+            share_link=link,
+            event=event,
+            name=name,
+            email=email,
+            date=normalized_date,
+            start_time=normalized_start_time,
+            end_time=normalized_end_time,
+            timezone=timezone_code,
+            notes=notes,
+            intake_answers=intake_answers or {},
+        )
+        event.notes = _format_public_booking_notes(booking)
+        event.save(update_fields=['notes', 'updated_at'])
+        _send_host_booking_email(request, booking, 'created')
 
         return Response(
             {
                 'message': 'Booking confirmed.',
-                'booking': PublicBookingSerializer(booking).data,
+                'booking': _serialize_booking(request, booking),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -459,3 +683,126 @@ class PublicBookingViewSet(viewsets.ModelViewSet):
             .select_related('share_link')
             .order_by('-date', '-start_time')
         )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_locked:
+            return Response(
+                {'error': 'This booking is locked and cannot be deleted. Unlock it first.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if instance.event_id:
+            instance.event.delete()
+        return super().destroy(request, *args, **kwargs)
+
+
+class PublicBookingManageView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [PublicBookingCreateThrottle]
+
+    def _get_booking(self, uuid, booking_uuid):
+        link = ShareLink.objects.filter(uuid=uuid, user__isnull=False).first()
+        if not link:
+            return None
+        return (
+            PublicBooking.objects
+            .filter(share_link=link, uuid=booking_uuid)
+            .select_related('share_link', 'event')
+            .first()
+        )
+
+    def get(self, request, uuid, booking_uuid, action):
+        booking = self._get_booking(uuid, booking_uuid)
+        if not booking:
+            return Response({'error': 'This booking link is invalid or expired.'}, status=404)
+        if action == 'ics':
+            response = HttpResponse(_generate_booking_ics(booking), content_type='text/calendar; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="careerhub-booking-{booking.uuid}.ics"'
+            return response
+        if action == 'details':
+            return Response(
+                {
+                    'booking': _serialize_booking(request, booking),
+                    'share_link': ShareLinkSerializer(booking.share_link, context={'request': request}).data,
+                }
+            )
+        return Response({'error': 'Unsupported action.'}, status=400)
+
+    def post(self, request, uuid, booking_uuid, action):
+        booking = self._get_booking(uuid, booking_uuid)
+        if not booking:
+            return Response({'error': 'This booking link is invalid or expired.'}, status=404)
+        if not booking.share_link.allow_reschedule_cancel:
+            return Response({'error': 'This booking cannot be changed from the public link.'}, status=403)
+        if booking.status == PublicBooking.STATUS_CANCELED:
+            return Response({'error': 'This booking has already been canceled.'}, status=409)
+
+        if action == 'cancel':
+            booking.status = PublicBooking.STATUS_CANCELED
+            booking.save(update_fields=['status'])
+            if booking.event_id:
+                booking.event.delete()
+                booking.event = None
+                booking.save(update_fields=['event'])
+            _send_host_booking_email(request, booking, 'canceled')
+            return Response({'message': 'Booking canceled.', 'booking': _serialize_booking(request, booking)})
+
+        if action != 'reschedule':
+            return Response({'error': 'Unsupported action.'}, status=400)
+
+        date_str = request.data.get('date')
+        start_time = request.data.get('start_time')
+        end_time = request.data.get('end_time')
+        timezone_code = _normalize_timezone_code(request.data.get('timezone') or booking.timezone or 'PT')
+        if not date_str or not start_time or not end_time:
+            return Response({'error': 'date, start_time, and end_time are required.'}, status=400)
+        try:
+            booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+
+        normalized_slot, slot_error = _validate_requested_slot(
+            booking.share_link,
+            booking_date,
+            start_time,
+            end_time,
+            timezone_code,
+            exclude_booking=booking,
+        )
+        if slot_error:
+            return Response({'error': slot_error}, status=409)
+
+        normalized_date, normalized_start_time, normalized_end_time = normalized_slot
+        base_timezone_code = _base_timezone_code(booking.share_link.user)
+        booking.date = normalized_date
+        booking.start_time = normalized_start_time
+        booking.end_time = normalized_end_time
+        booking.timezone = timezone_code
+        booking.save(update_fields=['date', 'start_time', 'end_time', 'timezone'])
+
+        if booking.event_id:
+            event = booking.event
+            event.date = normalized_date
+            event.start_time = normalized_start_time
+            event.end_time = normalized_end_time
+            event.timezone = base_timezone_code
+            event.notes = _format_public_booking_notes(booking)
+            event.save(update_fields=['date', 'start_time', 'end_time', 'timezone', 'notes', 'updated_at'])
+        else:
+            event = Event.objects.create(
+                user=booking.share_link.user,
+                name=f'Booking - {booking.name}',
+                date=normalized_date,
+                start_time=normalized_start_time,
+                end_time=normalized_end_time,
+                timezone=base_timezone_code,
+                location_type='virtual',
+                notes=_format_public_booking_notes(booking),
+                is_locked=True,
+            )
+            booking.event = event
+            booking.save(update_fields=['event'])
+
+        _send_host_booking_email(request, booking, 'rescheduled')
+        return Response({'message': 'Booking rescheduled.', 'booking': _serialize_booking(request, booking)})

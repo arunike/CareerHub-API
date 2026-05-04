@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.conf import settings
 
 from .ai_provider import validate_ai_provider_endpoint
 from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink, PublicBooking
@@ -172,6 +173,8 @@ class ShareLinkSerializer(serializers.ModelSerializer):
             'booking_block_minutes',
             'buffer_minutes',
             'max_bookings_per_day',
+            'allow_reschedule_cancel',
+            'intake_questions',
             'created_at',
             'expires_at',
             'is_active',
@@ -182,10 +185,15 @@ class ShareLinkSerializer(serializers.ModelSerializer):
 
 
 class PublicBookingSerializer(serializers.ModelSerializer):
+    reschedule_url = serializers.SerializerMethodField()
+    cancel_url = serializers.SerializerMethodField()
+    ics_url = serializers.SerializerMethodField()
+
     class Meta:
         model = PublicBooking
         fields = [
             'id',
+            'uuid',
             'share_link',
             'share_link_title',
             'name',
@@ -195,9 +203,37 @@ class PublicBookingSerializer(serializers.ModelSerializer):
             'end_time',
             'timezone',
             'notes',
+            'intake_answers',
+            'status',
             'is_locked',
+            'reschedule_url',
+            'cancel_url',
+            'ics_url',
             'created_at',
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['uuid', 'created_at', 'reschedule_url', 'cancel_url', 'ics_url']
 
     share_link_title = serializers.CharField(source='share_link.title', read_only=True)
+
+    def _absolute_booking_url(self, obj, suffix):
+        request = self.context.get('request')
+        path = f'/book/{obj.share_link.uuid}/{obj.uuid}/{suffix}'
+        frontend_base_url = getattr(settings, 'PUBLIC_FRONTEND_BASE_URL', '')
+        if frontend_base_url:
+            return f'{frontend_base_url}{path}'
+        return request.build_absolute_uri(path) if request else path
+
+    def get_reschedule_url(self, obj):
+        if not obj.share_link.allow_reschedule_cancel:
+            return ''
+        return self._absolute_booking_url(obj, 'reschedule')
+
+    def get_cancel_url(self, obj):
+        if not obj.share_link.allow_reschedule_cancel:
+            return ''
+        return self._absolute_booking_url(obj, 'cancel')
+
+    def get_ics_url(self, obj):
+        request = self.context.get('request')
+        path = f'/api/booking/{obj.share_link.uuid}/manage/{obj.uuid}/ics/'
+        return request.build_absolute_uri(path) if request else path

@@ -19,5 +19,10 @@ router.register(r'public-bookings', views.PublicBookingViewSet, basename='public
 urlpatterns = [
     path('booking/<str:uuid>/slots/', views.PublicBookingSlotsView.as_view(), name='booking-slots'),
     path('booking/<str:uuid>/book/', views.PublicBookingCreateView.as_view(), name='booking-create'),
+    path(
+        'booking/<str:uuid>/manage/<uuid:booking_uuid>/<str:action>/',
+        views.PublicBookingManageView.as_view(),
+        name='booking-manage',
+    ),
     path('', include(router.urls)),
 ]

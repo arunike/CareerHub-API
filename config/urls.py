@@ -4,9 +4,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .cron_views import DailyMaintenanceCronView, GoogleSheetSyncCronView
+from .public_redirect_views import redirect_public_booking
 from .security_views import SecurityDashboardView
 
 urlpatterns = [
+    path("book/<path:path>", redirect_public_booking, name="public-booking-redirect"),
     path(
         "api/security/dashboard/",
         SecurityDashboardView.as_view(),

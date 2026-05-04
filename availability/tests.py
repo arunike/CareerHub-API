@@ -1,11 +1,161 @@
 import json
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+from django.core import mail
 from django.contrib.auth import get_user_model
+from django.test import override_settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from availability.models import UserSettings
+from availability.models import Event, PublicBooking, ShareLink, UserSettings
+
+
+def available_9_to_10(dates, timezone_code, user=None):
+    return {
+        item.strftime('%Y-%m-%d'): {
+            'date': item.strftime('%Y-%m-%d'),
+            'availability': '9:00 AM - 10:00 AM',
+        }
+        for item in dates
+    }
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class PublicBookingEnhancementTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='booking-host',
+            email='host-account@example.com',
+            password='test-pass-123',
+        )
+        self.link = ShareLink.objects.create(
+            user=self.user,
+            uuid='public-link-1',
+            title='Recruiter screen',
+            host_display_name='Richie',
+            host_email='host@example.com',
+            duration_days=14,
+            booking_block_minutes=30,
+            buffer_minutes=0,
+            max_bookings_per_day=0,
+            expires_at=timezone.now() + timedelta(days=14),
+            intake_questions=[
+                {'id': 'company', 'label': 'Company', 'required': True},
+                {'id': 'agenda', 'label': 'Agenda', 'required': False},
+            ],
+        )
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_booking_requires_required_intake_answers(self, _mock_availability):
+        response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'PT',
+                'intake_answers': {},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Company is required', response.data['error'])
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    @override_settings(PUBLIC_FRONTEND_BASE_URL='https://careerhub-frontend.vercel.app')
+    def test_booking_creates_locked_event_and_host_email_with_ics(self, _mock_availability):
+        response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'PT',
+                'notes': 'Bring role details.',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        booking = PublicBooking.objects.get()
+        self.assertEqual(booking.intake_answers['company'], 'Acme')
+        self.assertTrue(booking.event.is_locked)
+        self.assertIn('Acme', booking.event.notes)
+        self.assertIn('reschedule_url', response.data['booking'])
+        self.assertTrue(
+            response.data['booking']['reschedule_url'].startswith('https://careerhub-frontend.vercel.app/book/')
+        )
+        self.assertTrue(response.data['booking']['ics_url'].startswith('http://testserver/api/booking/'))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['host@example.com'])
+        self.assertEqual(mail.outbox[0].attachments[0][2], 'text/calendar')
+        self.assertIn('https://careerhub-frontend.vercel.app/book/', mail.outbox[0].body)
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_cancel_marks_booking_canceled_and_removes_locked_event(self, _mock_availability):
+        create_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'PT',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+        booking_uuid = create_response.data['booking']['uuid']
+        event_id = PublicBooking.objects.get(uuid=booking_uuid).event_id
+
+        response = self.client.post(f'/api/booking/{self.link.uuid}/manage/{booking_uuid}/cancel/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        booking = PublicBooking.objects.get(uuid=booking_uuid)
+        self.assertEqual(booking.status, PublicBooking.STATUS_CANCELED)
+        self.assertFalse(Event.objects.filter(id=event_id).exists())
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_reschedule_updates_booking_and_locked_event(self, _mock_availability):
+        create_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'PT',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+        booking_uuid = create_response.data['booking']['uuid']
+
+        response = self.client.post(
+            f'/api/booking/{self.link.uuid}/manage/{booking_uuid}/reschedule/',
+            {
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:30:00',
+                'end_time': '10:00:00',
+                'timezone': 'PT',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        booking = PublicBooking.objects.get(uuid=booking_uuid)
+        self.assertEqual(booking.start_time, '09:30:00')
+        self.assertEqual(booking.event.start_time, '09:30:00')
 
 
 class AIProviderSettingsTests(APITestCase):
