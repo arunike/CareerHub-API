@@ -453,7 +453,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             ],
         )
 
-        application, _ = _upsert_application(
+        application, _, _ = _upsert_application(
             config=type('Config', (), {'user': self.user})(),
             payload={
                 '_user': self.user,
@@ -472,7 +472,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
 
     def test_unknown_round_status_adds_timeline_stage(self):
-        application, _ = _upsert_application(
+        application, _, _ = _upsert_application(
             config=type('Config', (), {'user': self.user})(),
             payload={
                 '_user': self.user,

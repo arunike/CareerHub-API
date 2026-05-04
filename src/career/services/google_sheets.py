@@ -351,7 +351,7 @@ def apply_import_review(config, approved_item_ids, duplicate_resolutions=None, f
         try:
             approved_item = next((item for item in approved_by_id.values() if item['row'] == offset), {})
             resolution = duplicate_resolutions.get(approved_item.get('id'), 'merge')
-            action, history = _sync_row_with_history(
+            action, history, _diff = _sync_row_with_history(
                 config,
                 row,
                 offset,
@@ -609,7 +609,7 @@ def _review_application_row(config, row, row_number, mapping, seen_identities, f
 
     if not tracked and (application or duplicate_row):
         action = 'possible_duplicate'
-    elif application and changes.keys() == {'status'}:
+    elif application and 'status' in changes:
         action = 'status_change'
     elif application:
         action = 'update'
@@ -980,7 +980,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         stage_events=history_context.setdefault('created_stages', []),
     )
     company, _ = Company.objects.get_or_create(user=config.user, name=company_name)
-    strategies = config.overwrite_strategies or {}
+    strategies = getattr(config, 'overwrite_strategies', {}) or {}
 
     if tracked:
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).first()
@@ -1260,7 +1260,7 @@ def _normalize_location_string(value):
         if state in US_STATES:
             city = match.group(1).strip()
             city = ' '.join(word.capitalize() for word in city.split())
-            return f"{city}, {state}, United States"
+            return f"{city}, {state}"
     return val
 
 

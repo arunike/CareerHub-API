@@ -348,45 +348,36 @@ Access at `http://localhost:8000/admin`.
 
 ```
 api/
-├── availability/              # Availability calendar & events module
-│   ├── models.py             # Event, CustomHoliday (+ tab field), UserSettings
-│   │                         #   (+ employment_types, holiday_tabs JSONFields),
-│   │                         #   EventCategory (+ is_locked), ShareLink, PublicBooking
-│   ├── serializers.py        # DRF serializers (all new fields exposed)
-│   ├── views/                # API ViewSets (CRUD + export endpoints)
-│   ├── throttling.py         # Redis rate-limit throttle classes
-│   ├── tasks.py              # HTTP-triggered maintenance helpers (expire links, clear cache)
-│   ├── ai_provider.py        # Encryption helpers and authenticated provider relay
-│   ├── signals.py            # Cache invalidation signals
-│   ├── migrations/           # Database migrations (0001–0025)
-│   └── utils.py              # Utilities (holiday fetching, export helpers)
-│
-├── career/                   # Job applications, offers & AI tools module
-│   ├── models.py             # Company, Application, Offer, Document, TimelineEntry, Google Sheet sync, Task, Experience models
-│   │                         #   (+ offer decision scorecard fields on Application)
-│   ├── serializers.py        # DRF serializers with auto company creation, skill extraction, and Experience export payloads
-│   ├── views/                # API ViewSets (package)
-│   │   ├── applications.py   # ApplicationViewSet + import/export helpers
-│   │   ├── offers.py         # OfferViewSet
-│   │   ├── documents.py      # DocumentViewSet with versioning + authenticated downloads
-│   │   ├── experiences.py    # ExperienceViewSet + Experience import/export helpers
-│   │   ├── tasks.py          # TaskViewSet with reorder action
-│   │   ├── companies.py      # CompanyViewSet
-│   │   └── reference.py      # ReferenceDataView, RentEstimateView, WeeklyReviewView
-│   ├── skills_extractor.py   # Lightweight keyword/acronym skill extraction
-│   ├── services/             # Business logic (reference data, rent, weekly review, Google Sheets, logo/document storage)
-│   ├── tasks.py              # Maintenance helper: auto_ghost_stale_applications
-│   ├── migrations/           # Database migrations (0001–0045)
-│   └── urls.py               # URL routing
-│
-├── analytics/                # Analytics app support
-│   └── signals.py            # Cache bust on Event/Application change
-│
-├── config/                   # Django project settings
-│   ├── settings.py           # Configuration (security, environment modes, PostgreSQL/SQLite, cache, CORS)
-│   ├── asgi.py               # HTTP-only ASGI entrypoint
-│   ├── cron_views.py         # Secured cron endpoint for background maintenance
-│   └── urls.py               # Root URL configuration
+├── src/                      # Importable Django source packages
+│   ├── availability/         # Availability calendar & events module
+│   │   ├── models.py         # Event, CustomHoliday, UserSettings, ShareLink, PublicBooking
+│   │   ├── serializers.py    # DRF serializers
+│   │   ├── views/            # API ViewSets (CRUD + export endpoints)
+│   │   ├── throttling.py     # Redis rate-limit throttle classes
+│   │   ├── tasks.py          # HTTP-triggered maintenance helpers
+│   │   ├── ai_provider.py    # Encryption helpers and authenticated provider relay
+│   │   ├── signals.py        # Cache invalidation signals
+│   │   ├── migrations/       # Database migrations
+│   │   └── utils.py          # Utilities (holiday fetching, export helpers)
+│   │
+│   ├── career/               # Job applications, offers & AI tools module
+│   │   ├── models.py         # Company, Application, Offer, Document, TimelineEntry, sync, Task, Experience models
+│   │   ├── serializers.py    # DRF serializers with auto company creation and export payloads
+│   │   ├── views/            # API ViewSets (package)
+│   │   ├── skills_extractor.py
+│   │   ├── services/         # Business logic (reference data, rent, weekly review, Google Sheets, storage)
+│   │   ├── tasks.py          # Maintenance helper: auto_ghost_stale_applications
+│   │   ├── migrations/       # Database migrations
+│   │   └── urls.py           # URL routing
+│   │
+│   ├── analytics/            # Analytics app support
+│   │   └── signals.py        # Cache bust on Event/Application change
+│   │
+│   └── config/               # Django project settings
+│       ├── settings.py       # Configuration (security, environment modes, PostgreSQL/SQLite, cache, CORS)
+│       ├── asgi.py           # HTTP-only ASGI entrypoint
+│       ├── cron_views.py     # Secured cron endpoint for background maintenance
+│       └── urls.py           # Root URL configuration
 │
 ├── api/                      # Vercel Python runtime package
 │   └── wsgi.py               # Public `app` entrypoint for Vercel
