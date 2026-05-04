@@ -47,17 +47,13 @@ def subtract_intervals(base_start, base_end, intervals):
     for remove_start, remove_end in sorted(intervals):
         new_available = []
         for avail_start, avail_end in available:
-            # Case 1: Remove interval is completely outside (no overlap)
             if remove_end <= avail_start or remove_start >= avail_end:
                 new_available.append((avail_start, avail_end))
             
-            # Case 2: Remove interval overlaps partially or fully
             else:
-                # Left side remaining
                 if remove_start > avail_start:
                     new_available.append((avail_start, remove_start))
                 
-                # Right side remaining
                 if remove_end < avail_end:
                     new_available.append((remove_end, avail_end))
         
@@ -111,7 +107,7 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
     events = Event.objects.filter(
         user=user,
         date__range=[start_date, end_date],
-        parent_event__isnull=True # Only parents or single events
+        parent_event__isnull=True
     )
     
     recurring_parents = Event.objects.filter(user=user, is_recurring=True, parent_event__isnull=True)
@@ -128,11 +124,10 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
     for e in events:
         s = parse_time_str(e.start_time)
         e_t = parse_time_str(e.end_time)
-        if s and e_t and not e.is_recurring: # Skip recurring parents, they are covered by instances? No, `events` query includes non-recurring.
+        if s and e_t and not e.is_recurring:
             add_to_map(e.date, s, e_t)
 
     for inst in generated_instances:
-        # dict format
         s = parse_time_str(inst['start_time'])
         e_t = parse_time_str(inst['end_time'])
         if s and e_t:

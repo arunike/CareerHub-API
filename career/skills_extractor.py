@@ -1,7 +1,5 @@
 import re
 
-# Common English stop words used to suppress noisy keyword extraction without
-# requiring heavyweight NLP runtime dependencies in production.
 COMMON_STOP_WORDS = {
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'being', 'by', 'for',
     'from', 'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the',
@@ -18,10 +16,7 @@ COMMON_STOP_WORDS = {
     'why', 'would',
 }
 
-
 def _tokenize_words(text: str) -> list[str]:
-    # Keep common tech punctuation so tokens like `node.js`, `c++`, and `ci/cd`
-    # still match the keyword dictionary without requiring external corpora.
     return re.findall(r"[A-Za-z0-9][A-Za-z0-9.+#/-]*", text)
 
 
@@ -35,7 +30,6 @@ def extract_skills_from_text(text: str, company: str = "", title: str = "") -> l
     if not text:
         return []
 
-    # Massive predefined dictionary of valid tech skills to catch regardless of case
     tech_keywords = {
         'golang', 'python', 'java', 'javascript', 'typescript', 'react', 'vue', 'angular',
         'docker', 'kubernetes', 'aws', 'gcp', 'azure', 'sql', 'mysql', 'postgresql', 'mongodb',
@@ -49,7 +43,6 @@ def extract_skills_from_text(text: str, company: str = "", title: str = "") -> l
         'bash', 'shell', 'grpc', 'terraform', 'ansible', 'jenkins',
     }
 
-    # Generic corporate/tech words to aggressively ignore if picked up by extraction
     generic_job_words = {
         'software', 'engineer', 'developer', 'manager', 'bachelor', 'master', 'degree',
         'experience', 'years', 'team', 'project', 'system', 'application', 'business',
@@ -62,18 +55,14 @@ def extract_skills_from_text(text: str, company: str = "", title: str = "") -> l
     candidates: list[str] = []
     lower_text = text.lower()
 
-    # 1. Catch all pre-defined tech keywords regardless of text capitalization,
-    # including multi-word phrases such as `machine learning`.
     for keyword in sorted(tech_keywords, key=len, reverse=True):
         if _contains_keyword(lower_text, keyword):
             candidates.append(keyword)
 
-    # 2. Strict uppercase acronyms plus common Apple platform names.
     strict_acronyms = re.findall(r'\b[A-Z]{2,5}s?\b', text)
     strict_acronyms += re.findall(r'\b(?:iOS|macOS|tvOS)\b', text)
     candidates.extend(strict_acronyms)
 
-    # 3. Token-based pass to catch punctuated single-token technologies.
     for word in _tokenize_words(text):
         clean_word = word.lower().strip(',.()!?:;')
         if clean_word in tech_keywords:
@@ -82,7 +71,6 @@ def extract_skills_from_text(text: str, company: str = "", title: str = "") -> l
     unique_skills: list[str] = []
     seen = set()
 
-    # Dynamic context from user args
     if company:
         seen.update(company.lower().split())
     if title:

@@ -8,10 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy the full requirements chain because requirements.docker.txt
-COPY requirements.docker.txt requirements.runtime.txt requirements.txt ./
+# Copy requirements
+COPY requirements.txt ./
 RUN pip install --upgrade pip \
- && pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.docker.txt
+ && pip wheel --no-cache-dir --wheel-dir /build/wheels -r requirements.txt
 
 
 FROM python:3.11-slim AS final

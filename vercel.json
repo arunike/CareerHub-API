@@ -1,11 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "pip install -r requirements.runtime.txt",
+  "installCommand": "pip install -r requirements.txt",
   "functions": {
     "api/wsgi.py": {
       "maxDuration": 30,
-      "excludeFiles": "{venv/**,media/**,backups/**,dist/**,node_modules/**,__pycache__/**,*.sqlite3,token_dist.json,skill_db_relax_20.json}"
+      "excludeFiles": "{venv/**,media/**,backups/**,dist/**,node_modules/**,__pycache__/**,*.sqlite3}"
     }
   },
   "routes": [
