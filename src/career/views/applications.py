@@ -11,8 +11,9 @@ from rest_framework.views import APIView
 
 from availability.models import UserSettings
 from availability.utils import export_data
-from ..models import Application, Company, Offer
+from ..models import Application, Company
 from ..serializers import ApplicationExportSerializer, ApplicationSerializer
+from ..services.offers import ensure_offer_for_application
 from ..services.job_board_import import extract_job_posting
 from ..upload_validation import validate_import_row_count, validate_import_upload
 
@@ -89,20 +90,13 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Application.objects.filter(user=self.request.user).select_related('company')
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        ensure_offer_for_application(instance)
+
     def perform_update(self, serializer):
         instance = serializer.save()
-        if instance.status == 'OFFER' and not hasattr(instance, 'offer'):
-            Offer.objects.create(
-                application=instance,
-                base_salary=0,
-                bonus=0,
-                equity=0,
-                sign_on=0,
-                benefits_value=0,
-                pto_days=15,
-                is_unlimited_pto=False,
-                is_current=False,
-            )
+        ensure_offer_for_application(instance)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

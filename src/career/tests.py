@@ -16,6 +16,57 @@ from .services.google_sheets import _is_sync_config_due, _upsert_application, ap
 from .services.timeline_analytics import build_application_timeline_analytics
 
 
+class OfferStatusApplicationAPITests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="offer-status-user@example.com",
+            email="offer-status-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_offer_status_application_create_creates_offer(self):
+        response = self.client.post(
+            '/api/career/applications/',
+            {
+                'company_name': 'Acme',
+                'role_title': 'Backend Engineer',
+                'status': 'OFFER',
+                'salary_range': '120000 - 150000',
+                'location': 'New York, NY',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        application = Application.objects.get(id=response.data['id'])
+        self.assertTrue(hasattr(application, 'offer'))
+
+        offers_response = self.client.get('/api/career/offers/')
+        self.assertEqual(offers_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(offers_response.data), 1)
+        self.assertEqual(offers_response.data[0]['application'], application.id)
+        self.assertEqual(offers_response.data[0]['application_details']['company'], 'Acme')
+
+    def test_offer_list_backfills_legacy_offer_status_applications(self):
+        company = Company.objects.create(user=self.user, name='Plaid')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='OFFER',
+            salary_range='148800 - 223200',
+        )
+        self.assertFalse(Offer.objects.filter(application=application).exists())
+
+        response = self.client.get('/api/career/offers/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['application'], application.id)
+        self.assertTrue(Offer.objects.filter(application=application).exists())
+
+
 class AIArtifactAPITests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
