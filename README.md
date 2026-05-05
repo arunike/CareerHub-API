@@ -101,7 +101,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
-- **Availability Generation**: Generate availability text blocks from work settings, holidays, and event conflicts
+- **Availability Generation**: Generate user-defined week-long availability text blocks from work settings, holidays, and event conflicts
 - **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, and max meetings/day; public bookings create locked internal events
 - **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
@@ -496,7 +496,7 @@ Base prefix: `/api/career/`
 - `DELETE /api/categories/{id}/` — Delete category
 
 #### Availability / Booking
-- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT` — Generate availability text rows
+- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT&weeks=2` — Generate availability text rows for a user-defined week range
 - `POST /api/overrides/` — Override a specific date's availability text
 - `GET /api/share-links/current/` — Get active booking share link
 - `POST /api/share-links/generate/` — Generate a new booking share link
@@ -507,7 +507,7 @@ Base prefix: `/api/career/`
 #### Settings
 - `GET /api/security/dashboard/` — Authenticated security posture summary for Settings, including environment flags, auth throttles, Google sync health, and Vercel WAF setup hints
 - `GET /api/user-settings/current/` — Retrieve user settings (singleton)
-- `PUT /api/user-settings/current/` — Update all settings fields including `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
+- `PUT /api/user-settings/current/` — Update all settings fields including `availability_weeks`, `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
 - `GET /api/user-settings/account-export/?fmt=json|zip` — Download account-level CareerHub export data
 - `POST /api/user-settings/restore-backup/` — Restore a CareerHub account export in merge or replace mode
 - `DELETE /api/user-settings/account/` — Schedule authenticated account deletion with a 14-day grace period when the payload includes `confirm=DELETE`
