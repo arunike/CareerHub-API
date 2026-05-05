@@ -81,7 +81,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         model = UserSettings
         fields = [
             'id', 'work_start_time', 'work_end_time', 'work_time_ranges', 'work_days',
-            'default_event_duration', 'buffer_time', 'primary_timezone',
+            'default_event_duration', 'buffer_time', 'availability_weeks', 'primary_timezone',
             'theme', 'notification_preferences', 'global_availability',
             'ghosting_threshold_days', 'default_event_category',
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
@@ -115,6 +115,11 @@ class UserSettingsSerializer(serializers.ModelSerializer):
 
     def validate_ai_provider_endpoint(self, value):
         return validate_ai_provider_endpoint(value)
+
+    def validate_availability_weeks(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Availability range must be at least 1 week.')
+        return value
 
     def create(self, validated_data):
         api_key = validated_data.pop('ai_provider_api_key', None)

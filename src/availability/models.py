@@ -109,6 +109,7 @@ class UserSettings(models.Model):
     work_days = models.JSONField(default=list)
     default_event_duration = models.IntegerField(default=60)
     buffer_time = models.IntegerField(default=0)
+    availability_weeks = models.PositiveIntegerField(default=2, help_text="Number of weeks to generate on the Availability page")
     primary_timezone = models.CharField(max_length=50, default='America/Los_Angeles')
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='light')
     notification_preferences = models.JSONField(default=dict)

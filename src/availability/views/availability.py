@@ -4,9 +4,9 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..models import AvailabilityOverride, AvailabilitySetting
+from ..models import AvailabilityOverride, AvailabilitySetting, UserSettings
 from ..serializers import AvailabilityOverrideSerializer, AvailabilitySettingSerializer
-from ..utils import calculate_availability_for_dates, get_next_two_weeks_weekdays
+from ..utils import calculate_availability_for_dates, get_availability_dates
 
 
 class AvailabilityOverrideViewSet(viewsets.ModelViewSet):
@@ -37,6 +37,11 @@ class AvailabilityViewSet(viewsets.ViewSet):
     def generate(self, request):
         target_tz = request.query_params.get('timezone', 'PT')
         start_date_str = request.query_params.get('start_date')
+        settings = UserSettings.objects.filter(user=request.user).first()
+        weeks_raw = request.query_params.get(
+            'weeks',
+            settings.availability_weeks if settings else 2,
+        )
 
         start_date = None
         if start_date_str:
@@ -45,7 +50,7 @@ class AvailabilityViewSet(viewsets.ViewSet):
             except ValueError:
                 return Response({'error': 'Invalid date format'}, status=status.HTTP_400_BAD_REQUEST)
 
-        dates = get_next_two_weeks_weekdays(start_date)
+        dates = get_availability_dates(start_date, weeks_raw)
         availability_map = calculate_availability_for_dates(dates, target_tz, user=request.user)
 
         response_data = []

@@ -22,6 +22,35 @@ def available_9_to_10(dates, timezone_code, user=None):
     }
 
 
+class AvailabilityRangeTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='availability-host',
+            email='availability@example.com',
+            password='test-pass-123',
+        )
+        self.client.force_login(self.user)
+
+    @patch('availability.views.availability.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_generate_defaults_to_two_weeks(self, _mock_availability):
+        response = self.client.get('/api/availability/generate/?start_date=2026-05-04')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 14)
+
+    @patch('availability.views.availability.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_generate_uses_saved_or_requested_week_range(self, _mock_availability):
+        UserSettings.objects.create(user=self.user, availability_weeks=16)
+
+        saved_response = self.client.get('/api/availability/generate/?start_date=2026-05-04')
+        requested_response = self.client.get('/api/availability/generate/?start_date=2026-05-04&weeks=1')
+
+        self.assertEqual(saved_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(saved_response.data), 112)
+        self.assertEqual(requested_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(requested_response.data), 7)
+
+
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class PublicBookingEnhancementTests(APITestCase):
     def setUp(self):

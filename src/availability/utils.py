@@ -7,20 +7,24 @@ import holidays
 from .models import UserSettings, AvailabilityOverride, CustomHoliday, Event
 from .recurrence import generate_recurring_instances
 
-def get_next_two_weeks_weekdays(start_date=None):
+def get_availability_dates(start_date=None, weeks=2):
     if start_date is None:
         today = datetime.now().date()
     elif isinstance(start_date, datetime):
         today = start_date.date()
     else:
         today = start_date
-        
-    dates = []
-    for i in range(14):
-        d = today + timedelta(days=i)
-        if d.weekday() < 5:  # Mon-Fri
-            dates.append(d)
-    return dates
+
+    try:
+        week_count = max(1, int(weeks))
+    except (TypeError, ValueError):
+        week_count = 2
+
+    return [today + timedelta(days=i) for i in range(week_count * 7)]
+
+
+def get_next_two_weeks_weekdays(start_date=None):
+    return [d for d in get_availability_dates(start_date, weeks=2) if d.weekday() < 5]
 
 def get_federal_holidays(year=None):
     if year is None:
