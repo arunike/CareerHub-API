@@ -93,6 +93,61 @@ US_STATES = {
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR'
 }
 
+US_STATE_NAME_TO_ABBR = {
+    'alabama': 'AL',
+    'alaska': 'AK',
+    'arizona': 'AZ',
+    'arkansas': 'AR',
+    'california': 'CA',
+    'colorado': 'CO',
+    'connecticut': 'CT',
+    'delaware': 'DE',
+    'florida': 'FL',
+    'georgia': 'GA',
+    'hawaii': 'HI',
+    'idaho': 'ID',
+    'illinois': 'IL',
+    'indiana': 'IN',
+    'iowa': 'IA',
+    'kansas': 'KS',
+    'kentucky': 'KY',
+    'louisiana': 'LA',
+    'maine': 'ME',
+    'maryland': 'MD',
+    'massachusetts': 'MA',
+    'michigan': 'MI',
+    'minnesota': 'MN',
+    'mississippi': 'MS',
+    'missouri': 'MO',
+    'montana': 'MT',
+    'nebraska': 'NE',
+    'nevada': 'NV',
+    'new hampshire': 'NH',
+    'new jersey': 'NJ',
+    'new mexico': 'NM',
+    'new york': 'NY',
+    'north carolina': 'NC',
+    'north dakota': 'ND',
+    'ohio': 'OH',
+    'oklahoma': 'OK',
+    'oregon': 'OR',
+    'pennsylvania': 'PA',
+    'rhode island': 'RI',
+    'south carolina': 'SC',
+    'south dakota': 'SD',
+    'tennessee': 'TN',
+    'texas': 'TX',
+    'utah': 'UT',
+    'vermont': 'VT',
+    'virginia': 'VA',
+    'washington': 'WA',
+    'west virginia': 'WV',
+    'wisconsin': 'WI',
+    'wyoming': 'WY',
+    'district of columbia': 'DC',
+    'puerto rico': 'PR',
+}
+
 
 def default_mapping_for_target(target_type):
     if target_type == GoogleSheetSyncConfig.TARGET_EVENTS:
@@ -194,12 +249,13 @@ def sync_google_sheet(config, force=False):
                 result[action] += 1
                 result['history'].extend(history)
                 if action in ['created', 'updated']:
+                    first_history = history[0] if history else {}
                     changes_list.append({
                         'action': action,
                         'row_number': offset,
                         'diff': diff,
-                        'history_id': history[0].id if history else None,
-                        'local_object_id': history[0].application_id if history and config.target_type == GoogleSheetSyncConfig.TARGET_APPLICATIONS else None
+                        'history_id': None,
+                        'local_object_id': first_history.get('local_object_id') if config.target_type == GoogleSheetSyncConfig.TARGET_APPLICATIONS else None,
                     })
             except Exception as exc:
                 result['errors'].append({'row': offset, 'error': str(exc)})
@@ -510,7 +566,7 @@ def _load_service_account_info(silent=False):
 
 
 def _sync_row(config, row, row_number, mapping, force=False):
-    action, _history = _sync_row_with_history(config, row, row_number, mapping, force=force)
+    action, _history, _diff = _sync_row_with_history(config, row, row_number, mapping, force=force)
     return action
 
 
@@ -521,7 +577,7 @@ def _sync_row_with_history(config, row, row_number, mapping, force=False, duplic
     payload['_user'] = config.user
     tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
     if tracked and tracked.row_hash == row_hash and not force and not _needs_application_date_backfill(config, payload, tracked):
-        return 'skipped', [_history_entry('skipped', row_number, payload, 'No changes detected since the last sync.')]
+        return 'skipped', [_history_entry('skipped', row_number, payload, 'No changes detected since the last sync.')], {}
 
     history_context = _build_history_context(config, payload, tracked, row_number, duplicate_resolution=duplicate_resolution)
 
@@ -581,7 +637,7 @@ def _review_application_row(config, row, row_number, mapping, seen_identities, f
     if tracked:
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
         if application and not payload.get('date_applied') and not application.date_applied:
-            defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
+            defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user)
     else:
         company = Company.objects.filter(user=config.user, name=company_name).first()
         if company:
@@ -763,7 +819,7 @@ def _build_history_context(config, payload, tracked, row_number, duplicate_resol
             ensure_stages=False,
         )
         if tracked and not payload.get('date_applied') and not application.date_applied:
-            preview_defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
+            preview_defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user)
             context['date_backfilled'] = True
         context['changes'] = _application_changes(application, company_name, role_title, preview_defaults)
 
@@ -905,6 +961,24 @@ def _application_stage_label(user, key):
     return stage.get('label') if stage else _title_status(str(key).replace('_', ' ').lower())
 
 
+def _current_user_date(user):
+    settings_profile = UserSettings.objects.filter(user=user).first() if user else None
+    timezone_name = settings_profile.primary_timezone if settings_profile else 'America/Los_Angeles'
+    try:
+        return timezone.now().astimezone(ZoneInfo(timezone_name)).date()
+    except ZoneInfoNotFoundError:
+        return timezone.localdate()
+
+
+def _datetime_in_user_date(value, user):
+    settings_profile = UserSettings.objects.filter(user=user).first() if user else None
+    timezone_name = settings_profile.primary_timezone if settings_profile else 'America/Los_Angeles'
+    try:
+        return timezone.localtime(value, ZoneInfo(timezone_name)).date()
+    except ZoneInfoNotFoundError:
+        return timezone.localtime(value).date()
+
+
 def _mapped_payload(row, mapping):
     payload = {}
     for field, column in mapping.items():
@@ -986,7 +1060,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).first()
         if application:
             if not payload.get('date_applied') and not application.date_applied:
-                defaults['date_applied'] = timezone.localtime(tracked.created_at).date()
+                defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user)
             diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False)
             if diff:
                 application.save()
@@ -998,7 +1072,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         existing_application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
     if existing_application:
         if not payload.get('date_applied') and not existing_application.date_applied:
-            defaults['date_applied'] = timezone.localtime(tracked.created_at).date() if tracked else timezone.localdate()
+            defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user) if tracked else _current_user_date(config.user)
         diff = _apply_field_updates(existing_application, company, role_title, defaults, strategies, is_new=False)
         if diff:
             existing_application.save()
@@ -1006,7 +1080,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         return existing_application, False, {}
 
     if not payload.get('date_applied'):
-        defaults['date_applied'] = timezone.localtime(tracked.created_at).date() if tracked else timezone.localdate()
+        defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user) if tracked else _current_user_date(config.user)
 
     application = Application(
         user=config.user,
@@ -1027,7 +1101,10 @@ def _find_existing_application_by_sheet_identity(config, company, role_title, pa
     }
     for field in identity_fields:
         if field in payload:
-            filters[field] = defaults.get(field)
+            if field in {'location', 'office_location'}:
+                filters[f'{field}__in'] = _location_lookup_values(defaults.get(field))
+            else:
+                filters[field] = defaults.get(field)
     return Application.objects.filter(**filters).order_by('id').first()
 
 
@@ -1035,7 +1112,7 @@ def _application_defaults_from_payload(payload, apply_create_defaults=False, ens
     defaults = {}
     if apply_create_defaults:
         defaults['status'] = 'APPLIED'
-        defaults['date_applied'] = timezone.localdate()
+        defaults['date_applied'] = _current_user_date(payload.get('_user'))
 
     if 'status' in payload:
         defaults['status'] = _normalize_application_status(
@@ -1254,14 +1331,29 @@ def _normalize_location_string(value):
     val = (value or '').strip()
     if not val:
         return ''
-    match = re.match(r'^([^,]+),\s*([A-Za-z]{2})$', val)
+
+    if val.lower() == 'remote':
+        return 'Remote'
+
+    value_without_country = re.sub(r',\s*United States\s*$', '', val, flags=re.IGNORECASE).strip()
+    match = re.match(r'^([^,]+),\s*([A-Za-z][A-Za-z\s]+)$', value_without_country)
     if match:
-        state = match.group(2).strip().upper()
+        state_value = match.group(2).strip()
+        state = state_value.upper() if len(state_value) == 2 else US_STATE_NAME_TO_ABBR.get(state_value.lower(), '')
         if state in US_STATES:
             city = match.group(1).strip()
             city = ' '.join(word.capitalize() for word in city.split())
-            return f"{city}, {state}"
+            return f"{city}, {state}, United States"
     return val
+
+
+def _location_lookup_values(value):
+    canonical = _normalize_location_string(value)
+    values = [canonical]
+    legacy = re.sub(r',\s*United States\s*$', '', canonical, flags=re.IGNORECASE).strip()
+    if legacy and legacy != canonical:
+        values.append(legacy)
+    return values
 
 
 def _parse_date(value):

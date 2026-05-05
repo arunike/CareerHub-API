@@ -564,6 +564,11 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         result = sync_google_sheet(config)
 
         self.assertEqual(result['created'], 2)
+        self.assertEqual(result['errors'], [])
+        config.refresh_from_db()
+        latest_run = config.runs.latest('id')
+        self.assertEqual(len(latest_run.changes), 2)
+        self.assertTrue(all(change['local_object_id'] for change in latest_run.changes))
         applications = Application.objects.filter(
             user=self.user,
             company__name='Plaid',
@@ -572,13 +577,105 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(applications.count(), 2)
         self.assertEqual(
             list(applications.values_list('location', flat=True)),
-            ['New York, NY', 'San Francisco, CA'],
+            ['New York, NY, United States', 'San Francisco, CA, United States'],
         )
 
         resync_result = sync_google_sheet(config, force=True)
         self.assertEqual(resync_result['created'], 0)
         self.assertEqual(resync_result['updated'], 2)
         self.assertEqual(Application.objects.filter(user=self.user, company__name='Plaid').count(), 2)
+
+        unchanged_result = sync_google_sheet(config)
+        self.assertEqual(unchanged_result['skipped'], 2)
+        self.assertEqual(unchanged_result['errors'], [])
+
+    @patch("career.services.google_sheets.timezone.now")
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_missing_date_applied_uses_user_timezone_today(self, mock_fetch_sheet_rows, mock_now):
+        mock_now.return_value = datetime(2026, 5, 5, 4, 30, tzinfo=dt_timezone.utc)
+        UserSettings.objects.create(user=self.user, primary_timezone='America/Los_Angeles')
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role'],
+            ['OpenAI', 'Product Engineer'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+            },
+        )
+
+        result = sync_google_sheet(config)
+
+        self.assertEqual(result['errors'], [])
+        application = Application.objects.get(user=self.user, company__name='OpenAI')
+        self.assertEqual(application.date_applied.isoformat(), '2026-05-04')
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_sheet_location_maps_to_canonical_us_city_location(self, mock_fetch_sheet_rows):
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Location', 'Office Location'],
+            ['OpenAI', 'Product Engineer', 'San Francisco, CA', 'New York, NY, United States'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'location': 'Location',
+                'office_location': 'Office Location',
+            },
+        )
+
+        result = sync_google_sheet(config)
+
+        self.assertEqual(result['errors'], [])
+        application = Application.objects.get(user=self.user, company__name='OpenAI')
+        self.assertEqual(application.location, 'San Francisco, CA, United States')
+        self.assertEqual(application.office_location, 'New York, NY, United States')
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_canonical_location_sync_matches_existing_legacy_location(self, mock_fetch_sheet_rows):
+        company = Company.objects.create(user=self.user, name='OpenAI')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Product Engineer',
+            location='San Francisco, CA',
+        )
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Location'],
+            ['OpenAI', 'Product Engineer', 'San Francisco, CA'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'location': 'Location',
+            },
+        )
+
+        result = sync_google_sheet(config)
+
+        self.assertEqual(result['errors'], [])
+        self.assertEqual(result['created'], 0)
+        self.assertEqual(result['updated'], 1)
+        application.refresh_from_db()
+        self.assertEqual(application.location, 'San Francisco, CA, United States')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_identical_company_role_salary_and_location_dedupes_application(self, mock_fetch_sheet_rows):
@@ -611,7 +708,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
                 company__name='Plaid',
                 role_title='Software Engineer',
                 salary_range='148800 - 223200',
-                location='New York, NY',
+                location='New York, NY, United States',
             ).count(),
             1,
         )
@@ -797,7 +894,6 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
                 company__name='Plaid',
                 role_title='Software Engineer',
                 salary_range='148800 - 223200',
-                location='New York, NY',
             ).count(),
             2,
         )
