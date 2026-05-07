@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+from django.core.cache import cache
 from django.core import mail
 from django.contrib.auth import get_user_model
 from django.test import override_settings
@@ -400,6 +401,7 @@ class AIProviderSettingsTests(APITestCase):
 
 class AuthJwtFlowTests(APITestCase):
     def setUp(self):
+        cache.clear()
         self.user = get_user_model().objects.create_user(
             username='jwt-user',
             email='jwt@example.com',
@@ -493,3 +495,52 @@ class AuthJwtFlowTests(APITestCase):
             format='json',
         )
         self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_pending_account_deletion_blocks_existing_access_token(self):
+        login_response = self.client.post(
+            self.login_url,
+            {
+                'email': 'jwt@example.com',
+                'password': 'test-pass-123',
+            },
+            format='json',
+        )
+        user_settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        user_settings.schedule_account_deletion()
+        user_settings.save()
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+        me_response = self.client.get(self.me_url)
+
+        self.assertEqual(me_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_pending_account_deletion_blocks_refresh_token(self):
+        login_response = self.client.post(
+            self.login_url,
+            {
+                'email': 'jwt@example.com',
+                'password': 'test-pass-123',
+            },
+            format='json',
+        )
+        user_settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        user_settings.schedule_account_deletion()
+        user_settings.save()
+
+        refresh_response = self.client.post(
+            self.refresh_url,
+            {'refresh': login_response.data['refresh']},
+            format='json',
+        )
+
+        self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_pending_account_deletion_blocks_existing_session(self):
+        self.client.force_login(self.user)
+        user_settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        user_settings.schedule_account_deletion()
+        user_settings.save()
+
+        me_response = self.client.get(self.me_url)
+
+        self.assertEqual(me_response.status_code, status.HTTP_401_UNAUTHORIZED)

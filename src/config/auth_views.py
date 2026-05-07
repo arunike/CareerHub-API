@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -286,7 +287,7 @@ class AuthRefreshView(APIView):
         serializer = TokenRefreshSerializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-        except TokenError as exc:
+        except (AuthenticationFailed, TokenError) as exc:
             return Response(
                 {"detail": str(exc)},
                 status=status.HTTP_401_UNAUTHORIZED,
