@@ -4,7 +4,7 @@
   "installCommand": "pip install -r requirements.txt",
   "functions": {
     "api/wsgi.py": {
-      "maxDuration": 30,
+      "maxDuration": 60,
       "excludeFiles": "{venv/**,media/**,backups/**,dist/**,node_modules/**,__pycache__/**,*.sqlite3}"
     }
   },
