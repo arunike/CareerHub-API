@@ -101,6 +101,9 @@ class Application(models.Model):
     notes = models.TextField(blank=True)
     current_round = models.IntegerField(default=0, help_text="Current interview round number (0 for none)")
     is_locked = models.BooleanField(default=False, help_text="Locked applications cannot be deleted")
+    source_removed_at = models.DateTimeField(null=True, blank=True)
+    source_removed_delete_after = models.DateTimeField(null=True, blank=True)
+    source_removed_previous_status = models.CharField(max_length=50, blank=True)
     
     date_applied = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -222,9 +225,15 @@ class ApplicationTimelineEntry(models.Model):
 class GoogleSheetSyncConfig(models.Model):
     TARGET_APPLICATIONS = 'APPLICATIONS'
     TARGET_EVENTS = 'EVENTS'
+    MISSING_ROW_IGNORE = 'IGNORE'
+    MISSING_ROW_ARCHIVE_THEN_DELETE = 'ARCHIVE_THEN_DELETE'
     TARGET_CHOICES = [
         (TARGET_APPLICATIONS, 'Applications'),
         (TARGET_EVENTS, 'Events'),
+    ]
+    MISSING_ROW_CHOICES = [
+        (MISSING_ROW_IGNORE, 'Ignore missing rows'),
+        (MISSING_ROW_ARCHIVE_THEN_DELETE, 'Archive then delete missing rows'),
     ]
 
     STATUS_IDLE = 'IDLE'
@@ -249,6 +258,15 @@ class GoogleSheetSyncConfig(models.Model):
     sync_time = models.TimeField(default=time(22, 0), help_text='Preferred daily sync time in sync_timezone.')
     sync_timezone = models.CharField(max_length=64, default='America/Los_Angeles')
     header_row = models.PositiveSmallIntegerField(default=1)
+    missing_row_strategy = models.CharField(
+        max_length=30,
+        choices=MISSING_ROW_CHOICES,
+        default=MISSING_ROW_ARCHIVE_THEN_DELETE,
+    )
+    missing_row_delete_after_days = models.PositiveSmallIntegerField(
+        default=30,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+    )
     last_synced_at = models.DateTimeField(null=True, blank=True)
     last_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_IDLE)
     last_error = models.TextField(blank=True)

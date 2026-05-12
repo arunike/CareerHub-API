@@ -63,6 +63,14 @@ DEFAULT_APPLICATION_STAGES = [
     {'key': 'GHOSTED', 'label': 'Ghosted', 'shortLabel': 'Ghost', 'tone': 'bg-slate-400'},
 ]
 
+REMOVED_FROM_SHEET_STATUS = 'REMOVED_FROM_SHEET'
+REMOVED_FROM_SHEET_STAGE = {
+    'key': REMOVED_FROM_SHEET_STATUS,
+    'label': 'Removed from Sheet',
+    'shortLabel': 'Removed',
+    'tone': 'bg-slate-500',
+}
+
 STATUS_ALIASES = {
     'applied': 'APPLIED',
     'apply': 'APPLIED',
@@ -229,13 +237,17 @@ def sync_google_sheet(config, force=False):
             'target_type': config.target_type,
             'created': 0,
             'updated': 0,
+            'archived': 0,
+            'deleted': 0,
             'skipped': 0,
             'errors': [],
+            'warnings': [],
             'history': [],
             'scanned_rows': 0,
         }
 
         changes_list = []
+        seen_external_keys = set()
 
         for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
             row = _row_to_dict(headers, raw_row)
@@ -245,7 +257,17 @@ def sync_google_sheet(config, force=False):
 
             result['scanned_rows'] += 1
             try:
-                action, history, diff = _sync_row_with_history(config, row, offset, mapping, force=force)
+                key_payload = _mapped_payload(row, mapping)
+                external_key = _external_key(key_payload, offset)
+                duplicate_key_in_sheet = external_key in seen_external_keys
+                seen_external_keys.add(external_key)
+                action, history, diff = _sync_row_with_history(
+                    config,
+                    row,
+                    offset,
+                    mapping,
+                    force=force or duplicate_key_in_sheet,
+                )
                 result[action] += 1
                 result['history'].extend(history)
                 if action in ['created', 'updated']:
@@ -259,6 +281,13 @@ def sync_google_sheet(config, force=False):
                     })
             except Exception as exc:
                 result['errors'].append({'row': offset, 'error': str(exc)})
+
+        missing_result = _handle_missing_sheet_rows(config, seen_external_keys, mapping)
+        result['archived'] += missing_result['archived']
+        result['deleted'] += missing_result['deleted']
+        result['warnings'].extend(missing_result['warnings'])
+        result['history'].extend(missing_result['history'])
+        changes_list.extend(missing_result['changes'])
 
         run.status = GoogleSheetSyncRun.STATUS_SUCCESS if not result['errors'] else GoogleSheetSyncRun.STATUS_ERROR
         run.summary = {k: v for k, v in result.items() if k != 'history'}
@@ -315,6 +344,18 @@ def rollback_sync_run(run_id, user):
                     
                 if change['action'] == 'created':
                     app.delete()
+                elif change['action'] == 'archived':
+                    app.status = app.source_removed_previous_status or 'APPLIED'
+                    app.source_removed_at = None
+                    app.source_removed_delete_after = None
+                    app.source_removed_previous_status = ''
+                    app.save(update_fields=[
+                        'status',
+                        'source_removed_at',
+                        'source_removed_delete_after',
+                        'source_removed_previous_status',
+                        'updated_at',
+                    ])
                 elif change['action'] == 'updated' and change.get('diff'):
                     # Revert diffs
                     for field, values in change['diff'].items():
@@ -437,8 +478,11 @@ def sync_enabled_google_sheets(only_due=False, now=None):
         'configs': 0,
         'created': 0,
         'updated': 0,
+        'archived': 0,
+        'deleted': 0,
         'skipped': 0,
         'errors': [],
+        'warnings': [],
     }
     for config in GoogleSheetSyncConfig.objects.filter(enabled=True).select_related('user'):
         summary['configs'] += 1
@@ -449,9 +493,13 @@ def sync_enabled_google_sheets(only_due=False, now=None):
             result = sync_google_sheet(config)
             summary['created'] += result.get('created', 0)
             summary['updated'] += result.get('updated', 0)
+            summary['archived'] += result.get('archived', 0)
+            summary['deleted'] += result.get('deleted', 0)
             summary['skipped'] += result.get('skipped', 0)
             for row_error in result.get('errors', []):
                 summary['errors'].append({'config': config.name, **row_error})
+            for row_warning in result.get('warnings', []):
+                summary['warnings'].append({'config': config.name, **row_warning})
         except Exception as exc:
             config.last_synced_at = timezone.now()
             config.last_status = GoogleSheetSyncConfig.STATUS_ERROR
@@ -570,13 +618,130 @@ def _sync_row(config, row, row_number, mapping, force=False):
     return action
 
 
+def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
+    result = {
+        'archived': 0,
+        'deleted': 0,
+        'warnings': [],
+        'history': [],
+        'changes': [],
+    }
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+        return result
+    if config.missing_row_strategy != GoogleSheetSyncConfig.MISSING_ROW_ARCHIVE_THEN_DELETE:
+        return result
+    if not (mapping or {}).get('external_id'):
+        result['warnings'].append({
+            'message': 'Missing-row archive skipped because this sync has no External ID mapping. Add a stable External ID column before using sheet deletes as intentional removals.'
+        })
+        return result
+
+    now = timezone.now()
+    delete_after = now + timedelta(days=config.missing_row_delete_after_days or 30)
+    missing_rows = GoogleSheetSyncRow.objects.filter(
+        config=config,
+        local_object_type='career.Application',
+    ).exclude(
+        external_key__in=seen_external_keys,
+    ).exclude(
+        external_key__startswith='row:',
+    ).exclude(
+        external_key__startswith='identity:',
+    )
+
+    for tracked in missing_rows:
+        application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
+        if not application:
+            tracked.delete()
+            continue
+
+        if application.source_removed_at:
+            if application.source_removed_delete_after and application.source_removed_delete_after <= now:
+                if application.is_locked:
+                    result['warnings'].append({
+                        'row': tracked.row_number,
+                        'local_object_id': application.id,
+                        'message': f'{application.company.name} {application.role_title} is locked and was not permanently deleted.',
+                    })
+                    continue
+                history = _history_entry(
+                    'source_deleted',
+                    tracked.row_number,
+                    {'company_name': application.company.name, 'role_title': application.role_title},
+                    f'{application.company.name} {application.role_title}: permanently deleted after missing from the sheet for {config.missing_row_delete_after_days or 30} day(s).',
+                    local_object_id=application.id,
+                )
+                result['history'].append(history)
+                result['changes'].append({
+                    'action': 'deleted',
+                    'row_number': tracked.row_number,
+                    'diff': {},
+                    'history_id': None,
+                    'local_object_id': application.id,
+                })
+                application.delete()
+                tracked.delete()
+                result['deleted'] += 1
+            continue
+
+        _ensure_application_stage(
+            config.user,
+            REMOVED_FROM_SHEET_STAGE['key'],
+            REMOVED_FROM_SHEET_STAGE['label'],
+            REMOVED_FROM_SHEET_STAGE['shortLabel'],
+            REMOVED_FROM_SHEET_STAGE['tone'],
+        )
+        previous_status = application.status if application.status != REMOVED_FROM_SHEET_STATUS else ''
+        before_label = _application_stage_label(config.user, application.status)
+        application.source_removed_previous_status = previous_status
+        application.source_removed_at = now
+        application.source_removed_delete_after = delete_after
+        application.status = REMOVED_FROM_SHEET_STATUS
+        application.save(update_fields=[
+            'status',
+            'source_removed_at',
+            'source_removed_delete_after',
+            'source_removed_previous_status',
+            'updated_at',
+        ])
+        history = _history_entry(
+            'source_archived',
+            tracked.row_number,
+            {'company_name': application.company.name, 'role_title': application.role_title},
+            f'{application.company.name} {application.role_title}: archived because its External ID is no longer present in the sheet. It will be deleted after {application.source_removed_delete_after.date().isoformat()} unless the row reappears.',
+            field='status',
+            before=previous_status,
+            after=REMOVED_FROM_SHEET_STATUS,
+            local_object_id=application.id,
+        )
+        result['history'].append(history)
+        result['changes'].append({
+            'action': 'archived',
+            'row_number': tracked.row_number,
+            'diff': {
+                'status': {'old': before_label, 'new': REMOVED_FROM_SHEET_STAGE['label']},
+            },
+            'history_id': None,
+            'local_object_id': application.id,
+        })
+        result['archived'] += 1
+
+    return result
+
+
 def _sync_row_with_history(config, row, row_number, mapping, force=False, duplicate_resolution='merge'):
     payload = _mapped_payload(row, mapping)
     external_key = _external_key(payload, row_number)
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
     payload['_user'] = config.user
     tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
-    if tracked and tracked.row_hash == row_hash and not force and not _needs_application_date_backfill(config, payload, tracked):
+    if (
+        tracked
+        and tracked.row_hash == row_hash
+        and not force
+        and not _needs_application_date_backfill(config, payload, tracked)
+        and not _needs_application_source_restore(config, tracked)
+    ):
         return 'skipped', [_history_entry('skipped', row_number, payload, 'No changes detected since the last sync.')], {}
 
     history_context = _build_history_context(config, payload, tracked, row_number, duplicate_resolution=duplicate_resolution)
@@ -616,7 +781,13 @@ def _review_application_row(config, row, row_number, mapping, seen_identities, f
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
     payload['_user'] = config.user
     tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
-    if tracked and tracked.row_hash == row_hash and not force and not _needs_application_date_backfill(config, payload, tracked):
+    if (
+        tracked
+        and tracked.row_hash == row_hash
+        and not force
+        and not _needs_application_date_backfill(config, payload, tracked)
+        and not _needs_application_source_restore(config, tracked)
+    ):
         return None
 
     company_name = payload.get('company_name') or payload.get('company') or ''
@@ -990,7 +1161,20 @@ def _mapped_payload(row, mapping):
 
 def _external_key(payload, row_number):
     explicit = _clean_cell(payload.get('external_id', ''))
-    return explicit or f'row:{row_number}'
+    if explicit:
+        return explicit
+    identity_parts = [
+        payload.get('company_name') or payload.get('company') or '',
+        payload.get('role_title') or '',
+        payload.get('salary_range') or '',
+        _normalize_location_string(payload.get('location')),
+        _normalize_location_string(payload.get('office_location')),
+        payload.get('job_link') or '',
+    ]
+    if identity_parts[0] and identity_parts[1]:
+        raw_identity = json.dumps([_clean_cell(part).lower() for part in identity_parts])
+        return f'identity:{hashlib.sha256(raw_identity.encode("utf-8")).hexdigest()[:24]}'
+    return f'row:{row_number}'
 
 
 def _needs_application_date_backfill(config, payload, tracked):
@@ -1000,6 +1184,16 @@ def _needs_application_date_backfill(config, payload, tracked):
         return False
     application = Application.objects.filter(id=tracked.local_object_id, user=config.user).only('date_applied').first()
     return bool(application and not application.date_applied)
+
+
+def _needs_application_source_restore(config, tracked):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS or not tracked:
+        return False
+    return Application.objects.filter(
+        id=tracked.local_object_id,
+        user=config.user,
+        source_removed_at__isnull=False,
+    ).exists()
 
 
 def _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False):
@@ -1023,6 +1217,10 @@ def _apply_field_updates(application, company, role_title, defaults, strategies,
         strategy = strategies.get(field, 'always')
         if is_new:
             strategy = 'always'
+        if field in {'source_removed_at', 'source_removed_delete_after', 'source_removed_previous_status'}:
+            strategy = 'always'
+        if field == 'status' and application.source_removed_at:
+            strategy = 'always'
             
         should_update = False
         if strategy == 'always':
@@ -1039,6 +1237,20 @@ def _apply_field_updates(application, company, role_title, defaults, strategies,
             setattr(application, field, new_value)
             
     return diff
+
+
+def _restore_source_removed_defaults(application, defaults):
+    if not application.source_removed_at:
+        return defaults
+    restored = {
+        **defaults,
+        'source_removed_at': None,
+        'source_removed_delete_after': None,
+        'source_removed_previous_status': '',
+    }
+    if 'status' not in restored and application.source_removed_previous_status:
+        restored['status'] = application.source_removed_previous_status
+    return restored
 
 
 def _upsert_application(config, payload, tracked, history_context=None, duplicate_resolution='merge'):
@@ -1061,6 +1273,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         if application:
             if not payload.get('date_applied') and not application.date_applied:
                 defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user)
+            defaults = _restore_source_removed_defaults(application, defaults)
             diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False)
             if diff:
                 application.save()
@@ -1073,6 +1286,7 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
     if existing_application:
         if not payload.get('date_applied') and not existing_application.date_applied:
             defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user) if tracked else _current_user_date(config.user)
+        defaults = _restore_source_removed_defaults(existing_application, defaults)
         diff = _apply_field_updates(existing_application, company, role_title, defaults, strategies, is_new=False)
         if diff:
             existing_application.save()

@@ -1,4 +1,9 @@
-from .applications import ApplicationViewSet, ImportApplicationsView, JobBoardImportView
+from .applications import (
+    ApplicationViewSet,
+    ApplyImportApplicationsView,
+    ImportApplicationsView,
+    JobBoardImportView,
+)
 from .ai_artifacts import AIArtifactViewSet
 from .analytics import ApplicationTimelineAnalyticsView
 from .companies import CompanyViewSet
@@ -17,6 +22,7 @@ __all__ = [
     'AIArtifactViewSet',
     'ApplicationViewSet',
     'ApplicationTimelineAnalyticsView',
+    'ApplyImportApplicationsView',
     'ImportApplicationsView',
     'JobBoardImportView',
     'OfferViewSet',

@@ -341,6 +341,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'salary_range', 'location', 'office_location',
             'visa_sponsorship', 'day_one_gc', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
             'notes', 'current_round', 'is_locked',
+            'source_removed_at', 'source_removed_delete_after',
             'date_applied', 'offer', 'created_at'
         ]
         extra_kwargs = {
@@ -386,6 +387,8 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
             'sync_time',
             'sync_timezone',
             'header_row',
+            'missing_row_strategy',
+            'missing_row_delete_after_days',
             'last_synced_at',
             'last_status',
             'last_error',
@@ -480,6 +483,7 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
             'free_food_perk_value', 'free_food_perk_frequency',
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'current_round', 'job_link', 'salary_range', 'location', 'office_location',
+            'source_removed_at', 'source_removed_delete_after',
             'visa_sponsorship', 'day_one_gc', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
             'notes',
             'date_applied', 'created_at', 'updated_at'
@@ -525,6 +529,8 @@ class ApplicationImportExportSerializer(serializers.ModelSerializer):
             'employment_type',
             'notes',
             'current_round',
+            'source_removed_at',
+            'source_removed_delete_after',
             'is_locked',
             'date_applied',
             'created_at',

@@ -4,6 +4,7 @@ from .views import (
     CompanyViewSet,
     ApplicationViewSet,
     ApplicationTimelineAnalyticsView,
+    ApplyImportApplicationsView,
     ImportApplicationsView,
     JobBoardImportView,
     OfferViewSet,
@@ -37,6 +38,7 @@ router.register(r'google-sheet-syncs', GoogleSheetSyncConfigViewSet, basename='g
 
 urlpatterns = [
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),
+    path('import/apply/', ApplyImportApplicationsView.as_view(), name='apply-import-applications'),
     path('job-import/', JobBoardImportView.as_view(), name='job-board-import'),
     path('experiences/import/', ImportExperiencesView.as_view(), name='import-experiences'),
     path('reference-data/', ReferenceDataView.as_view(), name='career-reference-data'),
