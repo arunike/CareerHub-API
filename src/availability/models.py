@@ -45,13 +45,6 @@ class CustomHoliday(models.Model):
         return f"{self.date} - {self.description or 'Holiday'}"
 
 class Event(models.Model):
-    TIMEZONE_CHOICES = [
-        ('PT', 'Pacific Time'),
-        ('ET', 'Eastern Time'),
-        ('CT', 'Central Time'),
-        ('MT', 'Mountain Time'),
-    ]
-    
     LOCATION_TYPE_CHOICES = [
         ('in_person', 'In-Person'),
         ('virtual', 'Virtual'),
@@ -63,7 +56,7 @@ class Event(models.Model):
     date = models.DateField()
     start_time = models.CharField(max_length=20) 
     end_time = models.CharField(max_length=20)
-    timezone = models.CharField(max_length=2, choices=TIMEZONE_CHOICES, default='PT')
+    timezone = models.CharField(max_length=64, default='America/Los_Angeles')
     
     category = models.ForeignKey(EventCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
     color = models.CharField(max_length=7, blank=True, null=True)
@@ -256,7 +249,7 @@ class PublicBooking(models.Model):
     date = models.DateField()
     start_time = models.CharField(max_length=20)
     end_time = models.CharField(max_length=20)
-    timezone = models.CharField(max_length=2, default='PT')
+    timezone = models.CharField(max_length=64, default='America/Los_Angeles')
     notes = models.TextField(blank=True)
     intake_answers = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)

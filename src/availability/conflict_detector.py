@@ -1,15 +1,7 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 import pytz
-from django.utils import timezone as django_timezone
 from .models import Event, ConflictAlert
-
-TZ_MAPPING = {
-    'PT': 'America/Los_Angeles',
-    'MT': 'America/Denver',
-    'CT': 'America/Chicago',
-    'ET': 'America/New_York',
-    'UTC': 'UTC'
-}
+from .timezones import normalize_timezone
 
 def parse_time(time_str):
     if isinstance(time_str, str):
@@ -42,7 +34,7 @@ def get_event_datetime_range(event_data):
     d = get_val(event_data, 'date')
     s_time = get_val(event_data, 'start_time')
     e_time = get_val(event_data, 'end_time')
-    tz_code = get_val(event_data, 'timezone') or 'PT'
+    tz_name = normalize_timezone(get_val(event_data, 'timezone'))
 
     if isinstance(s_time, str): s_time = parse_time(s_time)
     if isinstance(e_time, str): e_time = parse_time(e_time)
@@ -51,7 +43,6 @@ def get_event_datetime_range(event_data):
     if not (d and s_time and e_time):
         return None, None
 
-    tz_name = TZ_MAPPING.get(tz_code, 'America/Los_Angeles')
     local_tz = pytz.timezone(tz_name)
 
     start_dt_naive = datetime.combine(d, s_time)

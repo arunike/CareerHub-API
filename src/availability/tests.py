@@ -87,7 +87,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'date': timezone.now().date().strftime('%Y-%m-%d'),
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
-                'timezone': 'PT',
+                'timezone': 'America/Los_Angeles',
                 'intake_answers': {},
             },
             format='json',
@@ -107,7 +107,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'date': timezone.now().date().strftime('%Y-%m-%d'),
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
-                'timezone': 'PT',
+                'timezone': 'America/Los_Angeles',
                 'notes': 'Bring role details.',
                 'intake_answers': {'company': 'Acme'},
             },
@@ -130,6 +130,18 @@ class PublicBookingEnhancementTests(APITestCase):
         self.assertIn('https://careerhub-frontend.vercel.app/book/', mail.outbox[0].body)
 
     @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_booking_slots_use_visitor_iana_timezone_date(self, _mock_availability):
+        response = self.client.get(
+            f'/api/booking/{self.link.uuid}/slots/',
+            {'date': '2026-05-02', 'days': 1, 'timezone': 'Asia/Tokyo'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['timezone'], 'Asia/Tokyo')
+        self.assertEqual(response.data['days'][0]['date'], '2026-05-02')
+        self.assertEqual(response.data['days'][0]['slots'][0]['start_time'], '01:00:00')
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
     def test_cancel_marks_booking_canceled_and_removes_locked_event(self, _mock_availability):
         create_response = self.client.post(
             f'/api/booking/{self.link.uuid}/book/',
@@ -139,7 +151,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'date': timezone.now().date().strftime('%Y-%m-%d'),
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
-                'timezone': 'PT',
+                'timezone': 'America/Los_Angeles',
                 'intake_answers': {'company': 'Acme'},
             },
             format='json',
@@ -164,7 +176,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'date': timezone.now().date().strftime('%Y-%m-%d'),
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
-                'timezone': 'PT',
+                'timezone': 'America/Los_Angeles',
                 'intake_answers': {'company': 'Acme'},
             },
             format='json',
@@ -177,7 +189,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'date': timezone.now().date().strftime('%Y-%m-%d'),
                 'start_time': '09:30:00',
                 'end_time': '10:00:00',
-                'timezone': 'PT',
+                'timezone': 'America/Los_Angeles',
             },
             format='json',
         )

@@ -48,6 +48,7 @@ from ..models import (
     ShareLink,
     UserSettings,
 )
+from ..timezones import DEFAULT_TIMEZONE
 from ..serializers import (
     AIProviderChatCompletionRequestSerializer,
     AvailabilityOverrideSerializer,
@@ -120,7 +121,7 @@ class ImportViewSet(viewsets.ViewSet):
                         date=item['date'],
                         start_time=item['start_time'],
                         end_time=item['end_time'],
-                        timezone='PT',
+                        timezone=DEFAULT_TIMEZONE,
                     )
                 created_count += 1
             except Exception:

@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from ..models import AvailabilityOverride, AvailabilitySetting, UserSettings
 from ..serializers import AvailabilityOverrideSerializer, AvailabilitySettingSerializer
+from ..timezones import normalize_timezone
 from ..utils import calculate_availability_for_dates, get_availability_dates
 
 
@@ -35,7 +36,7 @@ class AvailabilitySettingViewSet(viewsets.ModelViewSet):
 class AvailabilityViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def generate(self, request):
-        target_tz = request.query_params.get('timezone', 'PT')
+        target_tz = normalize_timezone(request.query_params.get('timezone'))
         start_date_str = request.query_params.get('start_date')
         settings = UserSettings.objects.filter(user=request.user).first()
         weeks_raw = request.query_params.get(

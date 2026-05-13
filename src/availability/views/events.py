@@ -62,6 +62,7 @@ class EventViewSet(viewsets.ModelViewSet):
             'date': data.get('date', instance.date),
             'start_time': data.get('start_time', instance.start_time),
             'end_time': data.get('end_time', instance.end_time),
+            'timezone': data.get('timezone', instance.timezone),
         }
 
         conflicts = check_for_conflicts(full_data, self.request.user, exclude_id=instance.id)

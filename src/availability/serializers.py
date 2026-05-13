@@ -3,6 +3,7 @@ from django.conf import settings
 
 from .ai_provider import validate_ai_provider_endpoint
 from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink, PublicBooking
+from .timezones import normalize_timezone
 from career.models import Application
 
 class EventCategorySerializer(serializers.ModelSerializer):
@@ -49,6 +50,9 @@ class EventSerializer(serializers.ModelSerializer):
             'role': obj.application.role_title,
             'status': obj.application.status
         }
+
+    def validate_timezone(self, value):
+        return normalize_timezone(value, raise_exception=True)
 
 class CustomHolidaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -120,6 +124,9 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         if value < 1:
             raise serializers.ValidationError('Availability range must be at least 1 week.')
         return value
+
+    def validate_primary_timezone(self, value):
+        return normalize_timezone(value, raise_exception=True)
 
     def create(self, validated_data):
         api_key = validated_data.pop('ai_provider_api_key', None)
@@ -242,3 +249,6 @@ class PublicBookingSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         path = f'/api/booking/{obj.share_link.uuid}/manage/{obj.uuid}/ics/'
         return request.build_absolute_uri(path) if request else path
+
+    def validate_timezone(self, value):
+        return normalize_timezone(value, raise_exception=True)

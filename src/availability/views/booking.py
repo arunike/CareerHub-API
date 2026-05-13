@@ -16,16 +16,9 @@ from rest_framework.views import APIView
 from ..models import Event, PublicBooking, ShareLink, UserSettings
 from ..serializers import PublicBookingSerializer, ShareLinkSerializer
 from ..throttling import PublicBookingCreateThrottle, PublicBookingSlotsThrottle
+from ..timezones import DEFAULT_TIMEZONE, normalize_timezone
 from ..utils import calculate_availability_for_dates
 from ..signals import get_user_settings_tz_cache_key
-
-TIMEZONE_CODE_TO_NAME = {
-    'PT': 'America/Los_Angeles',
-    'MT': 'America/Denver',
-    'CT': 'America/Chicago',
-    'ET': 'America/New_York',
-}
-
 
 def _parse_slot_ranges(availability_text):
     slots = []
@@ -52,27 +45,15 @@ def _parse_slot_ranges(availability_text):
     return slots
 
 
-def _normalize_timezone_code(value):
-    if not value:
-        return 'PT'
-    upper = str(value).strip().upper()
-    if upper in TIMEZONE_CODE_TO_NAME:
-        return upper
-    for code, tz_name in TIMEZONE_CODE_TO_NAME.items():
-        if upper == tz_name.upper():
-            return code
-    return 'PT'
-
-
-def _base_timezone_code(user):
+def _base_timezone(user):
     cache_key = get_user_settings_tz_cache_key(getattr(user, 'id', None))
     cached = cache.get(cache_key)
     if cached:
-        return cached
+        return normalize_timezone(cached)
     user_settings = UserSettings.objects.filter(user=user).first()
-    tz_code = _normalize_timezone_code(user_settings.primary_timezone) if user_settings else 'PT'
-    cache.set(cache_key, tz_code, timeout=600)
-    return tz_code
+    tz_name = normalize_timezone(user_settings.primary_timezone) if user_settings else DEFAULT_TIMEZONE
+    cache.set(cache_key, tz_name, timeout=600)
+    return tz_name
 
 
 def _format_label(start_dt, end_dt):
@@ -81,14 +62,17 @@ def _format_label(start_dt, end_dt):
     return f'{start_str} - {end_str}'
 
 
-def _convert_slots_between_timezones(date_obj, slots, from_code, to_code):
-    if from_code == to_code:
+def _convert_slots_between_timezones(date_obj, slots, from_timezone, to_timezone):
+    from_timezone = normalize_timezone(from_timezone)
+    to_timezone = normalize_timezone(to_timezone)
+    if from_timezone == to_timezone:
         out = []
         for slot in slots:
             start_dt = datetime.strptime(slot['start_time'], '%H:%M:%S')
             end_dt = datetime.strptime(slot['end_time'], '%H:%M:%S')
             out.append(
                 {
+                    'date': date_obj.strftime('%Y-%m-%d'),
                     'start_time': slot['start_time'],
                     'end_time': slot['end_time'],
                     'label': _format_label(start_dt, end_dt),
@@ -96,8 +80,8 @@ def _convert_slots_between_timezones(date_obj, slots, from_code, to_code):
             )
         return out
 
-    from_tz = ZoneInfo(TIMEZONE_CODE_TO_NAME[from_code])
-    to_tz = ZoneInfo(TIMEZONE_CODE_TO_NAME[to_code])
+    from_tz = ZoneInfo(from_timezone)
+    to_tz = ZoneInfo(to_timezone)
     converted = []
     for slot in slots:
         s_time = datetime.strptime(slot['start_time'], '%H:%M:%S').time()
@@ -108,6 +92,7 @@ def _convert_slots_between_timezones(date_obj, slots, from_code, to_code):
         e_dt_to = e_dt_from.astimezone(to_tz)
         converted.append(
             {
+                'date': s_dt_to.date().strftime('%Y-%m-%d'),
                 'start_time': s_dt_to.strftime('%H:%M:%S'),
                 'end_time': e_dt_to.strftime('%H:%M:%S'),
                 'label': _format_label(s_dt_to, e_dt_to),
@@ -116,9 +101,9 @@ def _convert_slots_between_timezones(date_obj, slots, from_code, to_code):
     return converted
 
 
-def _convert_slot_to_base(date_obj, start_time, end_time, from_code, to_code):
-    from_tz = ZoneInfo(TIMEZONE_CODE_TO_NAME[from_code])
-    to_tz = ZoneInfo(TIMEZONE_CODE_TO_NAME[to_code])
+def _convert_slot_to_base(date_obj, start_time, end_time, from_timezone, to_timezone):
+    from_tz = ZoneInfo(normalize_timezone(from_timezone))
+    to_tz = ZoneInfo(normalize_timezone(to_timezone))
     s_time = datetime.strptime(start_time, '%H:%M:%S').time()
     e_time = datetime.strptime(end_time, '%H:%M:%S').time()
     s_dt_from = datetime.combine(date_obj, s_time).replace(tzinfo=from_tz)
@@ -286,8 +271,9 @@ def _ics_escape(value):
 
 
 def _generate_booking_ics(booking):
-    timezone_code = booking.event.timezone if booking.event_id else _base_timezone_code(booking.share_link.user)
-    tz_name = TIMEZONE_CODE_TO_NAME.get(_normalize_timezone_code(timezone_code), TIMEZONE_CODE_TO_NAME['PT'])
+    tz_name = normalize_timezone(
+        booking.event.timezone if booking.event_id else _base_timezone(booking.share_link.user)
+    )
     start_dt = datetime.combine(booking.date, datetime.strptime(booking.start_time, '%H:%M:%S').time())
     end_dt = datetime.combine(booking.date, datetime.strptime(booking.end_time, '%H:%M:%S').time())
     created = booking.created_at.astimezone(dt_timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -366,32 +352,41 @@ def _serialize_booking(request, booking):
     return PublicBookingSerializer(booking, context={'request': request}).data
 
 
-def _validate_requested_slot(link, booking_date, start_time, end_time, timezone_code, exclude_booking=None):
-    base_timezone_code = _base_timezone_code(link.user)
-    if _has_reached_daily_limit(link, booking_date):
-        if not exclude_booking or exclude_booking.date != booking_date:
-            return None, 'This day has reached the booking limit. Please choose another day.'
+def _validate_requested_slot(link, booking_date, start_time, end_time, timezone_name, exclude_booking=None):
+    base_timezone = _base_timezone(link.user)
+    target_date_key = booking_date.strftime('%Y-%m-%d')
+    base_dates = [booking_date - timedelta(days=1), booking_date, booking_date + timedelta(days=1)]
+    availability_map = calculate_availability_for_dates(base_dates, base_timezone, user=link.user)
 
-    availability_map = calculate_availability_for_dates([booking_date], base_timezone_code, user=link.user)
-    availability_item = availability_map.get(booking_date.strftime('%Y-%m-%d'))
-    base_slots = _split_slots_by_block_minutes(
-        _parse_slot_ranges(availability_item['availability'] if availability_item else None),
-        int(link.booking_block_minutes or 30),
-    )
-    if exclude_booking:
-        base_slots = _filter_booked_slots_excluding(link, booking_date, base_slots, exclude_booking)
-    else:
-        base_slots = _filter_booked_slots(link, booking_date, base_slots)
-    slots = _convert_slots_between_timezones(
-        booking_date,
-        base_slots,
-        base_timezone_code,
-        timezone_code,
-    )
-    matched_slot = any(slot['start_time'] == start_time and slot['end_time'] == end_time for slot in slots)
-    if not matched_slot:
-        return None, 'Selected slot is no longer available. Please refresh and pick another.'
-    return _convert_slot_to_base(booking_date, start_time, end_time, timezone_code, base_timezone_code), None
+    for base_date in base_dates:
+        if _has_reached_daily_limit(link, base_date):
+            if not exclude_booking or exclude_booking.date != base_date:
+                continue
+
+        availability_item = availability_map.get(base_date.strftime('%Y-%m-%d'))
+        base_slots = _split_slots_by_block_minutes(
+            _parse_slot_ranges(availability_item['availability'] if availability_item else None),
+            int(link.booking_block_minutes or 30),
+        )
+        if exclude_booking:
+            base_slots = _filter_booked_slots_excluding(link, base_date, base_slots, exclude_booking)
+        else:
+            base_slots = _filter_booked_slots(link, base_date, base_slots)
+        slots = _convert_slots_between_timezones(
+            base_date,
+            base_slots,
+            base_timezone,
+            timezone_name,
+        )
+        for slot in slots:
+            if (
+                slot['date'] == target_date_key
+                and slot['start_time'] == start_time
+                and slot['end_time'] == end_time
+            ):
+                return _convert_slot_to_base(booking_date, start_time, end_time, timezone_name, base_timezone), None
+
+    return None, 'Selected slot is no longer available. Please refresh and pick another.'
 
 
 def _filter_booked_slots_excluding(link, date_obj, slots, excluded_booking):
@@ -534,8 +529,8 @@ class PublicBookingSlotsView(APIView):
         if not link:
             return Response({'error': 'This booking link is invalid or expired.'}, status=404)
 
-        timezone_code = _normalize_timezone_code(request.query_params.get('timezone', 'PT'))
-        base_timezone_code = _base_timezone_code(link.user)
+        timezone_name = normalize_timezone(request.query_params.get('timezone'))
+        base_timezone = _base_timezone(link.user)
         date_str = request.query_params.get('date')
         days_raw = request.query_params.get('days', 14)
         try:
@@ -550,33 +545,47 @@ class PublicBookingSlotsView(APIView):
             except ValueError:
                 return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
 
-        dates = [start_date + timedelta(days=i) for i in range(days)]
-        availability_map = calculate_availability_for_dates(dates, base_timezone_code, user=link.user)
+        target_dates = [start_date + timedelta(days=i) for i in range(days)]
+        base_dates = [start_date - timedelta(days=1) + timedelta(days=i) for i in range(days + 2)]
+        availability_map = calculate_availability_for_dates(base_dates, base_timezone, user=link.user)
 
-        rows = []
-        for date_obj in dates:
-            date_key = date_obj.strftime('%Y-%m-%d')
+        rows_by_date = {
+            date_obj.strftime('%Y-%m-%d'): {
+                'date': date_obj.strftime('%Y-%m-%d'),
+                'day_name': date_obj.strftime('%A'),
+                'readable_date': date_obj.strftime('%b %d'),
+                'slots': [],
+            }
+            for date_obj in target_dates
+        }
+
+        for base_date in base_dates:
+            date_key = base_date.strftime('%Y-%m-%d')
             availability_item = availability_map.get(date_key)
             raw_text = availability_item['availability'] if availability_item else None
-            if _has_reached_daily_limit(link, date_obj):
+            if _has_reached_daily_limit(link, base_date):
                 base_slots = []
             else:
                 base_slots = _split_slots_by_block_minutes(_parse_slot_ranges(raw_text), int(link.booking_block_minutes or 30))
-                base_slots = _filter_booked_slots(link, date_obj, base_slots)
+                base_slots = _filter_booked_slots(link, base_date, base_slots)
             slots = _convert_slots_between_timezones(
-                date_obj,
+                base_date,
                 base_slots,
-                base_timezone_code,
-                timezone_code,
+                base_timezone,
+                timezone_name,
             )
-            rows.append(
-                {
-                    'date': date_key,
-                    'day_name': date_obj.strftime('%A'),
-                    'readable_date': date_obj.strftime('%b %d'),
-                    'slots': slots,
-                }
-            )
+            for slot in slots:
+                target_row = rows_by_date.get(slot['date'])
+                if target_row is not None:
+                    target_row['slots'].append(
+                        {
+                            'start_time': slot['start_time'],
+                            'end_time': slot['end_time'],
+                            'label': slot['label'],
+                        }
+                    )
+
+        rows = list(rows_by_date.values())
 
         user_settings = UserSettings.objects.filter(user=link.user).first()
         host_profile_picture = request.build_absolute_uri(user_settings.profile_picture.url) if user_settings and user_settings.profile_picture else None
@@ -589,7 +598,7 @@ class PublicBookingSlotsView(APIView):
                 'host_profile_picture': host_profile_picture,
                 'public_note': link.public_note,
                 'expires_at': link.expires_at,
-                'timezone': timezone_code,
+                'timezone': timezone_name,
                 'booking_block_minutes': int(link.booking_block_minutes or 30),
                 'buffer_minutes': int(link.buffer_minutes or 0),
                 'max_bookings_per_day': int(link.max_bookings_per_day or 0),
@@ -616,7 +625,7 @@ class PublicBookingCreateView(APIView):
         start_time = request.data.get('start_time')
         end_time = request.data.get('end_time')
         notes = (request.data.get('notes') or '').strip()
-        timezone_code = _normalize_timezone_code(request.data.get('timezone') or 'PT')
+        timezone_name = normalize_timezone(request.data.get('timezone'))
         intake_answers, intake_error = _validate_intake_answers(
             _normalize_intake_questions(link.intake_questions),
             request.data.get('intake_answers', {}),
@@ -632,11 +641,11 @@ class PublicBookingCreateView(APIView):
         except ValueError:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
 
-        normalized_slot, slot_error = _validate_requested_slot(link, booking_date, start_time, end_time, timezone_code)
+        normalized_slot, slot_error = _validate_requested_slot(link, booking_date, start_time, end_time, timezone_name)
         if slot_error:
             return Response({'error': slot_error}, status=409)
         normalized_date, normalized_start_time, normalized_end_time = normalized_slot
-        base_timezone_code = _base_timezone_code(link.user)
+        base_timezone = _base_timezone(link.user)
 
         event = Event.objects.create(
             user=link.user,
@@ -644,7 +653,7 @@ class PublicBookingCreateView(APIView):
             date=normalized_date,
             start_time=normalized_start_time,
             end_time=normalized_end_time,
-            timezone=base_timezone_code,
+            timezone=base_timezone,
             location_type='virtual',
             notes='',
             is_locked=True,
@@ -657,7 +666,7 @@ class PublicBookingCreateView(APIView):
             date=normalized_date,
             start_time=normalized_start_time,
             end_time=normalized_end_time,
-            timezone=timezone_code,
+            timezone=timezone_name,
             notes=notes,
             intake_answers=intake_answers or {},
         )
@@ -754,7 +763,7 @@ class PublicBookingManageView(APIView):
         date_str = request.data.get('date')
         start_time = request.data.get('start_time')
         end_time = request.data.get('end_time')
-        timezone_code = _normalize_timezone_code(request.data.get('timezone') or booking.timezone or 'PT')
+        timezone_name = normalize_timezone(request.data.get('timezone') or booking.timezone)
         if not date_str or not start_time or not end_time:
             return Response({'error': 'date, start_time, and end_time are required.'}, status=400)
         try:
@@ -767,18 +776,18 @@ class PublicBookingManageView(APIView):
             booking_date,
             start_time,
             end_time,
-            timezone_code,
+            timezone_name,
             exclude_booking=booking,
         )
         if slot_error:
             return Response({'error': slot_error}, status=409)
 
         normalized_date, normalized_start_time, normalized_end_time = normalized_slot
-        base_timezone_code = _base_timezone_code(booking.share_link.user)
+        base_timezone = _base_timezone(booking.share_link.user)
         booking.date = normalized_date
         booking.start_time = normalized_start_time
         booking.end_time = normalized_end_time
-        booking.timezone = timezone_code
+        booking.timezone = timezone_name
         booking.save(update_fields=['date', 'start_time', 'end_time', 'timezone'])
 
         if booking.event_id:
@@ -786,7 +795,7 @@ class PublicBookingManageView(APIView):
             event.date = normalized_date
             event.start_time = normalized_start_time
             event.end_time = normalized_end_time
-            event.timezone = base_timezone_code
+            event.timezone = base_timezone
             event.notes = _format_public_booking_notes(booking)
             event.save(update_fields=['date', 'start_time', 'end_time', 'timezone', 'notes', 'updated_at'])
         else:
@@ -796,7 +805,7 @@ class PublicBookingManageView(APIView):
                 date=normalized_date,
                 start_time=normalized_start_time,
                 end_time=normalized_end_time,
-                timezone=base_timezone_code,
+                timezone=base_timezone,
                 location_type='virtual',
                 notes=_format_public_booking_notes(booking),
                 is_locked=True,
