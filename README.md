@@ -496,12 +496,12 @@ Base prefix: `/api/career/`
 - `DELETE /api/categories/{id}/` — Delete category
 
 #### Availability / Booking
-- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=PT&weeks=2` — Generate availability text rows for a user-defined week range
+- `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=Asia/Tokyo&weeks=2` — Generate availability text rows for a user-defined week range; accepts IANA timezone names
 - `POST /api/overrides/` — Override a specific date's availability text
 - `GET /api/share-links/current/` — Get active booking share link
 - `POST /api/share-links/generate/` — Generate a new booking share link
 - `POST /api/share-links/deactivate/` — Deactivate current booking share links
-- `GET /api/booking/{uuid}/slots/?date=YYYY-MM-DD&timezone=PT` — Public: fetch bookable slots
+- `GET /api/booking/{uuid}/slots/?date=YYYY-MM-DD&timezone=Asia/Tokyo` — Public: fetch bookable slots in the visitor's IANA timezone
 - `POST /api/booking/{uuid}/book/` — Public: submit a booking (creates locked event)
 
 #### Settings
