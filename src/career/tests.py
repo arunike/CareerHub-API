@@ -994,7 +994,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertFalse(GoogleSheetSyncRow.objects.filter(config=config, external_key='google-swe').exists())
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
-    def test_missing_rows_without_external_id_mapping_are_not_archived(self, mock_fetch_sheet_rows):
+    def test_missing_identity_rows_without_external_id_mapping_are_archived(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role'],
             ['Google', 'Software Engineer'],
@@ -1019,10 +1019,53 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         ]
         result = sync_google_sheet(config)
 
+        google_app = Application.objects.get(user=self.user, company__name='Google')
+        self.assertEqual(result['archived'], 1)
+        self.assertEqual(result['deleted'], 0)
+        self.assertEqual(result['missing_from_sheet'], 1)
+        self.assertFalse(result['warnings'])
+        self.assertEqual(google_app.status, 'REMOVED_FROM_SHEET')
+        self.assertIsNotNone(google_app.source_removed_at)
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_missing_row_number_fallback_rows_are_not_archived(self, mock_fetch_sheet_rows):
+        company = Company.objects.create(user=self.user, name='Google')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='APPLIED',
+        )
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role'],
+            ['Stripe', 'Backend Engineer'],
+        ]
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+            },
+        )
+        GoogleSheetSyncRow.objects.create(
+            config=config,
+            external_key='row:2',
+            row_number=2,
+            row_hash='legacy-row-number',
+            local_object_type='career.Application',
+            local_object_id=application.id,
+        )
+        result = sync_google_sheet(config)
+
         self.assertEqual(result['archived'], 0)
         self.assertEqual(result['deleted'], 0)
-        self.assertTrue(result['warnings'])
-        self.assertTrue(Application.objects.filter(user=self.user, company__name='Google').exists())
+        self.assertEqual(result['missing_from_sheet'], 0)
+        application.refresh_from_db()
+        self.assertEqual(application.status, 'APPLIED')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_reappearing_external_id_restores_archived_application(self, mock_fetch_sheet_rows):

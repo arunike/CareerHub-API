@@ -285,6 +285,7 @@ def sync_google_sheet(config, force=False):
         missing_result = _handle_missing_sheet_rows(config, seen_external_keys, mapping)
         result['archived'] += missing_result['archived']
         result['deleted'] += missing_result['deleted']
+        result['missing_from_sheet'] = missing_result['archived'] + missing_result['deleted']
         result['warnings'].extend(missing_result['warnings'])
         result['history'].extend(missing_result['history'])
         changes_list.extend(missing_result['changes'])
@@ -480,6 +481,7 @@ def sync_enabled_google_sheets(only_due=False, now=None):
         'updated': 0,
         'archived': 0,
         'deleted': 0,
+        'missing_from_sheet': 0,
         'skipped': 0,
         'errors': [],
         'warnings': [],
@@ -495,6 +497,7 @@ def sync_enabled_google_sheets(only_due=False, now=None):
             summary['updated'] += result.get('updated', 0)
             summary['archived'] += result.get('archived', 0)
             summary['deleted'] += result.get('deleted', 0)
+            summary['missing_from_sheet'] += result.get('missing_from_sheet', 0)
             summary['skipped'] += result.get('skipped', 0)
             for row_error in result.get('errors', []):
                 summary['errors'].append({'config': config.name, **row_error})
@@ -630,14 +633,10 @@ def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
         return result
     if config.missing_row_strategy != GoogleSheetSyncConfig.MISSING_ROW_ARCHIVE_THEN_DELETE:
         return result
-    if not (mapping or {}).get('external_id'):
-        result['warnings'].append({
-            'message': 'Missing-row archive skipped because this sync has no External ID mapping. Add a stable External ID column before using sheet deletes as intentional removals.'
-        })
-        return result
 
     now = timezone.now()
     delete_after = now + timedelta(days=config.missing_row_delete_after_days or 30)
+    has_external_id_mapping = bool((mapping or {}).get('external_id'))
     missing_rows = GoogleSheetSyncRow.objects.filter(
         config=config,
         local_object_type='career.Application',
@@ -645,9 +644,11 @@ def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
         external_key__in=seen_external_keys,
     ).exclude(
         external_key__startswith='row:',
-    ).exclude(
-        external_key__startswith='identity:',
     )
+    if has_external_id_mapping:
+        missing_rows = missing_rows.exclude(external_key__startswith='identity:')
+    else:
+        missing_rows = missing_rows.filter(external_key__startswith='identity:')
 
     for tracked in missing_rows:
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
@@ -708,7 +709,7 @@ def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
             'source_archived',
             tracked.row_number,
             {'company_name': application.company.name, 'role_title': application.role_title},
-            f'{application.company.name} {application.role_title}: archived because its External ID is no longer present in the sheet. It will be deleted after {application.source_removed_delete_after.date().isoformat()} unless the row reappears.',
+            f'{application.company.name} {application.role_title}: archived because it is no longer present in the sheet. It will be deleted after {application.source_removed_delete_after.date().isoformat()} unless the row reappears.',
             field='status',
             before=previous_status,
             after=REMOVED_FROM_SHEET_STATUS,
