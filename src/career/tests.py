@@ -1294,7 +1294,22 @@ class JobBoardImportTests(APITestCase):
         mock_fetch_html.return_value = (
             """
             <html>
-              <head><title>Software Engineer | Careers at Acme</title></head>
+              <head>
+                <title>Software Engineer | Careers at Acme</title>
+                <script type="application/ld+json">
+                {
+                  "@type": "JobPosting",
+                  "title": "Software Engineer",
+                  "hiringOrganization": {"name": "Acme"},
+                  "employmentType": "FULL_TIME",
+                  "jobLocation": {"address": {"addressLocality": "Remote"}},
+                  "baseSalary": {
+                    "currency": "USD",
+                    "value": {"minValue": 150000, "maxValue": 180000, "unitText": "YEAR"}
+                  }
+                }
+                </script>
+              </head>
               <body><h1>Software Engineer</h1><p>Location: Remote</p></body>
             </html>
             """,
@@ -1310,6 +1325,8 @@ class JobBoardImportTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["company"], "Acme")
         self.assertEqual(response.data["role_title"], "Software Engineer")
+        self.assertEqual(response.data["employment_type"], "full_time")
+        self.assertEqual(response.data["salary_range"], "$150k - $180k year")
         self.assertEqual(response.data["extraction_method"], "rules")
         self.assertEqual(response.data["ai_status"], "not_configured")
         self.assertIn("not configured", response.data["ai_message"])
@@ -1348,6 +1365,8 @@ class JobBoardImportTests(APITestCase):
                                 "company": "Acme",
                                 "role_title": "Senior Backend Engineer",
                                 "location": "New York",
+                                "employment_type": "contract",
+                                "salary_range": "$80 - $100/hour",
                                 "job_description": "Build APIs for our payments platform.",
                             }
                         )
@@ -1366,6 +1385,8 @@ class JobBoardImportTests(APITestCase):
         self.assertEqual(response.data["company"], "Acme")
         self.assertEqual(response.data["role_title"], "Senior Backend Engineer")
         self.assertEqual(response.data["location"], "New York")
+        self.assertEqual(response.data["employment_type"], "contract")
+        self.assertEqual(response.data["salary_range"], "$80 - $100/hour")
         self.assertEqual(response.data["extraction_method"], "ai")
         self.assertEqual(response.data["ai_status"], "success")
         self.assertIn("succeeded", response.data["ai_message"])

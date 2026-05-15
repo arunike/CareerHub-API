@@ -96,6 +96,8 @@ def extract_job_posting(url: str, user_settings=None) -> dict[str, str]:
     company = _clean(structured.get('company') or _meta_first(parser, 'hiringOrganization', 'company', 'og:site_name'))
     location = _clean(structured.get('location') or _meta_first(parser, 'jobLocation', 'twitter:data1'))
     description = _clean_html(structured.get('description') or _meta_first(parser, 'description', 'og:description'))
+    employment_type = _normalize_employment_type(structured.get('employment_type') or '')
+    salary_range = _clean(structured.get('salary_range') or '')
 
     title, company = _split_title_company(title, company, final_parsed.hostname or '', final_parsed.path)
     text = _visible_text(parser.text_chunks)
@@ -104,6 +106,10 @@ def extract_job_posting(url: str, user_settings=None) -> dict[str, str]:
         location = _guess_location(text)
     if not description:
         description = _guess_description(text)
+    if not employment_type:
+        employment_type = _guess_employment_type(text)
+    if not salary_range:
+        salary_range = _guess_salary_range(text)
 
     result = {
         'source_url': final_url,
@@ -111,6 +117,8 @@ def extract_job_posting(url: str, user_settings=None) -> dict[str, str]:
         'company': company,
         'role_title': title,
         'location': location,
+        'employment_type': employment_type,
+        'salary_range': salary_range,
         'job_description': description,
         'extraction_method': 'rules',
         'ai_status': 'not_configured',
@@ -159,10 +167,13 @@ def _merge_ai_extraction(
         return failed
 
     merged = baseline.copy()
-    for key in ('company', 'role_title', 'location', 'job_description'):
+    for key in ('company', 'role_title', 'location', 'salary_range', 'job_description'):
         value = _clean_html(ai_result.get(key, ''))
         if value:
             merged[key] = value[:5000] if key == 'job_description' else value[:255]
+    employment_type = _normalize_employment_type(ai_result.get('employment_type', ''))
+    if employment_type:
+        merged['employment_type'] = employment_type
     merged['extraction_method'] = 'ai'
     merged['ai_status'] = 'success'
     merged['ai_message'] = 'AI extraction succeeded.'
@@ -197,7 +208,8 @@ def _extract_with_ai(
             'role': 'system',
             'content': (
                 'You extract job posting data from noisy career pages. '
-                'Return only valid JSON with keys company, role_title, location, job_description. '
+                'Return only valid JSON with keys company, role_title, location, employment_type, salary_range, job_description. '
+                'For employment_type, use one of full_time, part_time, internship, contract, freelance, or empty string. '
                 'Use empty strings for unknown fields. Do not invent details. '
                 'Prefer the actual job posting over navigation, marketing, or unrelated company content.'
             ),
@@ -212,6 +224,8 @@ def _extract_with_ai(
                         'company': baseline.get('company', ''),
                         'role_title': baseline.get('role_title', ''),
                         'location': baseline.get('location', ''),
+                        'employment_type': baseline.get('employment_type', ''),
+                        'salary_range': baseline.get('salary_range', ''),
                     },
                     'page_text': page_text[:MAX_AI_PAGE_TEXT_CHARS],
                 },
@@ -246,7 +260,7 @@ def _parse_ai_json(content: str) -> dict[str, str]:
         raise ValueError('AI provider returned a non-object payload.')
     return {
         key: _as_text(parsed.get(key))
-        for key in ('company', 'role_title', 'location', 'job_description')
+        for key in ('company', 'role_title', 'location', 'employment_type', 'salary_range', 'job_description')
     }
 
 
@@ -319,6 +333,8 @@ def _extract_from_json_ld(blocks: list[str]) -> dict[str, str]:
                 'title': _as_text(job.get('title')),
                 'company': _as_text(company.get('name') if isinstance(company, dict) else company),
                 'location': _format_address(address if isinstance(address, dict) else location),
+                'employment_type': _as_text(job.get('employmentType')),
+                'salary_range': _format_salary(job.get('baseSalary')),
                 'description': _as_text(job.get('description')),
             }
     return {}
@@ -415,6 +431,48 @@ def _format_address(value: Any) -> str:
     return ', '.join(_as_text(part) for part in parts if _as_text(part))
 
 
+def _format_salary(value: Any) -> str:
+    if not value:
+        return ''
+    if isinstance(value, list):
+        return _format_salary(value[0]) if value else ''
+    if not isinstance(value, dict):
+        return _as_text(value)
+
+    currency = _as_text(value.get('currency') or value.get('salaryCurrency') or '')
+    amount = value.get('value') if 'value' in value else value
+    if isinstance(amount, list):
+        amount = amount[0] if amount else {}
+    if isinstance(amount, dict):
+        min_value = amount.get('minValue')
+        max_value = amount.get('maxValue')
+        direct_value = amount.get('value')
+        unit = _as_text(amount.get('unitText') or value.get('unitText') or '')
+    else:
+        min_value = None
+        max_value = None
+        direct_value = amount
+        unit = _as_text(value.get('unitText') or '')
+
+    prefix = '$' if currency.upper() in {'USD', 'US DOLLAR', 'US DOLLARS'} else (f'{currency} ' if currency else '')
+    suffix = f' {unit.lower()}' if unit else ''
+    if min_value and max_value:
+        return f'{prefix}{_format_salary_number(min_value)} - {prefix}{_format_salary_number(max_value)}{suffix}'.strip()
+    if direct_value:
+        return f'{prefix}{_format_salary_number(direct_value)}{suffix}'.strip()
+    return ''
+
+
+def _format_salary_number(value: Any) -> str:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return _as_text(value)
+    if numeric >= 1000 and numeric % 1000 == 0:
+        return f'{int(numeric / 1000)}k'
+    return f'{numeric:g}'
+
+
 def _as_text(value: Any) -> str:
     if value is None:
         return ''
@@ -445,6 +503,39 @@ def _guess_description(text: str) -> str:
             start = idx
             break
     return text[start:start + 5000].strip()
+
+
+def _normalize_employment_type(value: str) -> str:
+    normalized = _clean(str(value or '')).lower().replace('-', ' ').replace('_', ' ')
+    if not normalized:
+        return ''
+    if any(token in normalized for token in ['internship', 'intern ', 'intern']):
+        return 'internship'
+    if any(token in normalized for token in ['part time', 'parttime']):
+        return 'part_time'
+    if any(token in normalized for token in ['contract', 'contractor', 'temporary']):
+        return 'contract'
+    if any(token in normalized for token in ['freelance', 'consultant']):
+        return 'freelance'
+    if any(token in normalized for token in ['full time', 'fulltime', 'regular', 'permanent']):
+        return 'full_time'
+    return ''
+
+
+def _guess_employment_type(text: str) -> str:
+    return _normalize_employment_type(text[:5000])
+
+
+def _guess_salary_range(text: str) -> str:
+    salary_patterns = [
+        r'(?i)(?:salary|compensation|pay range|base pay|annual pay)[^$]{0,80}(\$[\d,.]+k?\s*(?:-|–|to)\s*\$?[\d,.]+k?(?:\s*(?:per year|yearly|annually|/year))?)',
+        r'(\$[\d,.]+k?\s*(?:-|–|to)\s*\$?[\d,.]+k?(?:\s*(?:per year|yearly|annually|/year))?)',
+    ]
+    for pattern in salary_patterns:
+        match = re.search(pattern, text)
+        if match:
+            return _clean(match.group(1))[:100]
+    return ''
 
 
 def _clean(value: str) -> str:
