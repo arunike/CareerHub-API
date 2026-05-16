@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.conf import settings
+from django.utils import timezone
 
 from .ai_provider import validate_ai_provider_endpoint
 from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink, PublicBooking
@@ -171,6 +172,7 @@ class ConflictAlertSerializer(serializers.ModelSerializer):
 
 class ShareLinkSerializer(serializers.ModelSerializer):
     is_expired = serializers.BooleanField(read_only=True)
+    booking_analytics = serializers.SerializerMethodField()
 
     class Meta:
         model = ShareLink
@@ -186,14 +188,36 @@ class ShareLinkSerializer(serializers.ModelSerializer):
             'buffer_minutes',
             'max_bookings_per_day',
             'allow_reschedule_cancel',
+            'reschedule_cancel_deadline_hours',
             'intake_questions',
             'created_at',
             'expires_at',
             'is_active',
             'is_expired',
             'is_locked',
+            'booking_analytics',
         ]
-        read_only_fields = ['created_at', 'is_expired']
+        read_only_fields = ['created_at', 'is_expired', 'booking_analytics']
+
+    def get_booking_analytics(self, obj):
+        bookings = obj.bookings.all()
+        today = timezone.now().date()
+        active = 0
+        canceled = 0
+        upcoming = 0
+        for booking in bookings:
+            if booking.status == PublicBooking.STATUS_CANCELED:
+                canceled += 1
+                continue
+            active += 1
+            if booking.date >= today:
+                upcoming += 1
+        return {
+            'total': active + canceled,
+            'active': active,
+            'canceled': canceled,
+            'upcoming': upcoming,
+        }
 
 
 class PublicBookingSerializer(serializers.ModelSerializer):
@@ -216,6 +240,7 @@ class PublicBookingSerializer(serializers.ModelSerializer):
             'timezone',
             'notes',
             'intake_answers',
+            'cancel_reason',
             'status',
             'is_locked',
             'reschedule_url',

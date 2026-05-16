@@ -215,6 +215,10 @@ class ShareLink(models.Model):
     buffer_minutes = models.IntegerField(default=0)
     max_bookings_per_day = models.IntegerField(default=0)
     allow_reschedule_cancel = models.BooleanField(default=True, help_text="Allow users to reschedule or cancel bookings")
+    reschedule_cancel_deadline_hours = models.IntegerField(
+        default=0,
+        help_text="Minimum hours before a booking when public reschedule/cancel remains available. 0 disables the cutoff.",
+    )
     intake_questions = models.JSONField(
         default=list,
         blank=True,
@@ -252,6 +256,7 @@ class PublicBooking(models.Model):
     timezone = models.CharField(max_length=64, default='America/Los_Angeles')
     notes = models.TextField(blank=True)
     intake_answers = models.JSONField(default=dict, blank=True)
+    cancel_reason = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     is_locked = models.BooleanField(default=False, help_text="Locked bookings cannot be deleted")
     created_at = models.DateTimeField(auto_now_add=True)

@@ -4,7 +4,9 @@ from uuid import uuid4
 
 from django.conf import settings as django_settings
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
+from django.core.validators import validate_email
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -225,6 +227,14 @@ def _coerce_bool(value, default=True):
     return str(value).strip().lower() not in {'false', '0', 'no', 'off'}
 
 
+def _validate_public_email(value, label='email'):
+    try:
+        validate_email(value)
+    except ValidationError:
+        return f'Please enter a valid {label}.'
+    return ''
+
+
 def _validate_intake_answers(questions, raw_answers):
     answers = raw_answers if isinstance(raw_answers, dict) else {}
     normalized = {}
@@ -264,6 +274,20 @@ def _booking_manage_url(request, booking, action):
 
 def _booking_api_url(request, booking, suffix):
     return request.build_absolute_uri(f'/api/booking/{booking.share_link.uuid}/manage/{booking.uuid}/{suffix}/')
+
+
+def _booking_change_deadline_error(booking):
+    deadline_hours = int(booking.share_link.reschedule_cancel_deadline_hours or 0)
+    if deadline_hours <= 0:
+        return ''
+
+    base_timezone = _base_timezone(booking.share_link.user)
+    start_time = datetime.strptime(booking.start_time, '%H:%M:%S').time()
+    starts_at = datetime.combine(booking.date, start_time).replace(tzinfo=ZoneInfo(base_timezone))
+    deadline = starts_at - timedelta(hours=deadline_hours)
+    if timezone.now() >= deadline:
+        return f'This booking can only be rescheduled or canceled at least {deadline_hours} hours before the start time.'
+    return ''
 
 
 def _ics_escape(value):
@@ -320,6 +344,8 @@ def _send_host_booking_email(request, booking, action):
     ]
     if booking.notes:
         body_lines.extend(['', 'Notes:', booking.notes])
+    if booking.cancel_reason:
+        body_lines.extend(['', 'Cancel reason:', booking.cancel_reason])
     questions = _normalize_intake_questions(booking.share_link.intake_questions)
     intake_lines = [
         f'{question["label"]}: {booking.intake_answers.get(question["id"])}'
@@ -343,9 +369,22 @@ def _send_host_booking_email(request, booking, action):
         body='\n'.join(body_lines),
         from_email=getattr(django_settings, 'DEFAULT_FROM_EMAIL', None),
         to=[host_email],
+        reply_to=[booking.email],
     )
     email.attach(f'careerhub-booking-{booking.uuid}.ics', _generate_booking_ics(booking), 'text/calendar')
     email.send(fail_silently=True)
+
+
+def _cancel_public_booking(request, booking, cancel_reason=''):
+    booking.status = PublicBooking.STATUS_CANCELED
+    booking.cancel_reason = cancel_reason.strip()[:1000]
+    booking.save(update_fields=['status', 'cancel_reason'])
+    if booking.event_id:
+        booking.event.delete()
+        booking.event = None
+        booking.save(update_fields=['event'])
+    _send_host_booking_email(request, booking, 'canceled')
+    return booking
 
 
 def _serialize_booking(request, booking):
@@ -441,11 +480,15 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
 
         if not host_display_name or not host_email:
             return Response({'error': 'Display Name and Host Email are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        host_email_error = _validate_public_email(host_email, 'host email')
+        if host_email_error:
+            return Response({'error': host_email_error}, status=status.HTTP_400_BAD_REQUEST)
 
         duration_days_raw = request.data.get('duration_days', 7)
         block_minutes_raw = request.data.get('booking_block_minutes', 30)
         buffer_minutes_raw = request.data.get('buffer_minutes', 0)
         max_bookings_raw = request.data.get('max_bookings_per_day', 0)
+        deadline_hours_raw = request.data.get('reschedule_cancel_deadline_hours', 0)
         allow_reschedule_cancel = _coerce_bool(request.data.get('allow_reschedule_cancel'), True)
         intake_questions = _normalize_intake_questions(request.data.get('intake_questions', []))
         try:
@@ -468,6 +511,10 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
             max_bookings_per_day = max(0, min(20, int(max_bookings_raw)))
         except (TypeError, ValueError):
             max_bookings_per_day = 0
+        try:
+            reschedule_cancel_deadline_hours = max(0, min(168, int(deadline_hours_raw)))
+        except (TypeError, ValueError):
+            reschedule_cancel_deadline_hours = 0
 
         link = ShareLink.objects.create(
             user=request.user,
@@ -481,6 +528,7 @@ class ShareLinkViewSet(viewsets.ModelViewSet):
             buffer_minutes=buffer_minutes,
             max_bookings_per_day=max_bookings_per_day,
             allow_reschedule_cancel=allow_reschedule_cancel,
+            reschedule_cancel_deadline_hours=reschedule_cancel_deadline_hours,
             intake_questions=intake_questions,
             expires_at=timezone.now() + timedelta(days=duration_days),
             is_active=True,
@@ -603,6 +651,7 @@ class PublicBookingSlotsView(APIView):
                 'buffer_minutes': int(link.buffer_minutes or 0),
                 'max_bookings_per_day': int(link.max_bookings_per_day or 0),
                 'allow_reschedule_cancel': link.allow_reschedule_cancel,
+                'reschedule_cancel_deadline_hours': int(link.reschedule_cancel_deadline_hours or 0),
                 'intake_questions': _normalize_intake_questions(link.intake_questions),
                 'days': rows,
             }
@@ -635,6 +684,9 @@ class PublicBookingCreateView(APIView):
 
         if not name or not email or not date_str or not start_time or not end_time:
             return Response({'error': 'name, email, date, start_time, and end_time are required.'}, status=400)
+        email_error = _validate_public_email(email)
+        if email_error:
+            return Response({'error': email_error}, status=400)
 
         try:
             booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -704,6 +756,15 @@ class PublicBookingViewSet(viewsets.ModelViewSet):
             instance.event.delete()
         return super().destroy(request, *args, **kwargs)
 
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        booking = self.get_object()
+        if booking.status == PublicBooking.STATUS_CANCELED:
+            return Response({'error': 'This booking has already been canceled.'}, status=409)
+        cancel_reason = request.data.get('cancel_reason') or 'Canceled by host.'
+        _cancel_public_booking(request, booking, cancel_reason)
+        return Response({'message': 'Booking canceled by host.', 'booking': _serialize_booking(request, booking)})
+
 
 class PublicBookingManageView(APIView):
     permission_classes = [AllowAny]
@@ -746,15 +807,13 @@ class PublicBookingManageView(APIView):
             return Response({'error': 'This booking cannot be changed from the public link.'}, status=403)
         if booking.status == PublicBooking.STATUS_CANCELED:
             return Response({'error': 'This booking has already been canceled.'}, status=409)
+        deadline_error = _booking_change_deadline_error(booking)
+        if deadline_error:
+            return Response({'error': deadline_error}, status=403)
 
         if action == 'cancel':
-            booking.status = PublicBooking.STATUS_CANCELED
-            booking.save(update_fields=['status'])
-            if booking.event_id:
-                booking.event.delete()
-                booking.event = None
-                booking.save(update_fields=['event'])
-            _send_host_booking_email(request, booking, 'canceled')
+            cancel_reason = (request.data.get('cancel_reason') or '').strip()[:1000]
+            _cancel_public_booking(request, booking, cancel_reason)
             return Response({'message': 'Booking canceled.', 'booking': _serialize_booking(request, booking)})
 
         if action != 'reschedule':

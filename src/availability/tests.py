@@ -97,6 +97,27 @@ class PublicBookingEnhancementTests(APITestCase):
         self.assertIn('Company is required', response.data['error'])
 
     @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_booking_rejects_invalid_guest_email(self, _mock_availability):
+        response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'fdjfosjkfo',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'America/Los_Angeles',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('valid email', response.data['error'])
+        self.assertEqual(PublicBooking.objects.count(), 0)
+        self.assertEqual(Event.objects.count(), 0)
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
     @override_settings(PUBLIC_FRONTEND_BASE_URL='https://careerhub-frontend.vercel.app')
     def test_booking_creates_locked_event_and_host_email_with_ics(self, _mock_availability):
         response = self.client.post(
@@ -159,12 +180,138 @@ class PublicBookingEnhancementTests(APITestCase):
         booking_uuid = create_response.data['booking']['uuid']
         event_id = PublicBooking.objects.get(uuid=booking_uuid).event_id
 
-        response = self.client.post(f'/api/booking/{self.link.uuid}/manage/{booking_uuid}/cancel/')
+        response = self.client.post(
+            f'/api/booking/{self.link.uuid}/manage/{booking_uuid}/cancel/',
+            {'cancel_reason': 'The role was put on hold.'},
+            format='json',
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         booking = PublicBooking.objects.get(uuid=booking_uuid)
         self.assertEqual(booking.status, PublicBooking.STATUS_CANCELED)
+        self.assertEqual(booking.cancel_reason, 'The role was put on hold.')
         self.assertFalse(Event.objects.filter(id=event_id).exists())
+        self.assertIn('The role was put on hold.', mail.outbox[-1].body)
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_change_deadline_blocks_late_public_cancel_and_reschedule(self, _mock_availability):
+        self.link.reschedule_cancel_deadline_hours = 24
+        self.link.save(update_fields=['reschedule_cancel_deadline_hours'])
+        booking_date = (timezone.now() + timedelta(hours=12)).date()
+        create_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': booking_date.strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'America/Los_Angeles',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+        booking_uuid = create_response.data['booking']['uuid']
+
+        cancel_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/manage/{booking_uuid}/cancel/',
+            {'cancel_reason': 'Need to move this.'},
+            format='json',
+        )
+        reschedule_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/manage/{booking_uuid}/reschedule/',
+            {
+                'date': booking_date.strftime('%Y-%m-%d'),
+                'start_time': '09:30:00',
+                'end_time': '10:00:00',
+                'timezone': 'America/Los_Angeles',
+            },
+            format='json',
+        )
+
+        self.assertEqual(cancel_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('24 hours', cancel_response.data['error'])
+        self.assertEqual(reschedule_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(PublicBooking.objects.get(uuid=booking_uuid).status, PublicBooking.STATUS_ACTIVE)
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_host_cancel_ignores_guest_change_deadline_and_removes_event(self, _mock_availability):
+        self.link.reschedule_cancel_deadline_hours = 24
+        self.link.save(update_fields=['reschedule_cancel_deadline_hours'])
+        booking_date = (timezone.now() + timedelta(hours=12)).date()
+        create_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': booking_date.strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'America/Los_Angeles',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+        booking = PublicBooking.objects.get(uuid=create_response.data['booking']['uuid'])
+        event_id = booking.event_id
+
+        self.client.force_login(self.user)
+        response = self.client.post(
+            f'/api/public-bookings/{booking.id}/cancel/',
+            {'cancel_reason': 'Host canceled from booking manager.'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, PublicBooking.STATUS_CANCELED)
+        self.assertEqual(booking.cancel_reason, 'Host canceled from booking manager.')
+        self.assertFalse(Event.objects.filter(id=event_id).exists())
+        self.assertEqual(response.data['booking']['status'], PublicBooking.STATUS_CANCELED)
+
+    @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
+    def test_share_link_serializer_includes_booking_analytics(self, _mock_availability):
+        self.client.force_login(self.user)
+        active_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Recruiter',
+                'email': 'recruiter@example.com',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:00:00',
+                'end_time': '09:30:00',
+                'timezone': 'America/Los_Angeles',
+                'intake_answers': {'company': 'Acme'},
+            },
+            format='json',
+        )
+        canceled_response = self.client.post(
+            f'/api/booking/{self.link.uuid}/book/',
+            {
+                'name': 'Coordinator',
+                'email': 'coordinator@example.com',
+                'date': timezone.now().date().strftime('%Y-%m-%d'),
+                'start_time': '09:30:00',
+                'end_time': '10:00:00',
+                'timezone': 'America/Los_Angeles',
+                'intake_answers': {'company': 'Beta'},
+            },
+            format='json',
+        )
+        self.client.post(
+            f'/api/booking/{self.link.uuid}/manage/{canceled_response.data["booking"]["uuid"]}/cancel/',
+            {'cancel_reason': 'Duplicate booking.'},
+            format='json',
+        )
+
+        response = self.client.get('/api/share-links/')
+
+        self.assertEqual(active_response.status_code, status.HTTP_201_CREATED)
+        analytics = response.data[0]['booking_analytics']
+        self.assertEqual(analytics['total'], 2)
+        self.assertEqual(analytics['active'], 1)
+        self.assertEqual(analytics['canceled'], 1)
+        self.assertEqual(analytics['upcoming'], 1)
 
     @patch('availability.views.booking.calculate_availability_for_dates', side_effect=available_9_to_10)
     def test_reschedule_updates_booking_and_locked_event(self, _mock_availability):
