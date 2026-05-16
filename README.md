@@ -45,6 +45,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Export Options**: Download data as CSV, JSON, or XLSX
 - **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
 - **Detail Aggregation Ready**: Application records expose linked timeline, event, document, AI artifact, and notes data consumed by the frontend detail drawer
+- **Application Prep Workspace**: Aggregates one application's JD reports, cover letters, linked documents, notes, timeline, and resume evidence for the frontend prep drawer
 - **Company Timeline**: Persist per-stage application timeline entries with dates, notes, and attached documents
 - **Timeline Analytics**: Aggregate timeline and sheet sync history into average time from applied to interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 - **Locking**: Locked applications cannot be deleted
@@ -102,7 +103,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
 - **Availability Generation**: Generate user-defined week-long availability text blocks from work settings, holidays, and event conflicts
-- **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, and max meetings/day; public bookings create locked internal events
+- **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, max meetings/day, reschedule/cancel cutoff hours, cancel reasons, per-link booking analytics, and locked internal events
 - **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
 ### ⚙️ Settings
@@ -399,6 +400,7 @@ Base prefix: `/api/career/`
 - `GET /api/career/applications/` — List all applications
 - `POST /api/career/applications/` — Create a new application
 - `GET /api/career/applications/{id}/` — Retrieve application details
+- `GET /api/career/applications/{id}/prep_workspace/` — Retrieve the application's prep workspace with JD reports, cover letters, linked documents, notes, timeline, and resume evidence
 - `PUT /api/career/applications/{id}/` — Update application (auto-creates offer if status → OFFER)
 - `DELETE /api/career/applications/{id}/` — Delete application (blocked if locked)
 - `DELETE /api/career/applications/delete_all/` — Delete all unlocked applications
@@ -499,10 +501,14 @@ Base prefix: `/api/career/`
 - `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=Asia/Tokyo&weeks=2` — Generate availability text rows for a user-defined week range; accepts IANA timezone names
 - `POST /api/overrides/` — Override a specific date's availability text
 - `GET /api/share-links/current/` — Get active booking share link
-- `POST /api/share-links/generate/` — Generate a new booking share link
+- `POST /api/share-links/generate/` — Generate a new booking share link, including optional reschedule/cancel cutoff hours
 - `POST /api/share-links/deactivate/` — Deactivate current booking share links
+- `POST /api/public-bookings/{id}/cancel/` — Authenticated host cancel action that bypasses guest cutoff rules and removes the locked event
 - `GET /api/booking/{uuid}/slots/?date=YYYY-MM-DD&timezone=Asia/Tokyo` — Public: fetch bookable slots in the visitor's IANA timezone
 - `POST /api/booking/{uuid}/book/` — Public: submit a booking (creates locked event)
+- `GET /api/booking/{uuid}/manage/{booking_uuid}/details/` — Public: fetch booking details for guest self-management
+- `POST /api/booking/{uuid}/manage/{booking_uuid}/reschedule/` — Public: reschedule a booking before the configured cutoff
+- `POST /api/booking/{uuid}/manage/{booking_uuid}/cancel/` — Public: cancel a booking before the configured cutoff with an optional reason
 
 #### Settings
 - `GET /api/security/dashboard/` — Authenticated security posture summary for Settings, including environment flags, auth throttles, Google sync health, and Vercel WAF setup hints
