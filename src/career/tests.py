@@ -11,7 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from availability.models import UserSettings
-from .models import Application, ApplicationTimelineEntry, Company, Document, Experience, GoogleSheetSyncConfig, GoogleSheetSyncRow, Offer
+from .models import AIArtifact, Application, ApplicationTimelineEntry, Company, Document, Experience, GoogleSheetSyncConfig, GoogleSheetSyncRow, Offer
 from .serializers import ExperienceSerializer
 from .services.google_sheets import _is_sync_config_due, _upsert_application, apply_import_review, build_import_review, sync_google_sheet
 from .services.timeline_analytics import build_application_timeline_analytics
@@ -171,6 +171,80 @@ class AIArtifactAPITests(APITestCase):
         remaining = self.client.get('/api/career/ai-artifacts/').data
         self.assertEqual([item['id'] for item in remaining], [locked['id']])
         self.assertFalse(any(item['id'] == unlocked['id'] for item in remaining))
+
+    def test_application_prep_workspace_collects_linked_materials_and_evidence(self):
+        company = Company.objects.create(user=self.user, name='Acme')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Backend Engineer',
+            notes='Ask about platform ownership.',
+        )
+        other_company = Company.objects.create(user=self.other_user, name='OtherCo')
+        other_application = Application.objects.create(
+            user=self.other_user,
+            company=other_company,
+            role_title='Hidden Role',
+        )
+        resume = Document.objects.create(
+            user=self.user,
+            application=application,
+            title='Acme Resume',
+            file='https://example.com/resume.pdf',
+            document_type='RESUME',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='APPLIED',
+            notes='Submitted through referral.',
+        )
+        AIArtifact.objects.create(
+            user=self.user,
+            artifact_type=AIArtifact.TYPE_JD_REPORT,
+            client_id='jd-1',
+            title='Acme JD Match',
+            summary='Good fit',
+            source_application=application,
+            payload={
+                'score': 84,
+                'summary': 'Good fit',
+                'best_experiences': [{'title': 'Platform Engineer', 'company': 'OldCo'}],
+                'tailored_bullets': [{'revised': 'Built Django services', 'reason': 'Maps to backend work'}],
+            },
+            saved_at=timezone.now(),
+        )
+        AIArtifact.objects.create(
+            user=self.user,
+            artifact_type=AIArtifact.TYPE_COVER_LETTER,
+            client_id='letter-1',
+            title='Acme Cover Letter',
+            payload={'applicationId': application.id, 'coverLetter': 'Dear Acme...'},
+            saved_at=timezone.now(),
+        )
+        AIArtifact.objects.create(
+            user=self.other_user,
+            artifact_type=AIArtifact.TYPE_JD_REPORT,
+            client_id='hidden-jd',
+            title='Hidden JD',
+            source_application=other_application,
+            payload={'score': 99},
+            saved_at=timezone.now(),
+        )
+
+        response = self.client.get(f'/api/career/applications/{application.id}/prep_workspace/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['application']['id'], application.id)
+        self.assertEqual(response.data['notes'], 'Ask about platform ownership.')
+        self.assertEqual(response.data['readiness']['linked_documents'], 1)
+        self.assertEqual(response.data['documents'][0]['id'], resume.id)
+        self.assertEqual(response.data['timeline'][0]['stage'], 'APPLIED')
+        self.assertEqual(response.data['jd_reports'][0]['title'], 'Acme JD Match')
+        self.assertEqual(response.data['cover_letters'][0]['title'], 'Acme Cover Letter')
+        self.assertEqual(response.data['latest_jd_report']['payload']['score'], 84)
+        self.assertEqual(response.data['evidence']['best_experiences'][0]['title'], 'Platform Engineer')
+        self.assertNotIn('Hidden JD', json.dumps(response.data))
 
     def test_account_export_and_restore_include_ai_artifacts(self):
         self.client.post(

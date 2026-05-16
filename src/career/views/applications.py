@@ -4,6 +4,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from django.conf import settings
+from django.db.models import Q
 import pandas as pd
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework import status, viewsets
@@ -15,8 +16,14 @@ from rest_framework.views import APIView
 from availability.ai_provider import AIProviderConfigurationError, AIProviderRequestError, relay_ai_provider_chat_completion
 from availability.models import UserSettings
 from availability.utils import export_data
-from ..models import Application, Company
-from ..serializers import ApplicationExportSerializer, ApplicationSerializer
+from ..models import AIArtifact, Application, ApplicationTimelineEntry, Company, Document
+from ..serializers import (
+    AIArtifactSerializer,
+    ApplicationExportSerializer,
+    ApplicationSerializer,
+    ApplicationTimelineEntrySerializer,
+    DocumentSerializer,
+)
 from ..services.offers import ensure_offer_for_application
 from ..services.job_board_import import extract_job_posting
 from ..services.google_sheets import _upsert_application
@@ -335,6 +342,73 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def export(self, request):
         fmt = request.query_params.get('fmt', 'csv')
         return export_data(self.get_queryset(), ApplicationExportSerializer, fmt, 'applications')
+
+    @action(detail=True, methods=['get'])
+    def prep_workspace(self, request, pk=None):
+        application = self.get_object()
+        artifact_match = (
+            Q(source_application=application)
+            | Q(payload__applicationId=application.id)
+            | Q(payload__applicationId=str(application.id))
+        )
+        artifacts = (
+            AIArtifact.objects
+            .filter(user=request.user)
+            .filter(artifact_match)
+            .order_by('-saved_at', '-created_at')
+        )
+        jd_reports = list(artifacts.filter(artifact_type=AIArtifact.TYPE_JD_REPORT)[:5])
+        cover_letters = list(artifacts.filter(artifact_type=AIArtifact.TYPE_COVER_LETTER)[:5])
+        documents = (
+            Document.objects
+            .filter(user=request.user, application=application, is_current=True)
+            .order_by('-updated_at')
+        )
+        timeline = (
+            ApplicationTimelineEntry.objects
+            .filter(user=request.user, application=application)
+            .prefetch_related('documents')
+            .order_by('stage_order', 'event_date', 'created_at')
+        )
+        latest_jd_report = jd_reports[0] if jd_reports else None
+        latest_payload = latest_jd_report.payload if latest_jd_report else {}
+
+        serializer_context = {'request': request}
+        return Response(
+            {
+                'application': ApplicationSerializer(application, context=serializer_context).data,
+                'notes': application.notes or '',
+                'documents': DocumentSerializer(documents, many=True, context=serializer_context).data,
+                'timeline': ApplicationTimelineEntrySerializer(
+                    timeline, many=True, context=serializer_context
+                ).data,
+                'jd_reports': AIArtifactSerializer(
+                    jd_reports, many=True, context=serializer_context
+                ).data,
+                'cover_letters': AIArtifactSerializer(
+                    cover_letters, many=True, context=serializer_context
+                ).data,
+                'latest_jd_report': (
+                    AIArtifactSerializer(latest_jd_report, context=serializer_context).data
+                    if latest_jd_report
+                    else None
+                ),
+                'evidence': {
+                    'best_experiences': latest_payload.get('best_experiences') or [],
+                    'tailored_bullets': latest_payload.get('tailored_bullets') or [],
+                    'matched_skills': latest_payload.get('matched_skills') or [],
+                    'missing_skills': latest_payload.get('missing_skills') or [],
+                },
+                'readiness': {
+                    'linked_documents': documents.count(),
+                    'timeline_entries': timeline.count(),
+                    'jd_reports': len(jd_reports),
+                    'cover_letters': len(cover_letters),
+                    'has_notes': bool((application.notes or '').strip()),
+                    'has_job_link': bool(application.job_link),
+                },
+            }
+        )
 
 
 class ImportApplicationsView(APIView):
