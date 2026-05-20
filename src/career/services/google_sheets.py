@@ -19,7 +19,14 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from availability.models import Event, EventCategory, UserSettings
-from career.models import Application, Company, GoogleSheetSyncConfig, GoogleSheetSyncRow, GoogleSheetSyncRun
+from career.models import (
+    Application,
+    ApplicationTimelineEntry,
+    Company,
+    GoogleSheetSyncConfig,
+    GoogleSheetSyncRow,
+    GoogleSheetSyncRun,
+)
 
 
 APPLICATION_DEFAULT_MAPPING = {
@@ -247,6 +254,7 @@ def sync_google_sheet(config, force=False):
         }
 
         changes_list = []
+        timeline_repair_cache = _timeline_repair_cache_from_sync_runs(config)
         seen_external_keys = set()
 
         for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
@@ -267,6 +275,7 @@ def sync_google_sheet(config, force=False):
                     offset,
                     mapping,
                     force=force or duplicate_key_in_sheet,
+                    timeline_repair_cache=timeline_repair_cache,
                 )
                 result[action] += 1
                 result['history'].extend(history)
@@ -730,7 +739,15 @@ def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
     return result
 
 
-def _sync_row_with_history(config, row, row_number, mapping, force=False, duplicate_resolution='merge'):
+def _sync_row_with_history(
+    config,
+    row,
+    row_number,
+    mapping,
+    force=False,
+    duplicate_resolution='merge',
+    timeline_repair_cache=None,
+):
     payload = _mapped_payload(row, mapping)
     external_key = _external_key(payload, row_number)
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
@@ -743,6 +760,7 @@ def _sync_row_with_history(config, row, row_number, mapping, force=False, duplic
         and not _needs_application_date_backfill(config, payload, tracked)
         and not _needs_application_source_restore(config, tracked)
     ):
+        _repair_tracked_application_timeline_from_sync_history(config, tracked, timeline_repair_cache=timeline_repair_cache)
         return 'skipped', [_history_entry('skipped', row_number, payload, 'No changes detected since the last sync.')], {}
 
     history_context = _build_history_context(config, payload, tracked, row_number, duplicate_resolution=duplicate_resolution)
@@ -758,6 +776,7 @@ def _sync_row_with_history(config, row, row_number, mapping, force=False, duplic
                 tracked,
                 history_context=history_context,
                 duplicate_resolution=duplicate_resolution,
+                timeline_repair_cache=timeline_repair_cache,
             )
             local_type = 'career.Application'
 
@@ -1254,7 +1273,14 @@ def _restore_source_removed_defaults(application, defaults):
     return restored
 
 
-def _upsert_application(config, payload, tracked, history_context=None, duplicate_resolution='merge'):
+def _upsert_application(
+    config,
+    payload,
+    tracked,
+    history_context=None,
+    duplicate_resolution='merge',
+    timeline_repair_cache=None,
+):
     company_name = payload.get('company_name') or payload.get('company') or ''
     role_title = payload.get('role_title') or ''
     if not company_name or not role_title:
@@ -1278,7 +1304,20 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
             diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False)
             if diff:
                 application.save()
+                _sync_application_timeline_from_status(application, diff)
+                if tracked:
+                    _repair_tracked_application_timeline_from_sync_history(
+                        config,
+                        tracked,
+                        timeline_repair_cache=timeline_repair_cache,
+                    )
                 return application, False, diff
+            if tracked:
+                _repair_tracked_application_timeline_from_sync_history(
+                    config,
+                    tracked,
+                    timeline_repair_cache=timeline_repair_cache,
+                )
             return application, False, {}
 
     existing_application = None
@@ -1291,7 +1330,20 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
         diff = _apply_field_updates(existing_application, company, role_title, defaults, strategies, is_new=False)
         if diff:
             existing_application.save()
+            _sync_application_timeline_from_status(existing_application, diff)
+            if tracked:
+                _repair_tracked_application_timeline_from_sync_history(
+                    config,
+                    tracked,
+                    timeline_repair_cache=timeline_repair_cache,
+                )
             return existing_application, False, diff
+        if tracked:
+            _repair_tracked_application_timeline_from_sync_history(
+                config,
+                tracked,
+                timeline_repair_cache=timeline_repair_cache,
+            )
         return existing_application, False, {}
 
     if not payload.get('date_applied'):
@@ -1304,7 +1356,158 @@ def _upsert_application(config, payload, tracked, history_context=None, duplicat
     )
     diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=True)
     application.save()
+    _sync_application_timeline_from_status(application, diff)
     return application, True, diff
+
+
+def _sync_application_timeline_from_status(application, diff):
+    status_change = diff.get('status') if diff else None
+    if not status_change:
+        return
+
+    old_status, new_status = _status_change_values(status_change)
+    sync_date = _current_user_date(application.user)
+    for stage in _timeline_stages_for_status_change(
+        application.user,
+        old_status,
+        new_status,
+    ):
+        _ensure_application_timeline_entry(application, stage, sync_date)
+
+
+def _repair_tracked_application_timeline_from_sync_history(config, tracked, timeline_repair_cache=None):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+        return
+
+    application = Application.objects.filter(
+        id=tracked.local_object_id,
+        user=config.user,
+    ).first()
+    if not application:
+        return
+
+    if timeline_repair_cache is None:
+        timeline_repair_cache = _timeline_repair_cache_from_sync_runs(config)
+    stage_dates = dict(timeline_repair_cache.get(application.id, {}))
+    fallback_date = _datetime_in_user_date(tracked.last_seen_at, config.user)
+    for stage in _timeline_stages_for_existing_status(application):
+        stage_dates.setdefault(stage, fallback_date)
+
+    for stage, event_date in stage_dates.items():
+        _ensure_application_timeline_entry(application, stage, event_date)
+
+
+def _timeline_repair_cache_from_sync_runs(config):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+        return {}
+
+    stage_dates_by_application = {}
+    runs = GoogleSheetSyncRun.objects.filter(config=config).order_by('started_at', 'id')
+    for run in runs:
+        event_date = _datetime_in_user_date(run.started_at, config.user)
+        for change in run.changes or []:
+            application_id = change.get('local_object_id')
+            if not application_id:
+                continue
+            status_change = (change.get('diff') or {}).get('status')
+            if not status_change:
+                continue
+            old_status, new_status = _status_change_values(status_change)
+            for stage in _timeline_stages_for_status_change(
+                config.user,
+                old_status,
+                new_status,
+            ):
+                stage_dates_by_application.setdefault(application_id, {}).setdefault(stage, event_date)
+    return stage_dates_by_application
+
+
+def _timeline_stage_dates_from_sync_runs(config, application):
+    return _timeline_repair_cache_from_sync_runs(config).get(application.id, {})
+
+
+def _timeline_stages_for_existing_status(application):
+    current_round = _round_number_from_stage_key(application.status)
+    if not current_round:
+        return [application.status] if application.status else []
+
+    existing_rounds = [
+        round_number
+        for round_number in (
+            _round_number_from_stage_key(stage)
+            for stage in application.timeline_entries.values_list('stage', flat=True)
+        )
+        if round_number
+    ]
+    start_round = min(existing_rounds) if existing_rounds else 1
+    stages = []
+    for round_number in range(start_round, current_round + 1):
+        key = f'ROUND_{round_number}'
+        _ensure_application_stage(
+            application.user,
+            key,
+            _round_label(round_number),
+            f'R{round_number}',
+            _round_tone(round_number),
+        )
+        stages.append(key)
+    return stages
+
+
+def _ensure_application_timeline_entry(application, stage, event_date):
+    entry, created = ApplicationTimelineEntry.objects.get_or_create(
+        user=application.user,
+        application=application,
+        stage=stage,
+        defaults={'event_date': event_date},
+    )
+    if not created and entry.event_date is None and event_date:
+        entry.event_date = event_date
+        entry.save(update_fields=['event_date', 'updated_at'])
+
+
+def _timeline_stages_for_status_change(user, old_status, new_status):
+    if not new_status:
+        return []
+
+    old_round = _round_number_from_stage_key(old_status)
+    new_round = _round_number_from_stage_key(new_status)
+    if old_round and new_round and new_round > old_round:
+        stages = []
+        for round_number in range(old_round, new_round + 1):
+            key = f'ROUND_{round_number}'
+            _ensure_application_stage(
+                user,
+                key,
+                _round_label(round_number),
+                f'R{round_number}',
+                _round_tone(round_number),
+            )
+            stages.append(key)
+        return stages
+
+    return [new_status]
+
+
+def _status_change_values(status_change):
+    old_status = status_change.get('old')
+    if old_status is None:
+        old_status = status_change.get('from')
+    if old_status is None:
+        old_status = status_change.get('before')
+
+    new_status = status_change.get('new')
+    if new_status is None:
+        new_status = status_change.get('to')
+    if new_status is None:
+        new_status = status_change.get('after')
+
+    return old_status, new_status
+
+
+def _round_number_from_stage_key(stage):
+    match = re.fullmatch(r'ROUND_(\d+)', str(stage or ''))
+    return int(match.group(1)) if match else None
 
 
 def _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults):
