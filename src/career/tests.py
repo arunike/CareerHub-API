@@ -532,6 +532,15 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
             local_object_id=application.id,
         )
 
+        # Create a manual application with an offer, which should be excluded from sheet sources
+        Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Manual Engineer',
+            status='OFFER',
+            date_applied='2026-04-01',
+        )
+
         analytics = build_application_timeline_analytics(self.user)
 
         self.assertEqual(analytics['average_time_to_interview_days'], 5)
@@ -539,8 +548,9 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
         self.assertEqual(analytics['average_days_to_offer'], 10)
         self.assertEqual(analytics['days_to_offer_sample_size'], 1)
         screen_stage = next(stage for stage in analytics['stage_conversion'] if stage['key'] == 'SCREEN')
-        self.assertEqual(screen_stage['reached_count'], 1)
-        self.assertEqual(screen_stage['conversion_rate'], 1)
+        self.assertEqual(screen_stage['reached_count'], 2)
+        self.assertEqual(screen_stage['conversion_rate'], 1.0)  # Both applications reached screen (one directly, one via OFFER backfill)
+        self.assertEqual(len(analytics['offer_rate_by_source']), 1)
         self.assertEqual(analytics['offer_rate_by_source'][0]['name'], 'Job Applications')
         self.assertEqual(analytics['offer_rate_by_source'][0]['offers'], 1)
 

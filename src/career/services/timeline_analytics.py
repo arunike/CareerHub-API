@@ -136,14 +136,17 @@ def build_application_timeline_analytics(user):
             if days is not None:
                 time_to_interview_days.append(days)
 
-        source = source_map.get(application.id, {'id': None, 'name': 'Manual / Not synced', 'worksheet': ''})
-        source_key = source['name']
+        source = source_map.get(application.id)
         company_name = application.company.name
         is_offer = application.status == 'OFFER' or hasattr(application, 'offer')
-        offer_by_source[source_key]['total'] += 1
+        if source:
+            source_key = source['name']
+            offer_by_source[source_key]['total'] += 1
+            if is_offer:
+                offer_by_source[source_key]['offers'] += 1
+
         offer_by_company[company_name]['total'] += 1
         if is_offer:
-            offer_by_source[source_key]['offers'] += 1
             offer_by_company[company_name]['offers'] += 1
             if hasattr(application, 'offer') and application.offer and application.date_applied:
                 offer_created_date = timezone.localtime(application.offer.created_at).date() if application.offer.created_at else None
@@ -166,7 +169,7 @@ def build_application_timeline_analytics(user):
                         'status_label': _stage_label(application.status, stage_map),
                         'days_in_stage': days_in_stage,
                         'last_stage_date': stage_date.isoformat() if isinstance(stage_date, date) else None,
-                        'source': source['name'],
+                        'source': source['name'] if source else 'Manual / Not synced',
                     }
                 )
 
