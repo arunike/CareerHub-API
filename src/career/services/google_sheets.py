@@ -1376,7 +1376,7 @@ def _sync_application_timeline_from_status(application, diff):
 
 
 def _repair_tracked_application_timeline_from_sync_history(config, tracked, timeline_repair_cache=None):
-    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+    if not getattr(config, 'id', None) or config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
         return
 
     application = Application.objects.filter(
@@ -1398,7 +1398,7 @@ def _repair_tracked_application_timeline_from_sync_history(config, tracked, time
 
 
 def _timeline_repair_cache_from_sync_runs(config):
-    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+    if not getattr(config, 'id', None) or config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
         return {}
 
     stage_dates_by_application = {}

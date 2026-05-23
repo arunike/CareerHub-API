@@ -88,9 +88,17 @@ def build_application_timeline_analytics(user):
     reached_by_stage = defaultdict(int)
     current_by_stage = defaultdict(int)
     time_to_interview_days = []
+    days_to_offer = []
     stale_in_stage = []
     offer_by_source = defaultdict(lambda: {'total': 0, 'offers': 0})
     offer_by_company = defaultdict(lambda: {'total': 0, 'offers': 0})
+
+    # Identify non-negative funnel stage keys in their defined order
+    funnel_stage_keys = [
+        s.get('key')
+        for s in stages
+        if s.get('key') and s.get('key') not in {'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
+    ]
 
     for application in applications:
         entries = list(application.timeline_entries.all())
@@ -99,6 +107,16 @@ def build_application_timeline_analytics(user):
         reached_stages.add(application.status)
         if application.date_applied or application.created_at:
             reached_stages.add('APPLIED')
+
+        # Backfill preceding stages in the positive funnel progression
+        reached_indices = [
+            i for i, key in enumerate(funnel_stage_keys)
+            if key in reached_stages
+        ]
+        if reached_indices:
+            max_idx = max(reached_indices)
+            for key in funnel_stage_keys[:max_idx + 1]:
+                reached_stages.add(key)
 
         for stage in reached_stages:
             reached_by_stage[stage] += 1
@@ -127,6 +145,12 @@ def build_application_timeline_analytics(user):
         if is_offer:
             offer_by_source[source_key]['offers'] += 1
             offer_by_company[company_name]['offers'] += 1
+            if hasattr(application, 'offer') and application.offer and application.date_applied:
+                offer_created_date = timezone.localtime(application.offer.created_at).date() if application.offer.created_at else None
+                if offer_created_date:
+                    days = _days_between(application.date_applied, offer_created_date)
+                    if days is not None:
+                        days_to_offer.append(days)
 
         if application.status not in TERMINAL_STATUSES:
             current_entry = entry_by_stage.get(application.status)
@@ -186,9 +210,14 @@ def build_application_timeline_analytics(user):
     sample_size = len(time_to_interview_days)
     average_days = round(sum(time_to_interview_days) / sample_size, 1) if sample_size else None
 
+    offer_sample_size = len(days_to_offer)
+    average_days_to_offer = round(sum(days_to_offer) / offer_sample_size, 1) if offer_sample_size else None
+
     return {
         'average_time_to_interview_days': average_days,
         'time_to_interview_sample_size': sample_size,
+        'average_days_to_offer': average_days_to_offer,
+        'days_to_offer_sample_size': offer_sample_size,
         'stage_conversion': stage_conversion,
         'stale_threshold_days': threshold_days,
         'stale_in_stage': sorted(stale_in_stage, key=lambda row: row['days_in_stage'], reverse=True),

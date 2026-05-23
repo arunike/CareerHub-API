@@ -496,6 +496,13 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
             salary_range='148800 - 223200',
             location='New York, NY',
         )
+        offer = Offer.objects.create(
+            application=application,
+            base_salary=150000,
+        )
+        offer.created_at = timezone.make_aware(datetime(2026, 4, 11, 12, 0))
+        offer.save()
+
         ApplicationTimelineEntry.objects.create(
             user=self.user,
             application=application,
@@ -529,6 +536,8 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
 
         self.assertEqual(analytics['average_time_to_interview_days'], 5)
         self.assertEqual(analytics['time_to_interview_sample_size'], 1)
+        self.assertEqual(analytics['average_days_to_offer'], 10)
+        self.assertEqual(analytics['days_to_offer_sample_size'], 1)
         screen_stage = next(stage for stage in analytics['stage_conversion'] if stage['key'] == 'SCREEN')
         self.assertEqual(screen_stage['reached_count'], 1)
         self.assertEqual(screen_stage['conversion_rate'], 1)
@@ -539,6 +548,7 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['average_time_to_interview_days'], 5)
+        self.assertEqual(response.data['average_days_to_offer'], 10)
 
     def test_stale_in_stage_uses_settings_threshold(self):
         company = Company.objects.create(user=self.user, name='Acme')
