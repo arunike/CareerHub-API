@@ -1,10 +1,11 @@
 from collections import defaultdict
 from datetime import date
 
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from availability.models import UserSettings
-from career.models import Application, GoogleSheetSyncRow
+from career.models import Application, ApplicationTimelineEntry, GoogleSheetSyncRow
 from career.services.google_sheets import DEFAULT_APPLICATION_STAGES
 
 
@@ -55,6 +56,13 @@ def _source_by_application_id(user):
             local_object_type='career.Application',
         )
         .select_related('config')
+        .only(
+            'config_id',
+            'local_object_id',
+            'last_seen_at',
+            'config__name',
+            'config__worksheet_name',
+        )
         .order_by('local_object_id', '-last_seen_at')
     )
 
@@ -73,7 +81,27 @@ def build_application_timeline_analytics(user):
     applications = list(
         Application.objects.filter(user=user)
         .select_related('company', 'offer')
-        .prefetch_related('timeline_entries')
+        .only(
+            'id',
+            'company__name',
+            'role_title',
+            'status',
+            'date_applied',
+            'created_at',
+            'offer__created_at',
+        )
+        .prefetch_related(
+            Prefetch(
+                'timeline_entries',
+                queryset=ApplicationTimelineEntry.objects.only(
+                    'application_id',
+                    'stage',
+                    'event_date',
+                    'created_at',
+                ),
+                to_attr='analytics_timeline_entries',
+            )
+        )
         .order_by('company__name', 'role_title')
     )
     stages, stage_map = _stage_settings_for_user(user)
@@ -101,7 +129,7 @@ def build_application_timeline_analytics(user):
     ]
 
     for application in applications:
-        entries = list(application.timeline_entries.all())
+        entries = list(getattr(application, 'analytics_timeline_entries', []))
         entry_by_stage = {entry.stage: entry for entry in entries}
         reached_stages = {entry.stage for entry in entries}
         reached_stages.add(application.status)
