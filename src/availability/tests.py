@@ -700,6 +700,79 @@ class AuthJwtFlowTests(APITestCase):
         user_settings.schedule_account_deletion()
         user_settings.save()
 
+        refresh_response = self.client.post(
+            self.refresh_url,
+            {'refresh': login_response.data['refresh']},
+            format='json',
+        )
+
+        self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_pending_account_deletion_blocks_existing_session(self):
+        self.client.force_login(self.user)
+        user_settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        user_settings.schedule_account_deletion()
+        user_settings.save()
+
         me_response = self.client.get(self.me_url)
 
         self.assertEqual(me_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class HolidayCachingTests(APITestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username="holiday-cache-user",
+            email="holiday-cache@example.com",
+            password="test-pass-123",
+        )
+        self.client.force_login(self.user)
+
+    def test_holiday_list_caching_and_invalidation(self):
+        from django.core.cache import cache
+        from availability.models import CustomHoliday
+        
+        holiday = CustomHoliday.objects.create(
+            user=self.user,
+            date="2026-12-25",
+            description="Christmas",
+            holiday_type="company",
+        )
+        
+        response1 = self.client.get('/api/holidays/')
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response1.data), 1)
+        
+        CustomHoliday.objects.filter(id=holiday.id).update(description="Christmas Updated")
+        
+        response2 = self.client.get('/api/holidays/')
+        self.assertEqual(response2.data[0]['description'], "Christmas")
+        
+        holiday.description = "Christmas Updated Save"
+        holiday.save()
+        
+        response3 = self.client.get('/api/holidays/')
+        self.assertEqual(response3.data[0]['description'], "Christmas Updated Save")
+
+    def test_holiday_federal_caching_and_invalidation(self):
+        from datetime import datetime
+        from django.core.cache import cache
+        from availability.models import CustomHoliday
+        
+        response1 = self.client.get('/api/holidays/federal/')
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        
+        count_before = len(response1.data)
+        
+        holiday = CustomHoliday.objects.create(
+            user=self.user,
+            date=f"{datetime.now().year}-07-04",
+            description="Custom July 4th",
+            holiday_type="federal",
+        )
+        
+        response2 = self.client.get('/api/holidays/federal/')
+        self.assertEqual(len(response2.data), count_before + 1)
+

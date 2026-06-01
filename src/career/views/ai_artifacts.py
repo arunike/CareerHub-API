@@ -2,9 +2,11 @@ from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.core.cache import cache
 
 from ..models import AIArtifact
 from ..serializers import AIArtifactSerializer
+from ..cache import get_ai_artifacts_cache_key, invalidate_ai_artifacts_cache
 
 
 class AIArtifactViewSet(viewsets.ModelViewSet):
@@ -24,6 +26,18 @@ class AIArtifactViewSet(viewsets.ModelViewSet):
             )
         return queryset.order_by('-saved_at', '-created_at')
 
+    def list(self, request, *args, **kwargs):
+        user_id = request.user.id
+        cache_key = get_ai_artifacts_cache_key(user_id, "list", request.query_params)
+        
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+            
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=300)
+        return response
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -39,6 +53,7 @@ class AIArtifactViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         deleted, _ = self.get_queryset().filter(is_locked=False).delete()
+        invalidate_ai_artifacts_cache(request.user.id)
         return Response(
             {
                 'message': f'Deleted {deleted} AI artifacts. Locked artifacts were preserved.',
@@ -46,3 +61,4 @@ class AIArtifactViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_200_OK,
         )
+

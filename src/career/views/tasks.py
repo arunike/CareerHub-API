@@ -1,9 +1,11 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.core.cache import cache
 
 from ..models import Task
 from ..serializers import TaskSerializer
+from ..cache import get_tasks_cache_key, invalidate_tasks_cache
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -12,6 +14,18 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Task.objects.filter(user=self.request.user).order_by('status', 'position', '-updated_at')
+
+    def list(self, request, *args, **kwargs):
+        user_id = request.user.id
+        cache_key = get_tasks_cache_key(user_id, "list", request.query_params)
+        
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+            
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=300)
+        return response
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -30,4 +44,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 status=item.get('status', 'TODO'),
                 position=item.get('position', 0),
             )
+            
+        invalidate_tasks_cache(request.user.id)
         return Response({'message': 'Tasks reordered successfully'}, status=status.HTTP_200_OK)

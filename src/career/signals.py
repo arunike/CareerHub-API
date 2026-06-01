@@ -1,10 +1,64 @@
-from django.db.models.signals import post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from .models import Document
+from .cache import (
+    invalidate_applications_cache,
+    invalidate_experiences_cache,
+    invalidate_tasks_cache,
+    invalidate_ai_artifacts_cache,
+)
+from .models import Document, Application, Company, Experience, Task, AIArtifact, ApplicationTimelineEntry
 from .services import delete_document_asset
 
 
 @receiver(post_delete, sender=Document)
 def cleanup_document_file(sender, instance, **kwargs):
     delete_document_asset(instance.file)
+
+
+@receiver([post_save, post_delete], sender=Application)
+def on_application_change(sender, instance, **kwargs):
+    try:
+        invalidate_applications_cache(instance.user_id)
+    except Exception:
+        pass
+
+
+@receiver([post_save, post_delete], sender=Company)
+def on_company_change(sender, instance, **kwargs):
+    try:
+        invalidate_applications_cache(instance.user_id)
+    except Exception:
+        pass
+
+
+@receiver([post_save, post_delete], sender=ApplicationTimelineEntry)
+def on_timeline_entry_change(sender, instance, **kwargs):
+    try:
+        invalidate_applications_cache(instance.user_id)
+    except Exception:
+        pass
+
+
+@receiver([post_save, post_delete], sender=Experience)
+def on_experience_change(sender, instance, **kwargs):
+    try:
+        invalidate_experiences_cache(instance.user_id)
+    except Exception:
+        pass
+
+
+@receiver([post_save, post_delete], sender=Task)
+def on_task_change(sender, instance, **kwargs):
+    try:
+        invalidate_tasks_cache(instance.user_id)
+    except Exception:
+        pass
+
+
+@receiver([post_save, post_delete], sender=AIArtifact)
+def on_ai_artifact_change(sender, instance, **kwargs):
+    try:
+        invalidate_ai_artifacts_cache(instance.user_id)
+    except Exception:
+        pass

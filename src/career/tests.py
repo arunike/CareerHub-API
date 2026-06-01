@@ -1903,3 +1903,58 @@ class DocumentStorageFlowTests(APITestCase):
         remaining_titles = set(Document.objects.values_list("title", flat=True))
         self.assertEqual(remaining_titles, {"Locked Resume"})
         self.assertEqual(mock_delete_document_asset.call_count, 2)
+
+
+class CareerCachingTests(APITestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username="cache-user@example.com",
+            email="cache-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_task_caching_and_invalidation(self):
+        from django.core.cache import cache
+        from .models import Task
+        task = Task.objects.create(user=self.user, title="Task 1", status="TODO", position=0)
+        
+        response1 = self.client.get('/api/career/tasks/')
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response1.data), 1)
+        
+        Task.objects.filter(id=task.id).update(title="Task 1 Updated")
+        
+        response2 = self.client.get('/api/career/tasks/')
+        self.assertEqual(response2.data[0]['title'], "Task 1")
+        
+        task.title = "Task 1 Updated Save"
+        task.save()
+        
+        response3 = self.client.get('/api/career/tasks/')
+        self.assertEqual(response3.data[0]['title'], "Task 1 Updated Save")
+
+    def test_ai_artifact_caching_and_invalidation(self):
+        from django.core.cache import cache
+        artifact = AIArtifact.objects.create(
+            user=self.user,
+            artifact_type='JD_REPORT',
+            client_id='art-1',
+            title='Art 1',
+        )
+        
+        response1 = self.client.get('/api/career/ai-artifacts/')
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        
+        AIArtifact.objects.filter(id=artifact.id).update(title="Art 1 Updated")
+        
+        response2 = self.client.get('/api/career/ai-artifacts/')
+        self.assertEqual(response2.data[0]['title'], "Art 1")
+        
+        self.client.delete('/api/career/ai-artifacts/delete_all/')
+        
+        response3 = self.client.get('/api/career/ai-artifacts/')
+        self.assertEqual(len(response3.data), 0)
+

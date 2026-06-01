@@ -26,12 +26,35 @@ def get_availability_dates(start_date=None, weeks=2):
 def get_next_two_weeks_weekdays(start_date=None):
     return [d for d in get_availability_dates(start_date, weeks=2) if d.weekday() < 5]
 
+def get_custom_us_holidays(year):
+    us_hols = dict(holidays.US(years=year))
+    
+    # Rename Washington's Birthday to Presidents’ Day
+    updated_hols = {}
+    for d, name in us_hols.items():
+        if name == "Washington's Birthday":
+            updated_hols[d] = "Presidents’ Day"
+        else:
+            updated_hols[d] = name
+            
+    import calendar
+    weeks = calendar.monthcalendar(year, 11)
+    thursdays = [week[calendar.THURSDAY] for week in weeks if week[calendar.THURSDAY] != 0]
+    thanksgiving_day = thursdays[3]
+    black_friday_date = date(year, 11, thanksgiving_day) + timedelta(days=1)
+    updated_hols[black_friday_date] = "Black Friday"
+    
+    updated_hols[date(year, 12, 24)] = "Christmas Eve"
+    
+    updated_hols[date(year, 12, 31)] = "New Year's Eve"
+    
+    return updated_hols
+
 def get_federal_holidays(year=None):
     if year is None:
         year = datetime.now().year
-    
-    us_holidays = holidays.US(years=year)
-    return dict(us_holidays)
+    return get_custom_us_holidays(year)
+
 
 def parse_time_str(t_str):
     if not t_str: return None
@@ -106,7 +129,7 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
     years = set(d.year for d in date_list)
     fed_holidays = {}
     for year in years:
-        fed_holidays.update(holidays.US(years=year))
+        fed_holidays.update(get_custom_us_holidays(year))
         
     events = Event.objects.filter(
         user=user,

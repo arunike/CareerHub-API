@@ -3,10 +3,12 @@ from datetime import datetime
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.core.cache import cache
 
 from ..models import CustomHoliday, UserSettings
 from ..serializers import CustomHolidaySerializer
 from ..utils import export_data, get_federal_holidays
+from ..cache import get_holidays_cache_key, invalidate_holidays_cache
 
 
 class HolidayViewSet(viewsets.ModelViewSet):
@@ -28,8 +30,27 @@ class HolidayViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    def list(self, request, *args, **kwargs):
+        user_id = request.user.id
+        cache_key = get_holidays_cache_key(user_id, "list", request.query_params)
+        
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+            
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=300)
+        return response
+
     @action(detail=False, methods=['get'])
     def federal(self, request):
+        user_id = request.user.id
+        cache_key = get_holidays_cache_key(user_id, "federal", request.query_params)
+        
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+            
         year = datetime.now().year
         holidays_dict = get_federal_holidays(year)
         
@@ -47,7 +68,6 @@ class HolidayViewSet(viewsets.ModelViewSet):
                 'is_ignored': is_ignored
             })
             
-        # Append custom defined federal holidays
         custom_federal = CustomHoliday.objects.filter(user=request.user, holiday_type='federal', date__year=year)
         for custom in custom_federal:
             date_str = custom.date.strftime('%Y-%m-%d')
@@ -61,7 +81,8 @@ class HolidayViewSet(viewsets.ModelViewSet):
             })
             
         data.sort(key=lambda x: x['date'])
-            
+        
+        cache.set(cache_key, data, timeout=300)
         return Response(data)
 
     @action(detail=False, methods=['get'])
@@ -72,7 +93,9 @@ class HolidayViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         count, _ = self.get_queryset().filter(is_locked=False).delete()
+        invalidate_holidays_cache(request.user.id)
         return Response(
             {'message': f'Deleted {count} holidays. Locked holidays were preserved.'},
             status=status.HTTP_200_OK,
         )
+

@@ -29,6 +29,22 @@ from ..services.job_board_import import extract_job_posting
 from ..services.google_sheets import _upsert_application
 from ..upload_validation import validate_import_row_count, validate_import_upload
 
+from rest_framework.pagination import PageNumberPagination
+from django.core.cache import cache
+from ..cache import get_applications_cache_key, invalidate_applications_cache
+
+
+class ConditionalPageNumberPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+    def paginate_queryset(self, queryset, request, view=None):
+        if 'page' not in request.query_params:
+            return None
+        return super().paginate_queryset(queryset, request, view)
+
+
 
 VISA_SPONSORSHIP_IMPORT_ALIASES = {
     'UNKNOWN': '',
@@ -309,6 +325,29 @@ def _preview_import_rows(user, rows, mapping):
 class ApplicationViewSet(viewsets.ModelViewSet):
     queryset = Application.objects.all()
     serializer_class = ApplicationSerializer
+    pagination_class = ConditionalPageNumberPagination
+
+    def list(self, request, *args, **kwargs):
+        user_id = request.user.id
+        cache_key = get_applications_cache_key(user_id, "list", request.query_params)
+        
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+            
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            cache.set(cache_key, response.data, timeout=300)
+            return response
+            
+        serializer = self.get_serializer(queryset, many=True)
+        response_data = serializer.data
+        cache.set(cache_key, response_data, timeout=300)
+        return Response(response_data)
+
 
     def get_queryset(self):
         return Application.objects.filter(user=self.request.user).select_related('company')
@@ -316,10 +355,12 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         instance = serializer.save()
         ensure_offer_for_application(instance)
+        invalidate_applications_cache(self.request.user.id)
 
     def perform_update(self, serializer):
         instance = serializer.save()
         ensure_offer_for_application(instance)
+        invalidate_applications_cache(self.request.user.id)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -328,11 +369,14 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                 {'error': 'This application is locked and cannot be deleted. Unlock it first.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return super().destroy(request, *args, **kwargs)
+        response = super().destroy(request, *args, **kwargs)
+        invalidate_applications_cache(request.user.id)
+        return response
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         count, _ = self.get_queryset().filter(is_locked=False).delete()
+        invalidate_applications_cache(request.user.id)
         return Response(
             {'message': f'Deleted {count} applications. Locked applications were preserved.'},
             status=status.HTTP_200_OK,

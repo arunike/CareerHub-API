@@ -24,6 +24,9 @@ from ..upload_validation import (
     validate_logo_upload,
 )
 
+from django.core.cache import cache
+from ..cache import get_experiences_cache_key, invalidate_experiences_cache
+
 
 def _empty_value(value):
     if value is None:
@@ -240,6 +243,18 @@ class ExperienceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Experience.objects.filter(user=self.request.user).order_by('-start_date', '-created_at')
 
+    def list(self, request, *args, **kwargs):
+        user_id = request.user.id
+        cache_key = get_experiences_cache_key(user_id, "list", request.query_params)
+        
+        cached_response = cache.get(cache_key)
+        if cached_response is not None:
+            return Response(cached_response)
+            
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=300)
+        return response
+
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         locked = instance.is_locked or False
@@ -257,6 +272,7 @@ class ExperienceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'], url_path='delete_all')
     def delete_all(self, request):
         self.get_queryset().filter(is_locked__in=[False, None]).delete()
+        invalidate_experiences_cache(request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'])
@@ -279,6 +295,7 @@ class ExperienceViewSet(viewsets.ModelViewSet):
             experience_id=instance.id,
         )
         instance.save(update_fields=['logo'])
+        invalidate_experiences_cache(request.user.id)
         return Response(self.get_serializer(instance).data)
 
     @action(detail=True, methods=['delete'], url_path='remove-logo')
@@ -288,6 +305,7 @@ class ExperienceViewSet(viewsets.ModelViewSet):
             delete_logo_asset(instance.logo)
             instance.logo = None
             instance.save(update_fields=['logo'])
+            invalidate_experiences_cache(request.user.id)
         return Response(self.get_serializer(instance).data)
 
 
