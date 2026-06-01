@@ -17,7 +17,10 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
 
     def get_queryset(self):
-        queryset = Event.objects.filter(user=self.request.user)
+        queryset = Event.objects.filter(user=self.request.user).select_related(
+            'category',
+            'application__company',
+        )
         start = self.request.query_params.get('start_date')
         end = self.request.query_params.get('end_date')
         include_instances = self.request.query_params.get('include_instances', 'true').lower() == 'true'
