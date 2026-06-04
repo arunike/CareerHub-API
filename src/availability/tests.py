@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
@@ -50,6 +50,47 @@ class AvailabilityRangeTests(APITestCase):
         self.assertEqual(len(saved_response.data), 112)
         self.assertEqual(requested_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(requested_response.data), 7)
+
+    @patch(
+        'availability.utils.timezone.now',
+        return_value=datetime(2026, 6, 3, 19, 0, tzinfo=dt_timezone.utc),
+    )
+    def test_generate_hides_elapsed_time_blocks_for_today(self, _mock_now):
+        UserSettings.objects.create(
+            user=self.user,
+            work_time_ranges=[
+                {'start': '11:00:00', 'end': '12:00:00'},
+                {'start': '14:00:00', 'end': '17:00:00'},
+            ],
+        )
+
+        response = self.client.get(
+            '/api/availability/generate/?start_date=2026-06-03&weeks=1&timezone=America/Los_Angeles'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        today = next(item for item in response.data if item['date'] == '2026-06-03')
+        self.assertEqual(today['availability'], '2:00 PM - 5:00 PM')
+
+    @patch(
+        'availability.utils.timezone.now',
+        return_value=datetime(2026, 6, 4, 1, 57, tzinfo=dt_timezone.utc),
+    )
+    def test_generate_hides_today_when_all_time_blocks_elapsed(self, _mock_now):
+        UserSettings.objects.create(
+            user=self.user,
+            work_time_ranges=[
+                {'start': '11:00:00', 'end': '12:00:00'},
+                {'start': '14:00:00', 'end': '17:00:00'},
+            ],
+        )
+
+        response = self.client.get(
+            '/api/availability/generate/?start_date=2026-06-03&weeks=1&timezone=America/Los_Angeles'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('2026-06-03', [item['date'] for item in response.data])
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
@@ -775,4 +816,3 @@ class HolidayCachingTests(APITestCase):
         
         response2 = self.client.get('/api/holidays/federal/')
         self.assertEqual(len(response2.data), count_before + 1)
-

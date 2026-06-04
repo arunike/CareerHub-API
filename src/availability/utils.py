@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta, date, time
+from datetime import datetime, timedelta, date, time, timezone as dt_timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import pandas as pd
 from django.http import HttpResponse, JsonResponse
+from django.utils import timezone
 import json
 import io
 import holidays
@@ -89,6 +91,46 @@ def subtract_intervals(base_start, base_end, intervals):
             break
             
     return available
+
+
+def filter_expired_availability_text(availability_text, availability_date, timezone_str):
+    if not availability_text or availability_text == "Unavailable":
+        return availability_text
+
+    try:
+        target_tz = ZoneInfo(timezone_str)
+    except (TypeError, ValueError, ZoneInfoNotFoundError):
+        target_tz = ZoneInfo("America/Los_Angeles")
+
+    now = timezone.now()
+    if timezone.is_naive(now):
+        now = timezone.make_aware(now, dt_timezone.utc)
+    local_now = now.astimezone(target_tz)
+
+    if availability_date < local_now.date():
+        return "Unavailable"
+
+    if availability_date > local_now.date():
+        return availability_text
+
+    future_parts = []
+    parts = [part.strip() for part in str(availability_text).split(',') if part.strip()]
+    for part in parts:
+        if ' - ' not in part:
+            future_parts.append(part)
+            continue
+
+        start_str, _end_str = [item.strip() for item in part.split(' - ', 1)]
+        start_time = parse_time_str(start_str)
+        if not start_time:
+            future_parts.append(part)
+            continue
+
+        start_dt = datetime.combine(availability_date, start_time).replace(tzinfo=target_tz)
+        if start_dt > local_now:
+            future_parts.append(part)
+
+    return ", ".join(future_parts) if future_parts else "Unavailable"
 
 def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', user=None):
     availability = {}
@@ -197,6 +239,8 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
                         parts.append(f"{s_dt.strftime('%-I:%M %p')} - {e_dt.strftime('%-I:%M %p')}")
 
                 text = ", ".join(parts) if parts else "Unavailable"
+
+        text = filter_expired_availability_text(text, d, timezone_str)
 
         if text != "Unavailable":
             availability[date_str] = {

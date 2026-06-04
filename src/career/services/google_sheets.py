@@ -255,6 +255,9 @@ def sync_google_sheet(config, force=False):
 
         changes_list = []
         timeline_repair_cache = _timeline_repair_cache_from_sync_runs(config)
+        tracked_rows_by_key = _tracked_rows_by_external_key(config)
+        applications_by_id = _applications_by_tracked_row(config, tracked_rows_by_key.values())
+        timeline_stage_cache = _timeline_stage_cache(config, applications_by_id)
         seen_external_keys = set()
 
         for offset, raw_row in enumerate(rows[header_index + 1:], start=header_index + 2):
@@ -276,6 +279,9 @@ def sync_google_sheet(config, force=False):
                     mapping,
                     force=force or duplicate_key_in_sheet,
                     timeline_repair_cache=timeline_repair_cache,
+                    tracked_rows_by_key=tracked_rows_by_key,
+                    applications_by_id=applications_by_id,
+                    timeline_stage_cache=timeline_stage_cache,
                 )
                 result[action] += 1
                 result['history'].extend(history)
@@ -747,20 +753,37 @@ def _sync_row_with_history(
     force=False,
     duplicate_resolution='merge',
     timeline_repair_cache=None,
+    tracked_rows_by_key=None,
+    applications_by_id=None,
+    timeline_stage_cache=None,
 ):
     payload = _mapped_payload(row, mapping)
     external_key = _external_key(payload, row_number)
     row_hash = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode('utf-8')).hexdigest()
     payload['_user'] = config.user
-    tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
+    if tracked_rows_by_key is not None:
+        tracked = tracked_rows_by_key.get(external_key)
+    else:
+        tracked = GoogleSheetSyncRow.objects.filter(config=config, external_key=external_key).first()
     if (
         tracked
         and tracked.row_hash == row_hash
         and not force
-        and not _needs_application_date_backfill(config, payload, tracked)
-        and not _needs_application_source_restore(config, tracked)
+        and not _needs_application_date_backfill(
+            config,
+            payload,
+            tracked,
+            applications_by_id=applications_by_id,
+        )
+        and not _needs_application_source_restore(config, tracked, applications_by_id=applications_by_id)
     ):
-        _repair_tracked_application_timeline_from_sync_history(config, tracked, timeline_repair_cache=timeline_repair_cache)
+        _repair_tracked_application_timeline_from_sync_history(
+            config,
+            tracked,
+            timeline_repair_cache=timeline_repair_cache,
+            applications_by_id=applications_by_id,
+            timeline_stage_cache=timeline_stage_cache,
+        )
         return 'skipped', [_history_entry('skipped', row_number, payload, 'No changes detected since the last sync.')], {}
 
     history_context = _build_history_context(config, payload, tracked, row_number, duplicate_resolution=duplicate_resolution)
@@ -1197,18 +1220,65 @@ def _external_key(payload, row_number):
     return f'row:{row_number}'
 
 
-def _needs_application_date_backfill(config, payload, tracked):
+def _tracked_rows_by_external_key(config):
+    if not getattr(config, 'id', None):
+        return {}
+    return {
+        row.external_key: row
+        for row in GoogleSheetSyncRow.objects.filter(config=config)
+    }
+
+
+def _applications_by_tracked_row(config, tracked_rows):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
+        return {}
+    application_ids = {
+        row.local_object_id
+        for row in tracked_rows
+        if row.local_object_type == 'career.Application' and row.local_object_id
+    }
+    if not application_ids:
+        return {}
+    return {
+        application.id: application
+        for application in Application.objects.filter(
+            id__in=application_ids,
+            user=config.user,
+        ).select_related('company')
+    }
+
+
+def _timeline_stage_cache(config, applications_by_id):
+    if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS or not applications_by_id:
+        return {}
+    cache = {application_id: set() for application_id in applications_by_id}
+    for entry in ApplicationTimelineEntry.objects.filter(
+        user=config.user,
+        application_id__in=applications_by_id.keys(),
+        event_date__isnull=False,
+    ).only('application_id', 'stage'):
+        cache.setdefault(entry.application_id, set()).add(entry.stage)
+    return cache
+
+
+def _needs_application_date_backfill(config, payload, tracked, applications_by_id=None):
     if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS or not tracked:
         return False
     if payload.get('date_applied'):
         return False
+    if applications_by_id is not None:
+        application = applications_by_id.get(tracked.local_object_id)
+        return bool(application and not application.date_applied)
     application = Application.objects.filter(id=tracked.local_object_id, user=config.user).only('date_applied').first()
     return bool(application and not application.date_applied)
 
 
-def _needs_application_source_restore(config, tracked):
+def _needs_application_source_restore(config, tracked, applications_by_id=None):
     if config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS or not tracked:
         return False
+    if applications_by_id is not None:
+        application = applications_by_id.get(tracked.local_object_id)
+        return bool(application and application.source_removed_at)
     return Application.objects.filter(
         id=tracked.local_object_id,
         user=config.user,
@@ -1375,14 +1445,23 @@ def _sync_application_timeline_from_status(application, diff):
         _ensure_application_timeline_entry(application, stage, sync_date)
 
 
-def _repair_tracked_application_timeline_from_sync_history(config, tracked, timeline_repair_cache=None):
+def _repair_tracked_application_timeline_from_sync_history(
+    config,
+    tracked,
+    timeline_repair_cache=None,
+    applications_by_id=None,
+    timeline_stage_cache=None,
+):
     if not getattr(config, 'id', None) or config.target_type != GoogleSheetSyncConfig.TARGET_APPLICATIONS:
         return
 
-    application = Application.objects.filter(
-        id=tracked.local_object_id,
-        user=config.user,
-    ).first()
+    if applications_by_id is not None:
+        application = applications_by_id.get(tracked.local_object_id)
+    else:
+        application = Application.objects.filter(
+            id=tracked.local_object_id,
+            user=config.user,
+        ).first()
     if not application:
         return
 
@@ -1394,7 +1473,11 @@ def _repair_tracked_application_timeline_from_sync_history(config, tracked, time
         stage_dates.setdefault(stage, fallback_date)
 
     for stage, event_date in stage_dates.items():
+        if timeline_stage_cache is not None and stage in timeline_stage_cache.get(application.id, set()):
+            continue
         _ensure_application_timeline_entry(application, stage, event_date)
+        if timeline_stage_cache is not None and event_date:
+            timeline_stage_cache.setdefault(application.id, set()).add(stage)
 
 
 def _timeline_repair_cache_from_sync_runs(config):
