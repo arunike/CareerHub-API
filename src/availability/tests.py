@@ -1,6 +1,8 @@
 import json
+from io import BytesIO
 from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError
 
 from django.core.cache import cache
 from django.core import mail
@@ -588,6 +590,40 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(request.headers['Authorization'], 'Bearer openrouter-key-1234')
         self.assertEqual(request.headers['X-openrouter-title'], 'CareerHub')
 
+    @patch('availability.ai_provider.urlopen')
+    def test_ai_provider_relay_supports_custom_openai_compatible_endpoint(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'custom'
+        settings.ai_provider_endpoint = 'https://api.mistral.ai/v1/chat/completions'
+        settings.ai_provider_model = 'mistral-medium-latest'
+        settings.set_ai_provider_api_key('mistral-key-1234')
+        settings.save()
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(
+            {'choices': [{'message': {'content': 'Hello from Mistral'}}]}
+        ).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}], 'temperature': 0.4},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data['choices'][0]['message']['content'],
+            'Hello from Mistral',
+        )
+        request = mock_urlopen.call_args[0][0]
+        self.assertEqual(request.full_url, 'https://api.mistral.ai/v1/chat/completions')
+        self.assertEqual(request.headers['Authorization'], 'Bearer mistral-key-1234')
+        request_payload = json.loads(request.data.decode('utf-8'))
+        self.assertEqual(request_payload['model'], 'mistral-medium-latest')
+        self.assertEqual(request_payload['messages'], [{'role': 'user', 'content': 'Say hello'}])
+        self.assertEqual(request_payload['temperature'], 0.4)
+
     def test_ai_provider_relay_requires_saved_provider_key(self):
         response = self.client.post(
             self.chat_completion_url,
@@ -597,6 +633,182 @@ class AIProviderSettingsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('AI provider is not configured', response.data['detail'])
+
+    @patch('availability.ai_provider.urlopen')
+    def test_ai_provider_relay_handles_timeout(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'openai'
+        settings.ai_provider_endpoint = 'https://api.openai.com/v1/chat/completions'
+        settings.ai_provider_model = 'gpt-test'
+        settings.set_ai_provider_api_key('secret-key-1234')
+        settings.save()
+
+        mock_urlopen.side_effect = TimeoutError("The read operation timed out")
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn('AI provider request timed out', response.data['detail'])
+
+    @patch('availability.ai_provider.urlopen')
+    def test_ai_provider_relay_heals_invalid_json_with_newlines(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'openai'
+        settings.ai_provider_endpoint = 'https://api.openai.com/v1/chat/completions'
+        settings.ai_provider_model = 'gpt-test'
+        settings.set_ai_provider_api_key('secret-key-1234')
+        settings.save()
+
+        invalid_json_content = '{\n  "how_to_strengthen": "**Critical gap**. Start with:\\n        1. Mentorship"\n}'
+        # Wait, inside the python string, to simulate a raw unescaped newline, we should put an actual literal newline character inside the value:
+        raw_newline_json = '{\n  "how_to_strengthen": "**Critical gap**. Start with:\n        1. Mentorship"\n}'
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(
+            {'choices': [{'message': {'content': raw_newline_json}}]}
+        ).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = response.data['choices'][0]['message']['content']
+        parsed = json.loads(content)
+        self.assertEqual(parsed['how_to_strengthen'], '**Critical gap**. Start with:\n        1. Mentorship')
+
+    @patch('availability.ai_provider.urlopen')
+    def test_ai_provider_relay_heals_invalid_json_with_array_colons(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'openai'
+        settings.ai_provider_endpoint = 'https://api.openai.com/v1/chat/completions'
+        settings.ai_provider_model = 'gpt-test'
+        settings.set_ai_provider_api_key('secret-key-1234')
+        settings.save()
+
+        malformed_json = (
+            '{\n'
+            '  "strongest_evidence": [\n'
+            '    "**Impact**": "$9.1M/month cost savings",\n'
+            '    "**Ownership**": End-to-end delivery"\n'
+            '  ]\n'
+            '}'
+        )
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(
+            {'choices': [{'message': {'content': malformed_json}}]}
+        ).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = response.data['choices'][0]['message']['content']
+        parsed = json.loads(content)
+        self.assertEqual(
+            parsed['strongest_evidence'],
+            [
+                '**Impact**: $9.1M/month cost savings',
+                '**Ownership**: End-to-end delivery'
+            ]
+        )
+
+    @patch('availability.ai_provider.urlopen')
+    def test_ai_provider_relay_heals_smart_quotes_and_trailing_bold_quotes(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'openai'
+        settings.ai_provider_endpoint = 'https://api.openai.com/v1/chat/completions'
+        settings.ai_provider_model = 'gpt-test'
+        settings.set_ai_provider_api_key('secret-key-1234')
+        settings.save()
+
+        # Malformed JSON containing **“smart quotes, **” and trailing bold quotes "**
+        malformed_json = (
+            '{\n'
+            '  "avoid_saying": [\n'
+            '    **“smart quote here”**,\n'
+            '    **”another one**”,\n'
+            '    "trailing bold"**\n'
+            '  ]\n'
+            '}'
+        )
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(
+            {'choices': [{'message': {'content': malformed_json}}]}
+        ).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = response.data['choices'][0]['message']['content']
+        parsed = json.loads(content)
+        self.assertEqual(
+            parsed['avoid_saying'],
+            [
+                '**smart quote here**',
+                '**another one**',
+                'trailing bold**'
+            ]
+        )
+
+    @patch('availability.ai_provider.urlopen')
+    def test_ai_provider_relay_surfaces_nested_provider_error_details(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'gemini'
+        settings.ai_provider_endpoint = 'https://generativelanguage.googleapis.com/v1beta'
+        settings.ai_provider_model = 'gemini-3-flash-preview'
+        settings.set_ai_provider_api_key('google-key-1234')
+        settings.save()
+
+        error_body = json.dumps(
+            {
+                'error': {
+                    'code': 400,
+                    'status': 'INVALID_ARGUMENT',
+                    'details': [
+                        {
+                            'reason': 'MODEL_NOT_SUPPORTED',
+                            'domain': 'googleapis.com',
+                        }
+                    ],
+                }
+            }
+        ).encode('utf-8')
+        mock_urlopen.side_effect = HTTPError(
+            url='https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
+            code=400,
+            msg='Bad Request',
+            hdrs={},
+            fp=BytesIO(error_body),
+        )
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn('INVALID_ARGUMENT', response.data['detail'])
+        self.assertIn('MODEL_NOT_SUPPORTED', response.data['detail'])
 
 
 class AuthJwtFlowTests(APITestCase):

@@ -511,6 +511,9 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
                         'saved_at',
                     )
                 }
+                source_experience_id = item.get('source_experience')
+                if source_experience_id and Experience.objects.filter(user=user, id=source_experience_id).exists():
+                    payload_item['source_experience_id'] = source_experience_id
                 if not payload_item.get('artifact_type') or not payload_item.get('client_id'):
                     continue
                 _, created = AIArtifact.objects.update_or_create(

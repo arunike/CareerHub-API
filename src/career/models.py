@@ -355,10 +355,12 @@ class AIArtifact(models.Model):
     TYPE_JD_REPORT = 'JD_REPORT'
     TYPE_COVER_LETTER = 'COVER_LETTER'
     TYPE_NEGOTIATION_RESULT = 'NEGOTIATION_RESULT'
+    TYPE_PROMOTION_REVIEW = 'PROMOTION_REVIEW'
     ARTIFACT_TYPE_CHOICES = [
         (TYPE_JD_REPORT, 'JD Report'),
         (TYPE_COVER_LETTER, 'Cover Letter'),
         (TYPE_NEGOTIATION_RESULT, 'Negotiation Result'),
+        (TYPE_PROMOTION_REVIEW, 'Promotion Review'),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ai_artifacts')
@@ -376,6 +378,13 @@ class AIArtifact(models.Model):
     )
     source_offer = models.ForeignKey(
         Offer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ai_artifacts',
+    )
+    source_experience = models.ForeignKey(
+        'Experience',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

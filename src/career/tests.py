@@ -172,6 +172,55 @@ class AIArtifactAPITests(APITestCase):
         self.assertEqual([item['id'] for item in remaining], [locked['id']])
         self.assertFalse(any(item['id'] == unlocked['id'] for item in remaining))
 
+    def test_promotion_review_artifacts_bind_to_user_experience(self):
+        experience = Experience.objects.create(
+            user=self.user,
+            title='Software Engineer',
+            company='Acme',
+            start_date='2025-01-01',
+            is_current=True,
+        )
+        other_experience = Experience.objects.create(
+            user=self.other_user,
+            title='Staff Engineer',
+            company='OtherCo',
+            start_date='2024-01-01',
+            is_current=True,
+        )
+
+        response = self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'PROMOTION_REVIEW',
+                'client_id': 'promotion-review-1',
+                'title': 'Promotion Review - Acme',
+                'summary': 'Ready to start the conversation',
+                'source_experience': experience.id,
+                'payload': {
+                    'verdict': {'label': 'Ready to start conversation'},
+                    'sourceExperienceId': experience.id,
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['source_experience'], experience.id)
+
+        rejected = self.client.post(
+            '/api/career/ai-artifacts/',
+            {
+                'artifact_type': 'PROMOTION_REVIEW',
+                'client_id': 'promotion-review-2',
+                'title': 'Invalid Promotion Review',
+                'source_experience': other_experience.id,
+                'payload': {},
+            },
+            format='json',
+        )
+
+        self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_application_prep_workspace_collects_linked_materials_and_evidence(self):
         company = Company.objects.create(user=self.user, name='Acme')
         application = Application.objects.create(
@@ -1957,4 +2006,3 @@ class CareerCachingTests(APITestCase):
         
         response3 = self.client.get('/api/career/ai-artifacts/')
         self.assertEqual(len(response3.data), 0)
-

@@ -14,11 +14,13 @@ AI_PROVIDER_ADAPTER_CLAUDE = "claude"
 AI_PROVIDER_ADAPTER_GEMINI = "gemini"
 AI_PROVIDER_ADAPTER_OPENAI = "openai"
 AI_PROVIDER_ADAPTER_OPENROUTER = "openrouter"
+AI_PROVIDER_ADAPTER_CUSTOM = "custom"
 AI_PROVIDER_ADAPTER_CHOICES = (
     (AI_PROVIDER_ADAPTER_CLAUDE, "Claude"),
     (AI_PROVIDER_ADAPTER_GEMINI, "Gemini"),
     (AI_PROVIDER_ADAPTER_OPENAI, "OpenAI"),
     (AI_PROVIDER_ADAPTER_OPENROUTER, "OpenRouter"),
+    (AI_PROVIDER_ADAPTER_CUSTOM, "Custom"),
 )
 DEFAULT_AI_PROVIDER_ADAPTER = AI_PROVIDER_ADAPTER_GEMINI
 DEFAULT_AI_PROVIDER_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta"
@@ -140,18 +142,40 @@ def validate_ai_provider_endpoint(endpoint: str) -> str:
 
 
 def _extract_provider_error_message(payload: object) -> str:
-    if isinstance(payload, dict):
-        maybe_error = payload.get("error")
-        if isinstance(maybe_error, str) and maybe_error.strip():
-            return maybe_error.strip()
-        if isinstance(maybe_error, dict):
-            message = maybe_error.get("message")
-            if isinstance(message, str) and message.strip():
-                return message.strip()
+    preferred_keys = (
+        "message",
+        "detail",
+        "error_description",
+        "error",
+        "status",
+        "reason",
+    )
 
-        message = payload.get("message")
-        if isinstance(message, str) and message.strip():
-            return message.strip()
+    def collect_messages(value: object) -> list[str]:
+        if isinstance(value, str):
+            stripped = value.strip()
+            return [stripped] if stripped else []
+        if isinstance(value, list):
+            messages: list[str] = []
+            for item in value:
+                messages.extend(collect_messages(item))
+            return messages
+        if isinstance(value, dict):
+            messages = []
+            for key in preferred_keys:
+                if key in value:
+                    messages.extend(collect_messages(value.get(key)))
+            for nested_value in value.values():
+                messages.extend(collect_messages(nested_value))
+            return messages
+        return []
+
+    messages = []
+    for message in collect_messages(payload):
+        if message not in messages:
+            messages.append(message)
+    if messages:
+        return " | ".join(messages[:4])
 
     return "The AI provider returned an unknown error."
 
@@ -175,6 +199,8 @@ def _request_json(*, endpoint: str, request_payload: dict, headers: dict[str, st
         except json.JSONDecodeError:
             parsed_error = {"message": raw_error or f"Provider request failed with status {exc.code}."}
         raise AIProviderRequestError(_extract_provider_error_message(parsed_error)) from exc
+    except TimeoutError as exc:
+        raise AIProviderRequestError("AI provider request timed out.") from exc
     except URLError as exc:
         raise AIProviderRequestError("Failed to reach the configured AI provider.") from exc
 
@@ -348,31 +374,31 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
         adapter = AI_PROVIDER_ADAPTER_OPENAI
 
     if adapter == AI_PROVIDER_ADAPTER_CLAUDE:
-        return _relay_claude(
+        payload = _relay_claude(
             endpoint=endpoint,
             model=model,
             api_key=api_key,
             messages=messages,
             temperature=temperature,
         )
-    if adapter == AI_PROVIDER_ADAPTER_GEMINI:
-        return _relay_gemini(
+    elif adapter == AI_PROVIDER_ADAPTER_GEMINI:
+        payload = _relay_gemini(
             endpoint=endpoint,
             model=model,
             api_key=api_key,
             messages=messages,
             temperature=temperature,
         )
-    if adapter == AI_PROVIDER_ADAPTER_OPENAI:
-        return _relay_chat_completions(
+    elif adapter == AI_PROVIDER_ADAPTER_OPENAI:
+        payload = _relay_chat_completions(
             endpoint=endpoint,
             model=model,
             api_key=api_key,
             messages=messages,
             temperature=temperature,
         )
-    if adapter == AI_PROVIDER_ADAPTER_OPENROUTER:
-        return _relay_chat_completions(
+    elif adapter == AI_PROVIDER_ADAPTER_OPENROUTER:
+        payload = _relay_chat_completions(
             endpoint=endpoint,
             model=model,
             api_key=api_key,
@@ -383,4 +409,172 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
                 "X-OpenRouter-Title": "CareerHub",
             },
         )
-    raise AIProviderConfigurationError("Unsupported AI provider adapter.")
+    elif adapter == AI_PROVIDER_ADAPTER_CUSTOM:
+        payload = _relay_chat_completions(
+            endpoint=endpoint,
+            model=model,
+            api_key=api_key,
+            messages=messages,
+            temperature=temperature,
+        )
+    else:
+        raise AIProviderConfigurationError("Unsupported AI provider adapter.")
+
+    if isinstance(payload, dict) and "choices" in payload:
+        for choice in payload["choices"]:
+            if isinstance(choice, dict) and "message" in choice:
+                message = choice["message"]
+                if isinstance(message, dict) and "content" in message:
+                    content = message.get("content")
+                    if isinstance(content, str):
+                        message["content"] = try_heal_json(content)
+
+    return payload
+
+
+def try_heal_json(text: str) -> str:
+    # 1. Extract potential JSON block (handles markdown fences, surrounding text, etc.)
+    extracted = extract_json_block(text)
+    
+    # 2. Heal misplaced markdown bold quotes
+    import re
+    # Heal leading bold quotes (e.g., **" or **“ -> "**)
+    healed_bold = re.sub(r'(^|[,\[\{\s])(\*\*+)\s*[“"”]', r'\1"\2', extracted)
+    # Heal trailing bold quotes (e.g., "** at the end of a string -> **")
+    healed_bold = re.sub(r'[“"”]\s*(\*\*+)(?=\s*[,\]\}]|$)', r'\1"', healed_bold)
+    
+    # 3. Heal unescaped newlines in strings
+    healed = fix_unescaped_json_newlines(healed_bold)
+    
+    # 4. Verify if it is valid JSON
+    try:
+        import json
+        json.loads(healed)
+        return healed # Valid JSON! Return the clean healed JSON string
+    except Exception:
+        pass
+
+    # 5. Try healing flat array colons first, then apply newline healing
+    try:
+        healed_arrays = heal_all_flat_arrays(healed_bold)
+        healed_both = fix_unescaped_json_newlines(healed_arrays)
+        import json
+        json.loads(healed_both)
+        return healed_both
+    except Exception:
+        pass
+        
+    # 6. Global smart quote replacement fallback
+    try:
+        healed_quotes = healed_bold.replace('“', '"').replace('”', '"')
+        healed_quotes_newlines = fix_unescaped_json_newlines(healed_quotes)
+        import json
+        json.loads(healed_quotes_newlines)
+        return healed_quotes_newlines
+    except Exception:
+        pass
+        
+    # Not valid JSON. Return original text untouched.
+    return text
+
+
+def heal_flat_array_colons(array_content: str) -> str:
+    import re
+    # Handle case 1: "key": "value" (both quoted)
+    pattern1 = r'"([^"\\]*(?:\\.[^"\\]*)*)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"'
+    # Handle case 2: "key": value" (missing opening quote for value)
+    pattern2 = r'"([^"\\]*(?:\\.[^"\\]*)*)"\s*:\s*([^"\s][^"\n\r]*)"'
+    
+    def replacer(match):
+        g1 = match.group(1)
+        g2 = match.group(2)
+        return f'"{g1}: {g2}"'
+        
+    healed = re.sub(pattern1, replacer, array_content)
+    healed = re.sub(pattern2, replacer, healed)
+    return healed
+
+
+def heal_all_flat_arrays(text: str) -> str:
+    result = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == '[':
+            depth = 1
+            j = i + 1
+            while j < n and depth > 0:
+                if text[j] == '[':
+                    depth += 1
+                elif text[j] == ']':
+                    depth -= 1
+                j += 1
+            
+            if depth == 0:
+                array_block = text[i:j]
+                inner_content = text[i+1:j-1]
+                if '{' not in inner_content and '}' not in inner_content:
+                    healed_inner = heal_flat_array_colons(inner_content)
+                    result.append('[' + healed_inner + ']')
+                else:
+                    result.append(array_block)
+                i = j
+            else:
+                result.append(text[i])
+                i += 1
+        else:
+            result.append(text[i])
+            i += 1
+            
+    return "".join(result)
+
+
+def extract_json_block(text: str) -> str:
+    cleaned = text.strip()
+    first_brace = cleaned.find("{")
+    first_bracket = cleaned.find("[")
+    
+    start_idx = -1
+    end_char = ""
+    
+    if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
+        start_idx = first_brace
+        end_char = "}"
+    elif first_bracket != -1:
+        start_idx = first_bracket
+        end_char = "]"
+        
+    if start_idx == -1:
+        return text
+        
+    end_idx = cleaned.rfind(end_char)
+    if end_idx == -1 or end_idx < start_idx:
+        return text
+        
+    return cleaned[start_idx:end_idx + 1]
+
+
+def fix_unescaped_json_newlines(json_str: str) -> str:
+    in_string = False
+    escaped = False
+    result = []
+    for char in json_str:
+        if char == '"' and not escaped:
+            in_string = not in_string
+        
+        if in_string:
+            if char == '\n':
+                result.append('\\n')
+            elif char == '\r':
+                result.append('\\r')
+            else:
+                result.append(char)
+        else:
+            result.append(char)
+            
+        if char == '\\' and not escaped:
+            escaped = True
+        else:
+            escaped = False
+            
+    return "".join(result)
