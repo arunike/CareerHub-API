@@ -190,7 +190,9 @@ def _request_json(*, endpoint: str, request_payload: dict, headers: dict[str, st
     )
 
     try:
-        with urlopen(request, timeout=getattr(settings, "AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", 30)) as response:
+        timeout_val = getattr(settings, "AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", 60)
+        timeout_val = max(timeout_val, 60)
+        with urlopen(request, timeout=timeout_val) as response:
             raw_body = response.read().decode("utf-8")
     except HTTPError as exc:
         raw_error = exc.read().decode("utf-8", errors="replace")
