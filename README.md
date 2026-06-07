@@ -68,8 +68,9 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and routes provider requests through the encrypted backend relay
 - **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
 - **Skill Refinement**: the frontend can refine Experience skills through the backend relay when the user's provider key is configured
+- **Promotion Readiness Review**: the frontend evaluates saved Experience evidence plus optional context through the backend relay, then stores the review as a `PROMOTION_REVIEW` artifact linked to the source Experience
 - **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
-- **AI Artifact Library**: generated JD reports, cover letters, and negotiation results are persisted as authenticated `AIArtifact` records so they sync across browsers/devices, keep lock/delete semantics, and participate in account export/restore
+- **AI Artifact Library**: generated JD reports, cover letters, negotiation results, and promotion reviews are persisted as authenticated `AIArtifact` records so they sync across browsers/devices, keep lock/delete semantics, and participate in account export/restore
 
 #### Skill Extraction (NLP, background)
 - Extracts fallback skills from Experience descriptions using a lightweight keyword + acronym matcher
@@ -153,7 +154,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **SQLite** - Local fallback when `DATABASE_URL` is unset
 
 ### AI / NLP
-- **User-provided AI provider** - Encrypted backend relay with Claude, Gemini, OpenAI, and OpenRouter adapters for JD matching, cover letters, job URL import, negotiation advice, and analytics widget fallback
+- **User-provided AI provider** - Encrypted backend relay with Claude, Gemini, OpenAI, OpenRouter, and custom adapters for JD matching, cover letters, job URL import, negotiation advice, and analytics widget fallback
 - **Lightweight keyword/acronym extractor** - Skill extraction from free-text experience descriptions without heavyweight runtime NLP dependencies
 
 ### Distributed Systems
@@ -324,7 +325,7 @@ Frontend notes:
 ### 🤖 Configuring AI for the Current App
 Current AI features are configured in the frontend, with the provider key stored encrypted on the backend:
 1. Open the app and go to `Settings` → `AI Provider`.
-2. Choose Claude, Gemini, OpenAI, or OpenRouter, then enter the endpoint, model, and your own API key.
+2. Choose Claude, Gemini, OpenAI, OpenRouter, or Custom providers, then enter the endpoint, model, and your own API key.
 3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
@@ -517,7 +518,7 @@ Base prefix: `/api/career/`
 - `GET /api/user-settings/account-export/?fmt=json|zip` — Download account-level CareerHub export data
 - `POST /api/user-settings/restore-backup/` — Restore a CareerHub account export in merge or replace mode
 - `DELETE /api/user-settings/account/` — Schedule authenticated account deletion with a 14-day grace period when the payload includes `confirm=DELETE`
-- `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, or OpenRouter adapter using the encrypted provider key
+- `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, OpenRouter, or custom adapter using the encrypted provider key
 
 #### Internal Maintenance
 - `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
