@@ -4,7 +4,7 @@ from .applications import (
     ImportApplicationsView,
     JobBoardImportView,
 )
-from .ai_artifacts import AIArtifactViewSet
+from .ai_artifacts import AIArtifactGenerationJobViewSet, AIArtifactViewSet
 from .analytics import ApplicationTimelineAnalyticsView
 from .companies import CompanyViewSet
 from .documents import DocumentViewSet

@@ -26,6 +26,7 @@ DEFAULT_AI_PROVIDER_ADAPTER = AI_PROVIDER_ADAPTER_GEMINI
 DEFAULT_AI_PROVIDER_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_AI_PROVIDER_MODEL = "gemini-3-flash-preview"
 DEFAULT_CLAUDE_MAX_TOKENS = 4096
+AI_PROVIDER_REQUEST_TIMEOUT_CEILING_SECONDS = 55
 
 
 class AIProviderConfigurationError(Exception):
@@ -132,12 +133,6 @@ def validate_ai_provider_endpoint(endpoint: str) -> str:
             "Private-network AI provider endpoints are not allowed from the backend relay."
         )
 
-    allowed_hosts = getattr(settings, "AI_PROVIDER_ALLOWED_HOSTS", [])
-    if allowed_hosts and host not in allowed_hosts:
-        raise AIProviderConfigurationError(
-            "AI provider host is not in the allowed host list for this deployment."
-        )
-
     return normalized
 
 
@@ -190,8 +185,11 @@ def _request_json(*, endpoint: str, request_payload: dict, headers: dict[str, st
     )
 
     try:
-        timeout_val = getattr(settings, "AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", 60)
-        timeout_val = max(timeout_val, 60)
+        configured_timeout = getattr(settings, "AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", 45)
+        timeout_val = min(
+            max(float(configured_timeout), 1),
+            AI_PROVIDER_REQUEST_TIMEOUT_CEILING_SECONDS,
+        )
         with urlopen(request, timeout=timeout_val) as response:
             raw_body = response.read().decode("utf-8")
     except HTTPError as exc:
@@ -219,6 +217,7 @@ def _relay_chat_completions(
     api_key: str,
     messages,
     temperature: float,
+    max_tokens: int | None = None,
     extra_headers: dict[str, str] | None = None,
 ):
     headers = {
@@ -227,13 +226,16 @@ def _relay_chat_completions(
     }
     if extra_headers:
         headers.update(extra_headers)
+    request_payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if max_tokens:
+        request_payload["max_tokens"] = max(1, int(max_tokens))
     return _request_json(
         endpoint=endpoint,
-        request_payload={
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-        },
+        request_payload=request_payload,
         headers=headers,
     )
 
@@ -267,7 +269,9 @@ def _extract_google_text(payload: dict) -> str:
     return "".join(part.get("text", "") for part in parts if isinstance(part, dict)).strip()
 
 
-def _relay_gemini(*, endpoint: str, model: str, api_key: str, messages, temperature: float):
+def _relay_gemini(
+    *, endpoint: str, model: str, api_key: str, messages, temperature: float, max_tokens: int | None = None
+):
     contents, system_parts = _messages_to_google_contents(messages)
     request_payload = {
         "contents": contents,
@@ -275,6 +279,8 @@ def _relay_gemini(*, endpoint: str, model: str, api_key: str, messages, temperat
             "temperature": temperature,
         },
     }
+    if max_tokens:
+        request_payload["generationConfig"]["maxOutputTokens"] = max(1, int(max_tokens))
     if system_parts:
         request_payload["system_instruction"] = {"parts": system_parts}
 
@@ -333,11 +339,13 @@ def _claude_messages_endpoint(endpoint: str) -> str:
     return f"{normalized_endpoint}/v1/messages"
 
 
-def _relay_claude(*, endpoint: str, model: str, api_key: str, messages, temperature: float):
+def _relay_claude(
+    *, endpoint: str, model: str, api_key: str, messages, temperature: float, max_tokens: int | None = None
+):
     claude_messages, system_prompt = _messages_to_claude(messages)
     request_payload = {
         "model": model,
-        "max_tokens": DEFAULT_CLAUDE_MAX_TOKENS,
+        "max_tokens": max(1, int(max_tokens or DEFAULT_CLAUDE_MAX_TOKENS)),
         "messages": claude_messages,
         "temperature": temperature,
     }
@@ -359,7 +367,7 @@ def _relay_claude(*, endpoint: str, model: str, api_key: str, messages, temperat
     return {"choices": [{"message": {"content": text}}], "provider": AI_PROVIDER_ADAPTER_CLAUDE}
 
 
-def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.2):
+def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.2, max_tokens=None):
     endpoint = validate_ai_provider_endpoint(user_settings.ai_provider_endpoint or "")
     model = (user_settings.ai_provider_model or "").strip()
     api_key = user_settings.get_ai_provider_api_key()
@@ -382,6 +390,7 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
             api_key=api_key,
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
     elif adapter == AI_PROVIDER_ADAPTER_GEMINI:
         payload = _relay_gemini(
@@ -390,6 +399,7 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
             api_key=api_key,
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
     elif adapter == AI_PROVIDER_ADAPTER_OPENAI:
         payload = _relay_chat_completions(
@@ -398,6 +408,7 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
             api_key=api_key,
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
     elif adapter == AI_PROVIDER_ADAPTER_OPENROUTER:
         payload = _relay_chat_completions(
@@ -406,6 +417,7 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
             api_key=api_key,
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
             extra_headers={
                 "HTTP-Referer": "https://careerhub.local",
                 "X-OpenRouter-Title": "CareerHub",
@@ -418,6 +430,7 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
             api_key=api_key,
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
     else:
         raise AIProviderConfigurationError("Unsupported AI provider adapter.")
@@ -434,9 +447,102 @@ def relay_ai_provider_chat_completion(*, user_settings, messages, temperature=0.
     return payload
 
 
+def heal_yaml_block_scalars(text: str) -> str:
+    import re
+    lines = text.splitlines()
+    result_lines = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        match = re.match(r'^(.*?)("[^"]+"\s*:\s*)(>\s*|>\-\s*|\|\s*)$', line)
+        if match:
+            leading = match.group(1)
+            prefix = match.group(2)
+            block_lines = []
+            i += 1
+            while i < n:
+                next_line = lines[i]
+                if re.match(r'^\s*"[^"]+"\s*:', next_line) or re.match(r'^\s*[\}\]]\s*,?\s*$', next_line):
+                    break
+                block_lines.append(next_line)
+                i += 1
+            
+            # Find common minimum indentation among non-empty lines
+            min_indent = None
+            for bline in block_lines:
+                stripped_bline = bline.lstrip()
+                if stripped_bline:
+                    indent_len = len(bline) - len(stripped_bline)
+                    if min_indent is None or indent_len < min_indent:
+                        min_indent = indent_len
+            
+            if min_indent is not None and min_indent > 0:
+                cleaned_block_lines = []
+                for bline in block_lines:
+                    if len(bline) >= min_indent:
+                        cleaned_block_lines.append(bline[min_indent:])
+                    else:
+                        cleaned_block_lines.append(bline.lstrip())
+                block_lines = cleaned_block_lines
+
+            combined = "\n".join(block_lines).strip()
+            if combined.startswith('"') and combined.endswith('"'):
+                combined = combined[1:-1]
+            elif combined.startswith('**"') and combined.endswith('"'):
+                combined = combined.replace('**"', '**')
+                if combined.endswith('"'):
+                    combined = combined[:-1]
+            
+            escaped = combined.replace('\\', '\\\\').replace('"', '\\"')
+            escaped = escaped.replace('\n', '\\n')
+            result_lines.append(f'{leading}{prefix}"{escaped}"')
+        else:
+            result_lines.append(line)
+            i += 1
+            
+    return "\n".join(result_lines)
+
+
+def heal_flat_array_element(line: str) -> str:
+    import re
+    normalized = line.replace('“', '"').replace('”', '"')
+    stripped = normalized.strip()
+    has_comma = stripped.endswith(',')
+    if has_comma:
+        stripped = stripped[:-1].strip()
+        
+    if not stripped:
+        return line
+        
+    if stripped.startswith('"') and stripped.endswith('"'):
+        indent = line[:len(line) - len(line.lstrip())]
+        return indent + stripped + (',' if has_comma else '')
+        
+    cleaned = re.sub(r'^\*\*+\s*[“"”]', '**', stripped)
+    cleaned = re.sub(r'[“"”]\s*\*\*+$', '**', cleaned)
+    cleaned = cleaned.replace('**"', '**').replace('"**', '**')
+    
+    if cleaned.startswith('"'):
+        cleaned = cleaned[1:]
+    if cleaned.endswith('"'):
+        cleaned = cleaned[:-1]
+        
+    escaped = cleaned.replace('\\', '\\\\').replace('"', '\\"')
+    healed = f'"{escaped}"'
+    if has_comma:
+        healed += ','
+        
+    indent = line[:len(line) - len(line.lstrip())]
+    return indent + healed
+
+
 def try_heal_json(text: str) -> str:
+    # 0. Heal YAML-like block scalars (e.g. key: >)
+    healed_yaml = heal_yaml_block_scalars(text)
+
     # 1. Extract potential JSON block (handles markdown fences, surrounding text, etc.)
-    extracted = extract_json_block(text)
+    extracted = extract_json_block(healed_yaml)
     
     # 2. Heal misplaced markdown bold quotes
     import re
@@ -466,7 +572,18 @@ def try_heal_json(text: str) -> str:
     except Exception:
         pass
         
-    # 6. Global smart quote replacement fallback
+    # 6. Try removing unmatched brackets/braces, then heal flat arrays and newlines
+    try:
+        cleaned_brackets = remove_unmatched_brackets_braces(healed_bold)
+        healed_arrays = heal_all_flat_arrays(cleaned_brackets)
+        healed_both = fix_unescaped_json_newlines(healed_arrays)
+        import json
+        json.loads(healed_both)
+        return healed_both
+    except Exception:
+        pass
+        
+    # 7. Global smart quote replacement fallback
     try:
         healed_quotes = healed_bold.replace('“', '"').replace('”', '"')
         healed_quotes_newlines = fix_unescaped_json_newlines(healed_quotes)
@@ -503,24 +620,39 @@ def heal_all_flat_arrays(text: str) -> str:
     n = len(text)
     while i < n:
         if text[i] == '[':
-            depth = 1
-            j = i + 1
-            while j < n and depth > 0:
-                if text[j] == '[':
-                    depth += 1
-                elif text[j] == ']':
-                    depth -= 1
-                j += 1
+            # Check if this [ is a valid JSON array start
+            # (i.e. preceded by :, [, ,, or { or start of text)
+            p = i - 1
+            while p >= 0 and text[p].isspace():
+                p -= 1
+            is_valid_start = (p < 0 or text[p] == ':')
             
-            if depth == 0:
-                array_block = text[i:j]
-                inner_content = text[i+1:j-1]
-                if '{' not in inner_content and '}' not in inner_content:
-                    healed_inner = heal_flat_array_colons(inner_content)
-                    result.append('[' + healed_inner + ']')
+            if is_valid_start:
+                depth = 1
+                j = i + 1
+                while j < n and depth > 0:
+                    if text[j] == '[':
+                        depth += 1
+                    elif text[j] == ']':
+                        depth -= 1
+                    j += 1
+                
+                if depth == 0:
+                    array_block = text[i:j]
+                    inner_content = text[i+1:j-1]
+                    if '{' not in inner_content and '}' not in inner_content:
+                        # Heal array elements line by line
+                        lines = inner_content.splitlines()
+                        healed_lines = [heal_flat_array_element(line) for line in lines]
+                        healed_inner = "\n".join(healed_lines)
+                        healed_inner = heal_flat_array_colons(healed_inner)
+                        result.append('[' + healed_inner + ']')
+                    else:
+                        result.append(array_block)
+                    i = j
                 else:
-                    result.append(array_block)
-                i = j
+                    result.append(text[i])
+                    i += 1
             else:
                 result.append(text[i])
                 i += 1
@@ -529,6 +661,47 @@ def heal_all_flat_arrays(text: str) -> str:
             i += 1
             
     return "".join(result)
+
+
+def remove_unmatched_brackets_braces(text: str) -> str:
+    n = len(text)
+    stack = []  # stores (char, index)
+    to_remove = set()
+    
+    in_string = False
+    escaped = False
+    
+    i = 0
+    while i < n:
+        char = text[i]
+        if char == '"' and not escaped:
+            in_string = not in_string
+            
+        if not in_string:
+            if char in {'{', '['}:
+                stack.append((char, i))
+            elif char == '}':
+                if stack and stack[-1][0] == '{':
+                    stack.pop()
+                else:
+                    to_remove.add(i)
+            elif char == ']':
+                if stack and stack[-1][0] == '[':
+                    stack.pop()
+                else:
+                    to_remove.add(i)
+                    
+        if char == '\\' and not escaped:
+            escaped = True
+        else:
+            escaped = False
+        i += 1
+        
+    if not to_remove:
+        return text
+    
+    return "".join(text[idx] for idx in range(n) if idx not in to_remove)
+
 
 
 def extract_json_block(text: str) -> str:

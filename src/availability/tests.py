@@ -439,6 +439,18 @@ class AIProviderSettingsTests(APITestCase):
         settings.refresh_from_db()
         self.assertEqual(settings.ai_provider_api_key_encrypted, '')
 
+    def test_current_settings_raises_validation_error_on_invalid_endpoint(self):
+        response = self.client.put(
+            self.current_settings_url,
+            {
+                'ai_provider_endpoint': 'ftp://api.example.com',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('ai_provider_endpoint', response.data)
+
+
     @patch('availability.ai_provider.urlopen')
     def test_ai_provider_relay_uses_stored_secret(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
@@ -633,6 +645,31 @@ class AIProviderSettingsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('AI provider is not configured', response.data['detail'])
+
+    @patch('availability.ai_provider.urlopen')
+    @override_settings(AI_PROVIDER_REQUEST_TIMEOUT_SECONDS=60)
+    def test_ai_provider_relay_keeps_timeout_below_platform_deadline(self, mock_urlopen):
+        settings, _ = UserSettings.objects.get_or_create(user=self.user)
+        settings.ai_provider_adapter = 'openai'
+        settings.ai_provider_endpoint = 'https://api.openai.com/v1/chat/completions'
+        settings.ai_provider_model = 'gpt-test'
+        settings.set_ai_provider_api_key('secret-key-1234')
+        settings.save()
+
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps(
+            {'choices': [{'message': {'content': 'Hello from provider'}}]}
+        ).encode('utf-8')
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        response = self.client.post(
+            self.chat_completion_url,
+            {'messages': [{'role': 'user', 'content': 'Say hello'}]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(mock_urlopen.call_args.kwargs['timeout'], 55)
 
     @patch('availability.ai_provider.urlopen')
     def test_ai_provider_relay_handles_timeout(self, mock_urlopen):
@@ -1028,3 +1065,46 @@ class HolidayCachingTests(APITestCase):
         
         response2 = self.client.get('/api/holidays/federal/')
         self.assertEqual(len(response2.data), count_before + 1)
+
+
+class JSONHealingTests(APITestCase):
+    def test_try_heal_json_valid_json(self):
+        from availability.ai_provider import try_heal_json
+        valid_json = '{"a": 1, "b": [1, 2], "c": {"d": "hello"}}'
+        self.assertEqual(json.loads(try_heal_json(valid_json)), json.loads(valid_json))
+
+    def test_try_heal_json_flat_array_colons(self):
+        from availability.ai_provider import try_heal_json
+        malformed_json = '{"strongest_evidence": ["**Impact**": "Drove savings", "**Ownership**": "End-to-end"]}'
+        expected_json = '{"strongest_evidence": ["**Impact**: Drove savings", "**Ownership**: End-to-end"]}'
+        self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
+
+    def test_try_heal_json_unescaped_newlines(self):
+        from availability.ai_provider import try_heal_json
+        malformed_json = '{"draft": "Hello\nWorld"}'
+        expected_json = '{"draft": "Hello\\nWorld"}'
+        self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
+
+    def test_try_heal_json_unmatched_brackets(self):
+        from availability.ai_provider import try_heal_json
+        malformed_json = '{"draft_message": "Hello [Your Name]"\n    ]}'
+        expected_json = '{"draft_message": "Hello [Your Name]"}'
+        self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
+
+    def test_try_heal_json_brackets_in_string_literal(self):
+        from availability.ai_provider import try_heal_json
+        malformed_json = '{"evidence": ["**[Impact]**": "value1"], "nested": "[bracket]"}'
+        expected_json = '{"evidence": ["**[Impact]**: value1"], "nested": "[bracket]"}'
+        self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
+
+    def test_try_heal_json_yaml_block_scalar(self):
+        from availability.ai_provider import try_heal_json
+        malformed_json = '{"draft_message": >\n  Line 1\n  Line 2\n}'
+        expected_json = '{"draft_message": "Line 1\\nLine 2"}'
+        self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
+
+    def test_try_heal_json_array_bold_quotes(self):
+        from availability.ai_provider import try_heal_json
+        malformed_json = '{"avoid": [\n  **"‘I think.’** (direct)",\n  **"Assumptions** (ask)"\n]}'
+        expected_json = '{"avoid": [\n  "**‘I think.’** (direct)",\n  "**Assumptions** (ask)"\n]}'
+        self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))

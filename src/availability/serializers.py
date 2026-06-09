@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.conf import settings
 from django.utils import timezone
 
-from .ai_provider import validate_ai_provider_endpoint
+from .ai_provider import validate_ai_provider_endpoint, AIProviderConfigurationError
 from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink, PublicBooking
 from .timezones import normalize_timezone
 from career.models import Application
@@ -119,7 +119,10 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         return obj.get_ai_provider_api_key_masked()
 
     def validate_ai_provider_endpoint(self, value):
-        return validate_ai_provider_endpoint(value)
+        try:
+            return validate_ai_provider_endpoint(value)
+        except AIProviderConfigurationError as exc:
+            raise serializers.ValidationError(str(exc))
 
     def validate_availability_weeks(self, value):
         if value < 1:

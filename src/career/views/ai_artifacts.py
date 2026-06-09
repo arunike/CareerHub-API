@@ -4,9 +4,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.cache import cache
 
-from ..models import AIArtifact
-from ..serializers import AIArtifactSerializer
+from ..models import AIArtifact, AIArtifactGenerationJob
+from ..serializers import AIArtifactGenerationJobSerializer, AIArtifactSerializer
 from ..cache import get_ai_artifacts_cache_key, invalidate_ai_artifacts_cache
+from ..services.ai_artifact_jobs import start_ai_artifact_generation_thread
 
 
 class AIArtifactViewSet(viewsets.ModelViewSet):
@@ -62,3 +63,14 @@ class AIArtifactViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+
+class AIArtifactGenerationJobViewSet(viewsets.ModelViewSet):
+    serializer_class = AIArtifactGenerationJobSerializer
+    http_method_names = ['get', 'post', 'head', 'options']
+
+    def get_queryset(self):
+        return AIArtifactGenerationJob.objects.filter(user=self.request.user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        job = serializer.save()
+        start_ai_artifact_generation_thread(job.id)

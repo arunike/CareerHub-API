@@ -13,6 +13,7 @@ class Migration(migrations.Migration):
             name='source_experience',
             field=models.ForeignKey(
                 blank=True,
+                db_constraint=False,
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name='ai_artifacts',

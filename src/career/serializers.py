@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from .models import (
     AIArtifact,
+    AIArtifactGenerationJob,
     Company,
     Application,
     ApplicationTimelineEntry,
@@ -78,6 +79,55 @@ class AIArtifactSerializer(serializers.ModelSerializer):
             defaults=validated_data,
         )
         return artifact
+
+
+class AIArtifactGenerationJobSerializer(serializers.ModelSerializer):
+    artifact_client_id = serializers.CharField(source='artifact.client_id', read_only=True)
+
+    class Meta:
+        model = AIArtifactGenerationJob
+        fields = [
+            'id',
+            'kind',
+            'status',
+            'input_payload',
+            'result_payload',
+            'error_message',
+            'artifact',
+            'artifact_client_id',
+            'started_at',
+            'completed_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'status',
+            'result_payload',
+            'error_message',
+            'artifact',
+            'artifact_client_id',
+            'started_at',
+            'completed_at',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_input_payload(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Job input payload must be an object.')
+        messages = value.get('messages')
+        if not isinstance(messages, list) or not messages:
+            raise serializers.ValidationError('Job input payload must include messages.')
+        artifact = value.get('artifact')
+        if not isinstance(artifact, dict):
+            raise serializers.ValidationError('Job input payload must include artifact metadata.')
+        return value
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        return AIArtifactGenerationJob.objects.create(user=request.user, **validated_data)
+
 
 class OfferSerializer(serializers.ModelSerializer):
     application_details = serializers.SerializerMethodField(read_only=True)
