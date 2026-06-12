@@ -1953,6 +1953,43 @@ class DocumentStorageFlowTests(APITestCase):
         self.assertEqual(remaining_titles, {"Locked Resume"})
         self.assertEqual(mock_delete_document_asset.call_count, 2)
 
+    def test_document_list_supports_server_side_pagination_and_filters(self):
+        Company.objects.create(user=self.user, name="Unrelated Co")
+        Document.objects.create(
+            user=self.user,
+            title="Backend Resume",
+            file="blob:documents/user-1/root-1/v1/backend-resume.pdf",
+            document_type="RESUME",
+        )
+        Document.objects.create(
+            user=self.user,
+            title="Frontend Resume",
+            file="blob:documents/user-1/root-2/v1/frontend-resume.pdf",
+            document_type="RESUME",
+        )
+        Document.objects.create(
+            user=self.user,
+            title="Cover Letter",
+            file="blob:documents/user-1/root-3/v1/cover-letter.pdf",
+            document_type="COVER_LETTER",
+        )
+
+        response = self.client.get(
+            "/api/career/documents/",
+            {
+                "page": 1,
+                "page_size": 1,
+                "search": "resume",
+                "document_type": "RESUME",
+                "year": str(timezone.now().year),
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["document_type"], "RESUME")
+
 
 class CareerCachingTests(APITestCase):
     def setUp(self):
@@ -2006,3 +2043,113 @@ class CareerCachingTests(APITestCase):
         
         response3 = self.client.get('/api/career/ai-artifacts/')
         self.assertEqual(len(response3.data), 0)
+
+    def test_application_list_ignores_stale_cached_payload(self):
+        from django.core.cache import cache
+        from .cache import get_applications_cache_key
+
+        company = Company.objects.create(user=self.user, name="Current Co")
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Current Role",
+            status="APPLIED",
+        )
+        cache_key = get_applications_cache_key(self.user.id, "list", {})
+        cache.set(
+            cache_key,
+            [
+                {
+                    "id": 9283,
+                    "role_title": "Stale Role",
+                    "company_details": {"name": "Stale Co"},
+                }
+            ],
+            timeout=300,
+        )
+
+        response = self.client.get('/api/career/applications/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data], [application.id])
+
+    def test_application_list_supports_server_side_pagination(self):
+        company = Company.objects.create(user=self.user, name="Page Co")
+        for index in range(3):
+            Application.objects.create(
+                user=self.user,
+                company=company,
+                role_title=f"Role {index + 1}",
+                status="APPLIED",
+            )
+
+        response = self.client.get('/api/career/applications/', {'page': 2, 'page_size': 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 3)
+        self.assertEqual(len(response.data['results']), 1)
+
+    def test_application_list_filters_before_paginating(self):
+        houston_company = Company.objects.create(user=self.user, name="Jereh NAG")
+        other_company = Company.objects.create(user=self.user, name="Other Co")
+        match = Application.objects.create(
+            user=self.user,
+            company=houston_company,
+            role_title="Global IT Software Engineer",
+            status="APPLIED",
+            employment_type="full_time",
+            location="Houston, TX, United States",
+            date_applied="2026-05-03",
+        )
+        Application.objects.create(
+            user=self.user,
+            company=other_company,
+            role_title="Backend Engineer",
+            status="ROUND_1",
+            employment_type="internship",
+            location="New York, NY, United States",
+            date_applied="2025-05-03",
+        )
+
+        response = self.client.get(
+            '/api/career/applications/',
+            {
+                'page': 1,
+                'page_size': 10,
+                'search': 'jereh software',
+                'status': 'APPLIED',
+                'employment_type': 'full_time',
+                'location': 'Houston, TX, United States',
+                'year': '2026',
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual([item['id'] for item in response.data['results']], [match.id])
+
+    def test_application_options_returns_lightweight_search_results(self):
+        backend_company = Company.objects.create(user=self.user, name="Backend Co")
+        frontend_company = Company.objects.create(user=self.user, name="Frontend Co")
+        match = Application.objects.create(
+            user=self.user,
+            company=backend_company,
+            role_title="Backend Engineer",
+            status="APPLIED",
+        )
+        Application.objects.create(
+            user=self.user,
+            company=frontend_company,
+            role_title="Frontend Engineer",
+            status="ROUND_1",
+        )
+
+        response = self.client.get(
+            "/api/career/applications/options/",
+            {"search": "backend", "page_size": 5},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data], [match.id])
+        self.assertEqual(response.data[0]["company_details"]["name"], "Backend Co")
+        self.assertNotIn("notes", response.data[0])

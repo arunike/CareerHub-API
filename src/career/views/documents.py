@@ -5,6 +5,7 @@ from django.db.models import Max, Q
 from django.http import FileResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -22,20 +23,59 @@ from ..services import (
 from ..upload_validation import validate_document_upload
 
 
+class ConditionalPageNumberPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+    def paginate_queryset(self, queryset, request, view=None):
+        if 'page' not in request.query_params:
+            return None
+        return super().paginate_queryset(queryset, request, view)
+
+
 class DocumentViewSet(viewsets.ModelViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
+    pagination_class = ConditionalPageNumberPagination
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def _base_queryset(self):
-        return Document.objects.filter(user=self.request.user).order_by('-updated_at')
+        return (
+            Document.objects
+            .filter(user=self.request.user)
+            .select_related('application__company')
+            .order_by('-updated_at')
+        )
 
     def get_queryset(self):
         queryset = self._base_queryset()
         include_versions = self.request.query_params.get('include_versions')
-        if include_versions in ('1', 'true', 'True'):
-            return queryset
-        return queryset.filter(is_current=True)
+        if include_versions not in ('1', 'true', 'True'):
+            queryset = queryset.filter(is_current=True)
+
+        params = self.request.query_params
+        search = (params.get('search') or '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(document_type__icontains=search)
+                | Q(application__role_title__icontains=search)
+                | Q(application__company__name__icontains=search)
+            )
+
+        document_type = (params.get('document_type') or '').strip()
+        if document_type and document_type != 'ALL':
+            queryset = queryset.filter(document_type=document_type)
+
+        year = (params.get('year') or '').strip()
+        if year and year != 'all':
+            try:
+                queryset = queryset.filter(created_at__year=int(year))
+            except ValueError:
+                return queryset.none()
+
+        return queryset
 
     def _version_queryset(self, doc):
         root = doc.root_document or doc
@@ -102,8 +142,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         root_ids = {
-            doc.root_document_id or doc.id
-            for doc in self.get_queryset().only('id', 'root_document_id')
+            root_document_id or doc_id
+            for doc_id, root_document_id in self.get_queryset().values_list('id', 'root_document_id')
         }
         deleted_count = 0
         preserved_count = 0

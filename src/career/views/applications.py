@@ -30,8 +30,7 @@ from ..services.google_sheets import _upsert_application
 from ..upload_validation import validate_import_row_count, validate_import_upload
 
 from rest_framework.pagination import PageNumberPagination
-from django.core.cache import cache
-from ..cache import get_applications_cache_key, invalidate_applications_cache
+from ..cache import invalidate_applications_cache
 
 
 class ConditionalPageNumberPagination(PageNumberPagination):
@@ -327,30 +326,58 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = ApplicationSerializer
     pagination_class = ConditionalPageNumberPagination
 
-    def list(self, request, *args, **kwargs):
-        user_id = request.user.id
-        cache_key = get_applications_cache_key(user_id, "list", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
-            
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(serializer.data)
-            cache.set(cache_key, response.data, timeout=300)
-            return response
-            
-        serializer = self.get_serializer(queryset, many=True)
-        response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=300)
-        return Response(response_data)
-
-
     def get_queryset(self):
-        return Application.objects.filter(user=self.request.user).select_related('company')
+        queryset = Application.objects.filter(user=self.request.user).select_related('company')
+        params = self.request.query_params
+
+        search = (params.get('search') or '').strip()
+        filters = {}
+        status_filter = (params.get('status') or '').strip()
+        if status_filter and status_filter != 'ALL':
+            filters['status'] = status_filter
+
+        employment_type_filter = (params.get('employment_type') or '').strip()
+        if employment_type_filter and employment_type_filter != 'ALL':
+            filters['employment_type'] = employment_type_filter
+
+        location_filter = (params.get('location') or '').strip()
+        if location_filter and location_filter != 'ALL':
+            filters['location'] = location_filter
+
+        year_filter = (params.get('year') or '').strip()
+        if year_filter and year_filter != 'all':
+            try:
+                filters['year'] = int(year_filter)
+            except ValueError:
+                return queryset.none()
+
+        if search:
+            search_filter = Q()
+            for term in search.split():
+                search_filter &= (
+                    Q(company__name__icontains=term)
+                    | Q(role_title__icontains=term)
+                    | Q(location__icontains=term)
+                    | Q(office_location__icontains=term)
+                    | Q(notes__icontains=term)
+                )
+            queryset = queryset.filter(search_filter)
+
+        if 'status' in filters:
+            queryset = queryset.filter(status=filters['status'])
+
+        if 'employment_type' in filters:
+            queryset = queryset.filter(employment_type=filters['employment_type'])
+
+        if 'location' in filters:
+            queryset = queryset.filter(
+                Q(office_location__icontains=filters['location']) | Q(location__icontains=filters['location'])
+            )
+
+        if 'year' in filters:
+            queryset = queryset.filter(date_applied__year=filters['year'])
+
+        return queryset.order_by('-date_applied', '-created_at', '-id')
 
     def perform_create(self, serializer):
         instance = serializer.save()
@@ -381,6 +408,40 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             {'message': f'Deleted {count} applications. Locked applications were preserved.'},
             status=status.HTTP_200_OK,
         )
+
+    @action(detail=False, methods=['get'])
+    def options(self, request):
+        queryset = Application.objects.filter(user=request.user).select_related('company')
+        search = (request.query_params.get('search') or '').strip()
+        if search:
+            search_filter = Q()
+            for term in search.split():
+                search_filter &= (
+                    Q(company__name__icontains=term)
+                    | Q(role_title__icontains=term)
+                    | Q(location__icontains=term)
+                )
+            queryset = queryset.filter(search_filter)
+
+        try:
+            page_size = int(request.query_params.get('page_size') or 50)
+        except ValueError:
+            page_size = 50
+        page_size = max(1, min(page_size, 100))
+
+        options = [
+            {
+                'id': application.id,
+                'role_title': application.role_title,
+                'status': application.status,
+                'company_details': {
+                    'id': application.company_id,
+                    'name': application.company.name,
+                },
+            }
+            for application in queryset.order_by('-date_applied', '-created_at', '-id')[:page_size]
+        ]
+        return Response(options)
 
     @action(detail=False, methods=['get'])
     def export(self, request):
