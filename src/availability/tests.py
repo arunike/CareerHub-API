@@ -74,6 +74,7 @@ class AvailabilityRangeTests(APITestCase):
         today = next(item for item in response.data if item['date'] == '2026-06-03')
         self.assertEqual(today['availability'], '2:00 PM - 5:00 PM')
 
+
     @patch(
         'availability.utils.timezone.now',
         return_value=datetime(2026, 6, 4, 1, 57, tzinfo=dt_timezone.utc),
@@ -93,6 +94,49 @@ class AvailabilityRangeTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertNotIn('2026-06-03', [item['date'] for item in response.data])
+
+
+class EventFeedPaginationTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username='event-feed-user',
+            email='event-feed@example.com',
+            password='test-pass-123',
+        )
+        self.client.force_login(self.user)
+
+    def test_feed_paginates_all_regular_events_without_a_fixed_date_window(self):
+        Event.objects.create(
+            user=self.user,
+            name='Old event',
+            date='2024-01-10',
+            start_time='09:00:00',
+            end_time='10:00:00',
+        )
+        Event.objects.create(
+            user=self.user,
+            name='Middle event',
+            date='2025-01-10',
+            start_time='09:00:00',
+            end_time='10:00:00',
+        )
+        Event.objects.create(
+            user=self.user,
+            name='Future event',
+            date='2027-01-10',
+            start_time='09:00:00',
+            end_time='10:00:00',
+        )
+
+        response = self.client.get(
+            '/api/events/feed/',
+            {'page': 2, 'page_size': 2, 'year': 'all', 'sort_order': 'asc'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 3)
+        self.assertEqual([item['name'] for item in response.data['results']], ['Future event'])
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')

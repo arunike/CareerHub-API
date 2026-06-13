@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -6,12 +6,13 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django.core.cache import cache
+from django.utils import timezone
 
 from ..cache import get_events_cache_key, invalidate_events_cache
 from ..conflict_detector import check_for_conflicts
 from ..models import Event
 from ..recurrence import delete_recurring_series, generate_recurring_instances, update_recurring_series
-from ..serializers import EventSerializer
+from ..serializers import EventCategorySerializer, EventSerializer
 from ..utils import export_data
 
 
@@ -123,6 +124,109 @@ class EventViewSet(viewsets.ModelViewSet):
                 )
         serializer.save()
         invalidate_events_cache(self.request.user.id)
+
+    @action(detail=False, methods=['get'])
+    def feed(self, request):
+        params = request.query_params
+        year = (params.get('year') or '').strip()
+        start = (params.get('start_date') or '').strip()
+        end = (params.get('end_date') or '').strip()
+        category = (params.get('category') or '').strip()
+        sort_by = (params.get('sort_by') or 'date').strip()
+        sort_order = (params.get('sort_order') or 'desc').strip()
+
+        regular_events = (
+            Event.objects
+            .filter(user=request.user, parent_event__isnull=True, is_recurring=False)
+            .select_related('category', 'application__company')
+        )
+        recurring_events = (
+            Event.objects
+            .filter(user=request.user, parent_event__isnull=True, is_recurring=True)
+            .select_related('category', 'application__company')
+        )
+
+        if category and category != 'ALL':
+            regular_events = regular_events.filter(category_id=category)
+            recurring_events = recurring_events.filter(category_id=category)
+
+        recurring_start = None
+        recurring_end = None
+        if year and year != 'all':
+            try:
+                year_value = int(year)
+            except ValueError:
+                regular_events = regular_events.none()
+                recurring_events = recurring_events.none()
+            else:
+                regular_events = regular_events.filter(date__year=year_value)
+                recurring_start = datetime(year_value, 1, 1).date()
+                recurring_end = datetime(year_value, 12, 31).date()
+
+        if start:
+            regular_events = regular_events.filter(date__gte=start)
+            parsed_start = datetime.strptime(start, '%Y-%m-%d').date()
+            recurring_start = max(recurring_start, parsed_start) if recurring_start else parsed_start
+        if end:
+            regular_events = regular_events.filter(date__lte=end)
+            parsed_end = datetime.strptime(end, '%Y-%m-%d').date()
+            recurring_end = min(recurring_end, parsed_end) if recurring_end else parsed_end
+
+        if recurring_start is None or recurring_end is None:
+            today = timezone.now().date()
+            recurring_start = today - timedelta(days=31)
+            recurring_end = today + timedelta(days=366)
+
+        serializer = self.get_serializer(regular_events, many=True)
+        items = list(serializer.data)
+
+        virtual_index = 0
+        for event in recurring_events:
+            for instance in generate_recurring_instances(event, recurring_start, recurring_end):
+                virtual_index += 1
+                instance_date = instance['date']
+                items.append({
+                    'id': -1 * ((event.id * 100000) + virtual_index),
+                    'name': instance['name'],
+                    'date': instance_date.isoformat() if hasattr(instance_date, 'isoformat') else instance_date,
+                    'start_time': instance['start_time'],
+                    'end_time': instance['end_time'],
+                    'timezone': instance.get('timezone') or event.timezone,
+                    'category': instance.get('category'),
+                    'category_details': EventCategorySerializer(event.category).data if event.category else None,
+                    'color': event.color,
+                    'location_type': instance.get('location_type') or event.location_type,
+                    'location': instance.get('location') or '',
+                    'meeting_link': instance.get('meeting_link') or '',
+                    'is_recurring': False,
+                    'recurrence_rule': None,
+                    'parent_event': event.id,
+                    'application': event.application_id,
+                    'application_details': EventSerializer(event, context={'request': request}).data.get('application_details'),
+                    'notes': instance.get('notes') or '',
+                    'reminder_minutes': event.reminder_minutes,
+                    'is_locked': event.is_locked,
+                    'created_at': event.created_at.isoformat() if event.created_at else None,
+                    'updated_at': event.updated_at.isoformat() if event.updated_at else None,
+                    'is_virtual': True,
+                })
+
+        def sort_key(item):
+            if sort_by == 'duration':
+                try:
+                    start_dt = datetime.strptime(item['start_time'][:8], '%H:%M:%S')
+                    end_dt = datetime.strptime(item['end_time'][:8], '%H:%M:%S')
+                    duration = (end_dt - start_dt).total_seconds()
+                except (TypeError, ValueError):
+                    duration = 0
+                return (duration, item.get('date') or '', item.get('start_time') or '')
+            return (item.get('date') or '', item.get('start_time') or '')
+
+        items.sort(key=sort_key, reverse=sort_order != 'asc')
+        page = self.paginate_queryset(items)
+        if page is not None:
+            return self.get_paginated_response(page)
+        return Response(items)
 
     @action(detail=False, methods=['get'])
     def recurring_instances(self, request):
