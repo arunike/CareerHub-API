@@ -145,6 +145,15 @@ class OfferSerializer(serializers.ModelSerializer):
             fields['application'].queryset = Application.objects.none()
         return fields
 
+    def validate(self, attrs):
+        application = attrs.get('application')
+        if application and not self.instance:
+            if hasattr(application, 'offer'):
+                raise serializers.ValidationError({
+                    'application': 'An offer already exists for this application.'
+                })
+        return attrs
+
     def get_application_details(self, obj):
         return {
             'company': obj.application.company.name,

@@ -419,7 +419,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def options(self, request):
-        queryset = Application.objects.filter(user=request.user).select_related('company')
+        queryset = Application.objects.filter(user=request.user).select_related('company', 'offer')
         search = (request.query_params.get('search') or '').strip()
         if search:
             search_filter = Q()
@@ -446,6 +446,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                     'id': application.company_id,
                     'name': application.company.name,
                 },
+                'has_offer': hasattr(application, 'offer'),
             }
             for application in queryset.order_by('-date_applied', '-created_at', '-id')[:page_size]
         ]
