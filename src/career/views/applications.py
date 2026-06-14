@@ -330,6 +330,14 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         queryset = Application.objects.filter(user=self.request.user).select_related('company')
         params = self.request.query_params
 
+        ids_filter = params.get('ids')
+        if ids_filter:
+            try:
+                ids = [int(id_str) for id_str in ids_filter.split(',') if id_str.strip().isdigit()]
+                queryset = queryset.filter(id__in=ids)
+            except ValueError:
+                pass
+
         search = (params.get('search') or '').strip()
         filters = {}
         status_filter = (params.get('status') or '').strip()
