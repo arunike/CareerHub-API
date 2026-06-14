@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("availability", "0008_usersettings_ghosting_threshold_days"),
-        ("career", "0003_alter_application_status"),
+        ("career", "0001_initial"),
     ]
 
     operations = [
