@@ -67,6 +67,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and sends it through the authenticated backend relay for fit scoring, gap analysis, and resume tailoring suggestions
 - **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and routes provider requests through the encrypted backend relay
 - **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
+- **Career Transition Advisor**: the frontend sends current job pain points, custom sentiments, promotion outlook, and simulated offers to the `/api/career/offers/transition-advisor/` action, which queries active offers and calls the configured AI provider to analyze tradeoffs, decide the optimal move (Stay vs. Hop vs. Job Hunt), suggest company search criteria, and generate side-by-side path comparisons
 - **Skill Refinement**: the frontend can refine Experience skills through the backend relay when the user's provider key is configured
 - **Promotion Readiness Review**: the frontend evaluates saved Experience evidence plus optional context through the backend relay, then stores the review as a `PROMOTION_REVIEW` artifact linked to the source Experience
 - **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
