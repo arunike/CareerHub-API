@@ -48,6 +48,19 @@ class Application(models.Model):
         ('NO', 'No'),
         ('NOT_APPLICABLE', 'Not applicable'),
     ]
+    FLEXIBLE_HOURS_CHOICES = [
+        ('FLEXIBLE', 'Flexible Hours'),
+        ('CORE_HOURS', 'Core Hours'),
+        ('STRICT', 'Strict Hours'),
+        ('UNKNOWN', 'Unknown'),
+    ]
+    TRAVEL_FREQUENCY_CHOICES = [
+        ('NONE', 'No Travel'),
+        ('LOW', 'Low Travel (<10%)'),
+        ('MEDIUM', 'Medium Travel (10-25%)'),
+        ('HIGH', 'High Travel (>25%)'),
+        ('UNKNOWN', 'Unknown'),
+    ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='applications')
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='applications')
@@ -97,6 +110,8 @@ class Application(models.Model):
     )
     
     employment_type = models.CharField(max_length=20, default='full_time', null=True, blank=True)
+    flexible_hours_policy = models.CharField(max_length=20, choices=FLEXIBLE_HOURS_CHOICES, default='UNKNOWN')
+    travel_frequency = models.CharField(max_length=20, choices=TRAVEL_FREQUENCY_CHOICES, default='UNKNOWN')
 
     notes = models.TextField(blank=True)
     current_round = models.IntegerField(default=0, help_text="Current interview round number (0 for none)")
@@ -129,6 +144,14 @@ class Offer(models.Model):
     holiday_days = models.IntegerField(default=11)
     is_current = models.BooleanField(default=False, help_text="Is this your current role?")
     raise_history = models.JSONField(default=list, blank=True, help_text="List of raise events [{id, date, type, base_before, base_after, bonus_before, bonus_after, equity_before, equity_after, label, notes}]")
+    
+    health_premium_monthly = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Monthly Health Insurance Premium")
+    hsa_employer_contribution = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Annual Employer HSA Contribution")
+    health_plan_type = models.CharField(max_length=50, blank=True, default='', help_text="Health Plan Type, e.g. HDHP, PPO")
+    health_oop_max = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Annual Health Out-of-Pocket Maximum")
+    forty_one_k_match_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Employer 401(k) Match Percentage (e.g. 50.00 for 50%)")
+    forty_one_k_max_match = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Maximum Employee 401(k) Contribution matched (e.g. 6.00 for 6%)")
+    relocation_bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Relocation or Signing Perk Cash Value")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

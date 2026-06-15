@@ -401,7 +401,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'free_food_perk_value', 'free_food_perk_frequency',
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'salary_range', 'location', 'office_location',
-            'visa_sponsorship', 'day_one_gc', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
+            'visa_sponsorship', 'day_one_gc', 'flexible_hours_policy', 'travel_frequency', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
             'notes', 'current_round', 'is_locked',
             'source_removed_at', 'source_removed_delete_after',
             'date_applied', 'offer', 'created_at'
@@ -546,7 +546,7 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'current_round', 'job_link', 'salary_range', 'location', 'office_location',
             'source_removed_at', 'source_removed_delete_after',
-            'visa_sponsorship', 'day_one_gc', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
+            'visa_sponsorship', 'day_one_gc', 'flexible_hours_policy', 'travel_frequency', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
             'notes',
             'date_applied', 'created_at', 'updated_at'
         ]
@@ -584,6 +584,8 @@ class ApplicationImportExportSerializer(serializers.ModelSerializer):
             'office_location',
             'visa_sponsorship',
             'day_one_gc',
+            'flexible_hours_policy',
+            'travel_frequency',
             'growth_score',
             'work_life_score',
             'brand_score',
