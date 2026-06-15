@@ -114,6 +114,7 @@ class UserSettings(models.Model):
     holiday_tabs = models.JSONField(default=list, blank=True, help_text="User-defined holiday tab definitions [{id, name}]")
     application_stages = models.JSONField(default=list, blank=True, help_text="Custom application timeline stages [{key, label, shortLabel, tone}]")
     hidden_nav_items = models.JSONField(default=list, blank=True, help_text="List of nav route keys to hide from sidebar")
+    is_locked = models.BooleanField(default=False, help_text="Locked settings cannot be edited until unlocked")
     ai_provider_adapter = models.CharField(
         max_length=32,
         choices=AI_PROVIDER_ADAPTER_CHOICES,
