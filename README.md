@@ -109,7 +109,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
 ### ⚙️ Settings
-- **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category, and notification preferences
+- **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category used by new event forms, and notification preferences
 - **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
 - **Privacy Export Center APIs**: Account-level export, backup restore, and confirmed account deletion endpoints live under `user-settings`.
 - **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows per day (e.g., 11am–12pm and 2pm–5pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges all ranges after subtracting event conflicts
