@@ -93,6 +93,16 @@ def subtract_intervals(base_start, base_end, intervals):
     return available
 
 
+def format_availability_time(dt):
+    return dt.strftime('%-I:%M %p')
+
+
+def next_availability_boundary(dt):
+    minute = 30 if dt.minute < 30 else 60
+    boundary = dt.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minute)
+    return boundary.replace(tzinfo=None)
+
+
 def filter_expired_availability_text(availability_text, availability_date, timezone_str):
     if not availability_text or availability_text == "Unavailable":
         return availability_text
@@ -120,17 +130,49 @@ def filter_expired_availability_text(availability_text, availability_date, timez
             future_parts.append(part)
             continue
 
-        start_str, _end_str = [item.strip() for item in part.split(' - ', 1)]
+        start_str, end_str = [item.strip() for item in part.split(' - ', 1)]
         start_time = parse_time_str(start_str)
-        if not start_time:
+        end_time = parse_time_str(end_str)
+        if not start_time or not end_time:
             future_parts.append(part)
             continue
 
-        start_dt = datetime.combine(availability_date, start_time).replace(tzinfo=target_tz)
-        if start_dt > local_now:
-            future_parts.append(part)
+        start_dt = datetime.combine(availability_date, start_time)
+        end_dt = datetime.combine(availability_date, end_time)
+        local_now_naive = local_now.replace(tzinfo=None)
+
+        if end_dt <= local_now_naive:
+            continue
+
+        if start_dt <= local_now_naive:
+            start_dt = next_availability_boundary(local_now)
+
+        if start_dt < end_dt:
+            future_parts.append(f"{format_availability_time(start_dt)} - {format_availability_time(end_dt)}")
 
     return ", ".join(future_parts) if future_parts else "Unavailable"
+
+
+def get_work_time_ranges_for_day(settings, weekday, work_start_time, work_end_time):
+    if not settings or not settings.work_time_ranges:
+        return [(work_start_time, work_end_time)]
+
+    day_ranges = []
+    for r in settings.work_time_ranges:
+        days = r.get('days')
+        if days is not None and weekday not in days:
+            continue
+
+        start_time = parse_time_str(r.get('start', ''))
+        end_time = parse_time_str(r.get('end', ''))
+        if start_time and end_time and start_time < end_time:
+            day_ranges.append((start_time, end_time))
+
+    return day_ranges
+
+
+def format_availability_range(start_dt, end_dt):
+    return f"{format_availability_time(start_dt)} - {format_availability_time(end_dt)}"
 
 def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', user=None):
     availability = {}
@@ -146,18 +188,10 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
     work_end_time = time(17, 0)
     work_days = [0, 1, 2, 3, 4] # Mon-Fri
     
-    work_time_ranges = []
-
     if settings:
         if settings.work_start_time: work_start_time = settings.work_start_time
         if settings.work_end_time: work_end_time = settings.work_end_time
         if settings.work_days: work_days = settings.work_days
-        if settings.work_time_ranges:
-            for r in settings.work_time_ranges:
-                s = parse_time_str(r.get('start', ''))
-                e = parse_time_str(r.get('end', ''))
-                if s and e:
-                    work_time_ranges.append((s, e))
 
     overrides = {
         o.date: o.availability_text 
@@ -222,7 +256,7 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
                     c_end = datetime.combine(d, e)
                     day_conflicts.append((c_start, c_end))
 
-            ranges = work_time_ranges if work_time_ranges else [(work_start_time, work_end_time)]
+            ranges = get_work_time_ranges_for_day(settings, d.weekday(), work_start_time, work_end_time)
 
             all_slots = []
             for rng_start, rng_end in ranges:
@@ -236,7 +270,7 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
                 parts = []
                 for s_dt, e_dt in sorted(all_slots):
                     if (e_dt - s_dt).total_seconds() >= 900:
-                        parts.append(f"{s_dt.strftime('%-I:%M %p')} - {e_dt.strftime('%-I:%M %p')}")
+                        parts.append(format_availability_range(s_dt, e_dt))
 
                 text = ", ".join(parts) if parts else "Unavailable"
 

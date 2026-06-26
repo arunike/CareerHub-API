@@ -74,6 +74,49 @@ class AvailabilityRangeTests(APITestCase):
         today = next(item for item in response.data if item['date'] == '2026-06-03')
         self.assertEqual(today['availability'], '2:00 PM - 5:00 PM')
 
+    @patch(
+        'availability.utils.timezone.now',
+        return_value=datetime(2026, 6, 3, 21, 0, tzinfo=dt_timezone.utc),
+    )
+    def test_generate_keeps_future_part_of_active_time_block_for_today(self, _mock_now):
+        UserSettings.objects.create(
+            user=self.user,
+            work_time_ranges=[
+                {'start': '14:00:00', 'end': '17:00:00'},
+            ],
+        )
+
+        response = self.client.get(
+            '/api/availability/generate/?start_date=2026-06-03&weeks=1&timezone=America/Los_Angeles'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        today = next(item for item in response.data if item['date'] == '2026-06-03')
+        self.assertEqual(today['availability'], '2:30 PM - 5:00 PM')
+
+    @patch(
+        'availability.utils.timezone.now',
+        return_value=datetime(2026, 6, 1, 7, 0, tzinfo=dt_timezone.utc),
+    )
+    def test_generate_uses_day_specific_time_ranges(self, _mock_now):
+        UserSettings.objects.create(
+            user=self.user,
+            work_days=[0, 1, 2, 3, 4],
+            work_time_ranges=[
+                {'days': [0, 1, 2, 3], 'start': '10:00:00', 'end': '15:00:00'},
+                {'days': [4], 'start': '13:00:00', 'end': '16:00:00'},
+            ],
+        )
+
+        response = self.client.get(
+            '/api/availability/generate/?start_date=2026-06-01&weeks=1&timezone=America/Los_Angeles'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        by_date = {item['date']: item['availability'] for item in response.data}
+        self.assertEqual(by_date['2026-06-01'], '10:00 AM - 3:00 PM')
+        self.assertEqual(by_date['2026-06-02'], '10:00 AM - 3:00 PM')
+        self.assertEqual(by_date['2026-06-05'], '1:00 PM - 4:00 PM')
 
     @patch(
         'availability.utils.timezone.now',
