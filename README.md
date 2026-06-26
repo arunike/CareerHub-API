@@ -104,7 +104,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
-- **Availability Generation**: Generate user-defined week-long availability text blocks from work settings, holidays, and event conflicts
+- **Availability Generation**: Generate user-defined week-long availability text blocks from work settings, holidays, and event conflicts; today's active ranges are clipped to the next 30-minute boundary instead of removed wholesale
 - **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, max meetings/day, reschedule/cancel cutoff hours, cancel reasons, per-link booking analytics, and locked internal events
 - **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
@@ -112,7 +112,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category used by new event forms, and notification preferences
 - **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
 - **Privacy Export Center APIs**: Account-level export, backup restore, and confirmed account deletion endpoints live under `user-settings`.
-- **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows per day (e.g., 11am–12pm and 2pm–5pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges all ranges after subtracting event conflicts
+- **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows with optional `days` lists for day-specific schedules (e.g., Mon–Thu 10am–3pm, Fri 1pm–4pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges matching ranges after subtracting event conflicts
 - **Employment Types** (`employment_types` JSONField): User-configurable list of `{value, label, color}` employment type definitions — consumed by the Experience page; supports add/edit/delete with 10 color options
 - **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
 - **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
