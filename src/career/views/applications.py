@@ -4,7 +4,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 import pandas as pd
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework import status, viewsets
@@ -326,6 +326,44 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = ApplicationSerializer
     pagination_class = ConditionalPageNumberPagination
 
+    def _application_summary(self, queryset):
+        return queryset.aggregate(
+            total=Count('id'),
+            interviews=Count(
+                'id',
+                filter=Q(status='SCREEN') | Q(status='ONSITE') | Q(status__startswith='ROUND_'),
+            ),
+            offers=Count('id', filter=Q(status='OFFER')),
+            locked=Count('id', filter=Q(is_locked=True)),
+        )
+
+    def _status_order_expression(self):
+        round_whens = [
+            When(status=f'ROUND_{round_number}', then=Value(100 - round_number))
+            for round_number in range(1, 51)
+        ]
+        return Case(
+            When(status='OFFER', then=Value(0)),
+            When(status='ONSITE', then=Value(40)),
+            *round_whens,
+            When(status='SCREEN', then=Value(110)),
+            When(status='OA', then=Value(120)),
+            When(status='APPLIED', then=Value(130)),
+            When(status='GHOSTED', then=Value(140)),
+            When(status='REJECTED', then=Value(150)),
+            When(status='REMOVED_FROM_SHEET', then=Value(160)),
+            default=Value(125),
+            output_field=IntegerField(),
+        )
+
+    def _apply_ordering(self, queryset):
+        ordering = (self.request.query_params.get('ordering') or '').strip()
+        if ordering in {'status', '-status'}:
+            queryset = queryset.annotate(status_rank=self._status_order_expression())
+            direction = '-' if ordering.startswith('-') else ''
+            return queryset.order_by(f'{direction}status_rank', '-date_applied', '-created_at', '-id')
+        return queryset.order_by('-date_applied', '-created_at', '-id')
+
     def get_queryset(self):
         queryset = Application.objects.filter(user=self.request.user).select_related('company')
         params = self.request.query_params
@@ -385,7 +423,20 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         if 'year' in filters:
             queryset = queryset.filter(date_applied__year=filters['year'])
 
-        return queryset.order_by('-date_applied', '-created_at', '-id')
+        return self._apply_ordering(queryset)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        summary = self._application_summary(queryset)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['summary'] = summary
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         instance = serializer.save()

@@ -2156,6 +2156,66 @@ class CareerCachingTests(APITestCase):
         self.assertEqual(response.data['count'], 3)
         self.assertEqual(len(response.data['results']), 1)
 
+    def test_application_list_summary_counts_all_matching_records(self):
+        company = Company.objects.create(user=self.user, name="Summary Co")
+        Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Offer Role",
+            status="OFFER",
+            is_locked=True,
+        )
+        Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Interview Role",
+            status="ROUND_3",
+        )
+        Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Applied Role",
+            status="APPLIED",
+        )
+
+        response = self.client.get('/api/career/applications/', {'page': 1, 'page_size': 1})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['summary']['total'], 3)
+        self.assertEqual(response.data['summary']['interviews'], 1)
+        self.assertEqual(response.data['summary']['offers'], 1)
+        self.assertEqual(response.data['summary']['locked'], 1)
+
+    def test_application_list_orders_status_by_pipeline_progress(self):
+        company = Company.objects.create(user=self.user, name="Status Sort Co")
+        for status_value in ['APPLIED', 'REJECTED', 'ROUND_2', 'OFFER', 'ROUND_4', 'GHOSTED']:
+            Application.objects.create(
+                user=self.user,
+                company=company,
+                role_title=f"{status_value} Role",
+                status=status_value,
+            )
+
+        asc_response = self.client.get(
+            '/api/career/applications/',
+            {'page': 1, 'page_size': 6, 'ordering': 'status'},
+        )
+        desc_response = self.client.get(
+            '/api/career/applications/',
+            {'page': 1, 'page_size': 6, 'ordering': '-status'},
+        )
+
+        self.assertEqual(asc_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item['status'] for item in asc_response.data['results']],
+            ['OFFER', 'ROUND_4', 'ROUND_2', 'APPLIED', 'GHOSTED', 'REJECTED'],
+        )
+        self.assertEqual(
+            [item['status'] for item in desc_response.data['results']],
+            ['REJECTED', 'GHOSTED', 'APPLIED', 'ROUND_2', 'ROUND_4', 'OFFER'],
+        )
+
     def test_application_list_filters_before_paginating(self):
         houston_company = Company.objects.create(user=self.user, name="Jereh NAG")
         other_company = Company.objects.create(user=self.user, name="Other Co")
