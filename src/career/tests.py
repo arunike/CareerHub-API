@@ -1573,7 +1573,7 @@ class ApplicationFileImportPreviewTests(APITestCase):
         self.assertEqual(application.role_title, "Software Engineer")
         self.assertEqual(application.status, "ROUND_1")
 
-    @patch("career.views.applications.relay_ai_provider_chat_completion")
+    @patch("career.services.application_imports.relay_ai_provider_chat_completion")
     def test_ai_mapping_handles_unknown_headers_before_user_confirmation(self, mock_relay):
         settings_profile = UserSettings.objects.create(
             user=self.user,
