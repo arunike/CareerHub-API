@@ -907,6 +907,73 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(entries['ROUND_4'].isoformat(), '2026-05-20')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_round_status_drop_removes_later_round_and_updates_current_stage_notes(self, mock_fetch_sheet_rows):
+        company = Company.objects.create(user=self.user, name='Acme')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Backend Engineer',
+            status='ROUND_4',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='ROUND_3',
+            event_date='2026-05-20',
+            notes='Old third round detail.',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='ROUND_4',
+            event_date='2026-05-21',
+            notes='Former fourth round detail.',
+        )
+        config = GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/test/edit',
+            spreadsheet_id='test',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'external_id': 'External ID',
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'status': 'Status',
+            },
+        )
+        GoogleSheetSyncRow.objects.create(
+            config=config,
+            external_key='acme-backend',
+            row_number=2,
+            row_hash='old',
+            local_object_type='career.Application',
+            local_object_id=application.id,
+        )
+        mock_fetch_sheet_rows.return_value = [
+            ['External ID', 'Company', 'Role', 'Status'],
+            ['acme-backend', 'Acme', 'Backend Engineer', '3rd Round (2 Tech Interview - System Design + Coding)'],
+        ]
+
+        with patch(
+            "career.services.google_sheets.timezone.now",
+            return_value=datetime(2026, 5, 22, 16, 0, tzinfo=dt_timezone.utc),
+        ):
+            result = sync_google_sheet(config, force=True)
+
+        application.refresh_from_db()
+        entries = {
+            entry.stage: entry
+            for entry in ApplicationTimelineEntry.objects.filter(application=application)
+        }
+        self.assertEqual(result['updated'], 1)
+        self.assertEqual(application.status, 'ROUND_3')
+        self.assertIn('ROUND_3', entries)
+        self.assertEqual(entries['ROUND_3'].event_date.isoformat(), '2026-05-20')
+        self.assertEqual(entries['ROUND_3'].notes, '2 Tech Interview - System Design + Coding')
+        self.assertNotIn('ROUND_4', entries)
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_same_company_and_role_with_different_locations_create_distinct_applications(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Salary', 'Location'],

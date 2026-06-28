@@ -1362,6 +1362,7 @@ def _upsert_application(
         apply_create_defaults=tracked is None,
         stage_events=history_context.setdefault('created_stages', []),
     )
+    status_notes = _status_detail_from_value(payload.get('status')) if 'status' in payload else ''
     company, _ = Company.objects.get_or_create(user=config.user, name=company_name)
     strategies = getattr(config, 'overwrite_strategies', {}) or {}
 
@@ -1374,7 +1375,7 @@ def _upsert_application(
             diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False)
             if diff:
                 application.save()
-                _sync_application_timeline_from_status(application, diff)
+                _sync_application_timeline_from_status(application, diff, status_notes=status_notes)
                 if tracked:
                     _repair_tracked_application_timeline_from_sync_history(
                         config,
@@ -1382,6 +1383,7 @@ def _upsert_application(
                         timeline_repair_cache=timeline_repair_cache,
                     )
                 return application, False, diff
+            _sync_application_timeline_notes_from_status(application, status_notes)
             if tracked:
                 _repair_tracked_application_timeline_from_sync_history(
                     config,
@@ -1400,7 +1402,7 @@ def _upsert_application(
         diff = _apply_field_updates(existing_application, company, role_title, defaults, strategies, is_new=False)
         if diff:
             existing_application.save()
-            _sync_application_timeline_from_status(existing_application, diff)
+            _sync_application_timeline_from_status(existing_application, diff, status_notes=status_notes)
             if tracked:
                 _repair_tracked_application_timeline_from_sync_history(
                     config,
@@ -1408,6 +1410,7 @@ def _upsert_application(
                     timeline_repair_cache=timeline_repair_cache,
                 )
             return existing_application, False, diff
+        _sync_application_timeline_notes_from_status(existing_application, status_notes)
         if tracked:
             _repair_tracked_application_timeline_from_sync_history(
                 config,
@@ -1426,23 +1429,54 @@ def _upsert_application(
     )
     diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=True)
     application.save()
-    _sync_application_timeline_from_status(application, diff)
+    _sync_application_timeline_from_status(application, diff, status_notes=status_notes)
     return application, True, diff
 
 
-def _sync_application_timeline_from_status(application, diff):
+def _sync_application_timeline_from_status(application, diff, status_notes=''):
     status_change = diff.get('status') if diff else None
     if not status_change:
         return
 
     old_status, new_status = _status_change_values(status_change)
     sync_date = _current_user_date(application.user)
+    _prune_later_round_timeline_entries(application, old_status, new_status)
     for stage in _timeline_stages_for_status_change(
         application.user,
         old_status,
         new_status,
     ):
-        _ensure_application_timeline_entry(application, stage, sync_date)
+        _ensure_application_timeline_entry(
+            application,
+            stage,
+            sync_date,
+            notes=status_notes if stage == new_status else None,
+        )
+
+
+def _sync_application_timeline_notes_from_status(application, status_notes):
+    if not status_notes or not application.status:
+        return
+    _ensure_application_timeline_entry(
+        application,
+        application.status,
+        _current_user_date(application.user),
+        notes=status_notes,
+    )
+
+
+def _prune_later_round_timeline_entries(application, old_status, new_status):
+    old_round = _round_number_from_stage_key(old_status)
+    new_round = _round_number_from_stage_key(new_status)
+    if not old_round or not new_round or new_round >= old_round:
+        return
+
+    later_round_keys = [f'ROUND_{round_number}' for round_number in range(new_round + 1, old_round + 1)]
+    ApplicationTimelineEntry.objects.filter(
+        user=application.user,
+        application=application,
+        stage__in=later_round_keys,
+    ).delete()
 
 
 def _repair_tracked_application_timeline_from_sync_history(
@@ -1473,6 +1507,10 @@ def _repair_tracked_application_timeline_from_sync_history(
         stage_dates.setdefault(stage, fallback_date)
 
     for stage, event_date in stage_dates.items():
+        stage_round = _round_number_from_stage_key(stage)
+        current_round = _round_number_from_stage_key(application.status)
+        if stage_round and current_round and stage_round > current_round:
+            continue
         if timeline_stage_cache is not None and stage in timeline_stage_cache.get(application.id, set()):
             continue
         _ensure_application_timeline_entry(application, stage, event_date)
@@ -1537,16 +1575,25 @@ def _timeline_stages_for_existing_status(application):
     return stages
 
 
-def _ensure_application_timeline_entry(application, stage, event_date):
+def _ensure_application_timeline_entry(application, stage, event_date, notes=None):
+    defaults = {'event_date': event_date}
+    if notes is not None:
+        defaults['notes'] = notes
     entry, created = ApplicationTimelineEntry.objects.get_or_create(
         user=application.user,
         application=application,
         stage=stage,
-        defaults={'event_date': event_date},
+        defaults=defaults,
     )
+    update_fields = []
     if not created and entry.event_date is None and event_date:
         entry.event_date = event_date
-        entry.save(update_fields=['event_date', 'updated_at'])
+        update_fields.append('event_date')
+    if not created and notes is not None and entry.notes != notes:
+        entry.notes = notes
+        update_fields.append('notes')
+    if update_fields:
+        entry.save(update_fields=[*update_fields, 'updated_at'])
 
 
 def _timeline_stages_for_status_change(user, old_status, new_status):
@@ -1670,6 +1717,14 @@ def _clean_status_text(value):
     text = re.sub(r'\s*\([^)]*\)', '', text)
     text = re.sub(r'\s+', ' ', text)
     return text.strip().lower()
+
+
+def _status_detail_from_value(value):
+    text = _clean_cell(value)
+    match = re.search(r'\(([^)]*)\)', text)
+    if not match:
+        return ''
+    return re.sub(r'\s+', ' ', match.group(1)).strip()
 
 
 def _ensure_known_stage(user, key, stage_events=None):
