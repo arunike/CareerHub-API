@@ -1,3 +1,4 @@
+import re
 from datetime import time
 
 from django.conf import settings
@@ -215,6 +216,31 @@ class Document(models.Model):
         return f"{self.title} (v{self.version_number})"
 
 
+DEFAULT_TIMELINE_STAGE_ORDER = {
+    'APPLIED': 0,
+    'OA': 10,
+    'SCREEN': 20,
+    'ONSITE': 900,
+    'OFFER': 1000,
+    'REJECTED': 1010,
+    'GHOSTED': 1020,
+    'REMOVED_FROM_SHEET': 1030,
+}
+
+
+def application_timeline_stage_order(stage, configured_stages=None):
+    round_match = re.match(r'^ROUND_(\d+)$', stage or '')
+    if round_match:
+        return 30 + (int(round_match.group(1)) - 1) * 10
+
+    if configured_stages:
+        order_map = {s['key']: idx * 10 for idx, s in enumerate(configured_stages)}
+        if stage in order_map:
+            return order_map[stage]
+
+    return DEFAULT_TIMELINE_STAGE_ORDER.get(stage, 999)
+
+
 class ApplicationTimelineEntry(models.Model):
 
 
@@ -237,8 +263,7 @@ class ApplicationTimelineEntry(models.Model):
     def save(self, *args, **kwargs):
         settings_profile = getattr(self.user, 'availability_settings_profile', None)
         stages = settings_profile.application_stages if settings_profile and settings_profile.application_stages else []
-        order_map = {s['key']: idx * 10 for idx, s in enumerate(stages)}
-        self.stage_order = order_map.get(self.stage, 999)
+        self.stage_order = application_timeline_stage_order(self.stage, stages)
         super().save(*args, **kwargs)
 
     def __str__(self):

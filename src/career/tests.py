@@ -11,10 +11,79 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from availability.models import UserSettings
-from .models import AIArtifact, Application, ApplicationTimelineEntry, Company, Document, Experience, GoogleSheetSyncConfig, GoogleSheetSyncRow, GoogleSheetSyncRun, Offer
+from .models import (
+    AIArtifact,
+    Application,
+    ApplicationTimelineEntry,
+    Company,
+    Document,
+    Experience,
+    GoogleSheetSyncConfig,
+    GoogleSheetSyncRow,
+    GoogleSheetSyncRun,
+    Offer,
+    application_timeline_stage_order,
+)
 from .serializers import ExperienceSerializer
-from .services.google_sheets import _is_sync_config_due, _upsert_application, apply_import_review, build_import_review, sync_google_sheet
+from .services.google_sheets import (
+    _is_sync_config_due,
+    _upsert_application,
+    apply_import_review,
+    build_import_review,
+    sync_google_sheet,
+)
 from .services.timeline_analytics import build_application_timeline_analytics
+
+
+class ApplicationTimelineEntryModelTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="timeline-entry-user@example.com",
+            email="timeline-entry-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.company = Company.objects.create(user=self.user, name='Acme')
+        self.application = Application.objects.create(
+            user=self.user,
+            company=self.company,
+            role_title='Backend Engineer',
+        )
+
+    def test_round_stage_order_uses_round_number_not_settings_position(self):
+        UserSettings.objects.create(
+            user=self.user,
+            application_stages=[
+                {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': 'bg-blue-500'},
+                {'key': 'ROUND_1', 'label': '1st Round', 'shortLabel': 'R1', 'tone': 'bg-amber-400'},
+                {'key': 'ROUND_3', 'label': '3rd Round', 'shortLabel': 'R3', 'tone': 'bg-orange-500'},
+                {'key': 'ROUND_2', 'label': '2nd Round', 'shortLabel': 'R2', 'tone': 'bg-amber-500'},
+            ],
+        )
+
+        round_three = ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=self.application,
+            stage='ROUND_3',
+        )
+        round_two = ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=self.application,
+            stage='ROUND_2',
+        )
+
+        self.assertEqual(application_timeline_stage_order('ROUND_1'), 30)
+        self.assertEqual(application_timeline_stage_order('ROUND_2'), 40)
+        self.assertEqual(application_timeline_stage_order('ROUND_3'), 50)
+        self.assertEqual(round_two.stage_order, 40)
+        self.assertEqual(round_three.stage_order, 50)
+        self.assertEqual(
+            list(
+                ApplicationTimelineEntry.objects.filter(application=self.application)
+                .order_by('stage_order')
+                .values_list('stage', flat=True)
+            ),
+            ['ROUND_2', 'ROUND_3'],
+        )
 
 
 class OfferStatusApplicationAPITests(APITestCase):
@@ -246,7 +315,26 @@ class AIArtifactAPITests(APITestCase):
             user=self.user,
             application=application,
             stage='APPLIED',
+            event_date='2026-05-08',
             notes='Submitted through referral.',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='ROUND_3',
+            event_date='2026-06-01',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='ROUND_1',
+            event_date='2026-05-19',
+        )
+        ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=application,
+            stage='ROUND_2',
+            event_date='2026-05-22',
         )
         AIArtifact.objects.create(
             user=self.user,
@@ -289,6 +377,10 @@ class AIArtifactAPITests(APITestCase):
         self.assertEqual(response.data['readiness']['linked_documents'], 1)
         self.assertEqual(response.data['documents'][0]['id'], resume.id)
         self.assertEqual(response.data['timeline'][0]['stage'], 'APPLIED')
+        self.assertEqual(
+            [entry['stage'] for entry in response.data['timeline']],
+            ['APPLIED', 'ROUND_1', 'ROUND_2', 'ROUND_3'],
+        )
         self.assertEqual(response.data['jd_reports'][0]['title'], 'Acme JD Match')
         self.assertEqual(response.data['cover_letters'][0]['title'], 'Acme Cover Letter')
         self.assertEqual(response.data['latest_jd_report']['payload']['score'], 84)
@@ -907,7 +999,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(entries['ROUND_4'].isoformat(), '2026-05-20')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
-    def test_round_status_drop_removes_later_round_and_updates_current_stage_notes(self, mock_fetch_sheet_rows):
+    def test_round_status_drop_removes_later_round_and_preserves_current_stage_notes(self, mock_fetch_sheet_rows):
         company = Company.objects.create(user=self.user, name='Acme')
         application = Application.objects.create(
             user=self.user,
@@ -970,7 +1062,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(application.status, 'ROUND_3')
         self.assertIn('ROUND_3', entries)
         self.assertEqual(entries['ROUND_3'].event_date.isoformat(), '2026-05-20')
-        self.assertEqual(entries['ROUND_3'].notes, '2 Tech Interview - System Design + Coding')
+        self.assertEqual(entries['ROUND_3'].notes, 'Old third round detail.')
         self.assertNotIn('ROUND_4', entries)
 
     @patch("career.services.google_sheets.fetch_sheet_rows")

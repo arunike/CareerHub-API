@@ -1311,7 +1311,6 @@ def _upsert_application(
         apply_create_defaults=tracked is None,
         stage_events=history_context.setdefault('created_stages', []),
     )
-    status_notes = _status_detail_from_value(payload.get('status')) if 'status' in payload else ''
     company, _ = Company.objects.get_or_create(user=config.user, name=company_name)
     strategies = getattr(config, 'overwrite_strategies', {}) or {}
 
@@ -1324,7 +1323,7 @@ def _upsert_application(
             diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=False)
             if diff:
                 application.save()
-                _sync_application_timeline_from_status(application, diff, status_notes=status_notes)
+                _sync_application_timeline_from_status(application, diff)
                 if tracked:
                     _repair_tracked_application_timeline_from_sync_history(
                         config,
@@ -1332,7 +1331,6 @@ def _upsert_application(
                         timeline_repair_cache=timeline_repair_cache,
                     )
                 return application, False, diff
-            _sync_application_timeline_notes_from_status(application, status_notes)
             if tracked:
                 _repair_tracked_application_timeline_from_sync_history(
                     config,
@@ -1351,7 +1349,7 @@ def _upsert_application(
         diff = _apply_field_updates(existing_application, company, role_title, defaults, strategies, is_new=False)
         if diff:
             existing_application.save()
-            _sync_application_timeline_from_status(existing_application, diff, status_notes=status_notes)
+            _sync_application_timeline_from_status(existing_application, diff)
             if tracked:
                 _repair_tracked_application_timeline_from_sync_history(
                     config,
@@ -1359,7 +1357,6 @@ def _upsert_application(
                     timeline_repair_cache=timeline_repair_cache,
                 )
             return existing_application, False, diff
-        _sync_application_timeline_notes_from_status(existing_application, status_notes)
         if tracked:
             _repair_tracked_application_timeline_from_sync_history(
                 config,
@@ -1378,11 +1375,11 @@ def _upsert_application(
     )
     diff = _apply_field_updates(application, company, role_title, defaults, strategies, is_new=True)
     application.save()
-    _sync_application_timeline_from_status(application, diff, status_notes=status_notes)
+    _sync_application_timeline_from_status(application, diff)
     return application, True, diff
 
 
-def _sync_application_timeline_from_status(application, diff, status_notes=''):
+def _sync_application_timeline_from_status(application, diff):
     status_change = diff.get('status') if diff else None
     if not status_change:
         return
@@ -1399,19 +1396,7 @@ def _sync_application_timeline_from_status(application, diff, status_notes=''):
             application,
             stage,
             sync_date,
-            notes=status_notes if stage == new_status else None,
         )
-
-
-def _sync_application_timeline_notes_from_status(application, status_notes):
-    if not status_notes or not application.status:
-        return
-    _ensure_application_timeline_entry(
-        application,
-        application.status,
-        _current_user_date(application.user),
-        notes=status_notes,
-    )
 
 
 def _prune_later_round_timeline_entries(application, old_status, new_status):
@@ -1668,14 +1653,6 @@ def _clean_status_text(value):
     return text.strip().lower()
 
 
-def _status_detail_from_value(value):
-    text = _clean_cell(value)
-    match = re.search(r'\(([^)]*)\)', text)
-    if not match:
-        return ''
-    return re.sub(r'\s+', ' ', match.group(1)).strip()
-
-
 def _ensure_known_stage(user, key, stage_events=None):
     known = {stage['key']: stage for stage in DEFAULT_APPLICATION_STAGES}
     stage = known.get(key)
@@ -1779,4 +1756,3 @@ def _upsert_event(config, payload, tracked):
         defaults=defaults,
     )
     return event, created, {}
-
