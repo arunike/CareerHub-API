@@ -103,6 +103,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 📅 Availability & Events
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
+- **Unified Calendar Operations**: Standard Events and Holidays endpoints support create/edit flows from the Availability, Events, and Holiday Manager calendars
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
 - **Availability Generation**: Generate user-defined week-long availability text blocks from work settings, holidays, and event conflicts; today's active ranges are clipped to the next 30-minute boundary instead of removed wholesale
 - **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, max meetings/day, reschedule/cancel cutoff hours, cancel reasons, per-link booking analytics, and locked internal events
