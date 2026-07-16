@@ -53,6 +53,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
+- **Private Equity Liquidity**: Classify annual equity as freely tradable, company-buyback, or currently unsellable; store the annual buyback value separately so downstream comparisons count only realizable equity while preserving the full grant amount
 - **Simulator Inputs**: Offer and Application records expose tax overrides, monthly rent, commute cost, food perk, PTO, and equity vesting fields used by the frontend compensation simulator
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
@@ -421,6 +422,8 @@ Base prefix: `/api/career/`
 - `GET /api/career/offers/{id}/` — Retrieve offer details
 - `PUT /api/career/offers/{id}/` — Update offer
 - `DELETE /api/career/offers/{id}/` — Delete offer
+
+Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) and `equity_buyback_value`. Existing offers default to `LIQUID` for backward-compatible calculations.
 
 #### Experience
 - `GET /api/career/experiences/` — List all experience entries

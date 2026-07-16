@@ -8,7 +8,7 @@ from availability.ai_provider import relay_ai_provider_chat_completion
 
 from ..models import Offer
 from ..serializers import OfferSerializer
-from ..services.offers import ensure_offers_for_offer_status_applications
+from ..services.offers import calculate_realizable_equity, ensure_offers_for_offer_status_applications
 
 
 def _has_ai_provider_config(user_settings):
@@ -59,12 +59,19 @@ class OfferViewSet(viewsets.ModelViewSet):
         serialized_real_offers = []
         for o in offers:
             app = o.application
+            realizable_equity = calculate_realizable_equity(
+                o.equity,
+                o.equity_liquidity,
+                o.equity_buyback_value,
+            )
             serialized_real_offers.append({
                 "company_name": app.company.name,
                 "role_title": app.role_title,
                 "base_salary": float(o.base_salary),
                 "bonus": float(o.bonus),
-                "equity": float(o.equity),
+                "equity": float(realizable_equity),
+                "granted_equity": float(o.equity),
+                "equity_liquidity": o.equity_liquidity,
                 "sign_on": float(o.sign_on),
                 "benefits_value": float(o.benefits_value),
                 "pto_days": o.pto_days,
@@ -83,12 +90,19 @@ class OfferViewSet(viewsets.ModelViewSet):
         # Process simulated offers
         serialized_simulated_offers = []
         for o in simulated_offers:
+            realizable_equity = calculate_realizable_equity(
+                o.get('equity'),
+                o.get('equity_liquidity'),
+                o.get('equity_buyback_value'),
+            )
             serialized_simulated_offers.append({
                 "company_name": o.get('custom_company_name') or o.get('company_name') or 'Custom Scenario',
                 "role_title": o.get('custom_role_title') or o.get('role_title') or 'Scenario Role',
                 "base_salary": float(o.get('base_salary') or 0),
                 "bonus": float(o.get('bonus') or 0),
-                "equity": float(o.get('equity') or 0),
+                "equity": float(realizable_equity),
+                "granted_equity": float(o.get('equity') or 0),
+                "equity_liquidity": o.get('equity_liquidity') or 'LIQUID',
                 "sign_on": float(o.get('sign_on') or 0),
                 "benefits_value": float(o.get('benefits_value') or 0),
                 "pto_days": int(o.get('pto_days') or 15),

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, time, timedelta, timezone as dt_timezone
+from decimal import Decimal
 from io import BytesIO
 from unittest.mock import patch
 
@@ -32,6 +33,7 @@ from .services.google_sheets import (
     build_import_review,
     sync_google_sheet,
 )
+from .services.offers import calculate_realizable_equity
 from .services.timeline_analytics import build_application_timeline_analytics
 
 
@@ -135,6 +137,34 @@ class OfferStatusApplicationAPITests(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['application'], application.id)
         self.assertTrue(Offer.objects.filter(application=application).exists())
+
+    def test_offer_equity_liquidity_fields_round_trip(self):
+        company = Company.objects.create(user=self.user, name='Private Co')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='OFFER',
+        )
+        offer = Offer.objects.create(application=application, base_salary=150000, equity=30000)
+
+        response = self.client.patch(
+            f'/api/career/offers/{offer.id}/',
+            {
+                'equity_liquidity': 'BUYBACK',
+                'equity_buyback_value': 18000,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['equity_liquidity'], 'BUYBACK')
+        self.assertEqual(Decimal(response.data['equity_buyback_value']), Decimal('18000.00'))
+        self.assertEqual(
+            calculate_realizable_equity(30000, 'BUYBACK', 18000),
+            Decimal('18000'),
+        )
+        self.assertEqual(calculate_realizable_equity(30000, 'ILLIQUID'), Decimal('0'))
 
 
 class AIArtifactAPITests(APITestCase):

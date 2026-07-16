@@ -129,6 +129,12 @@ class Application(models.Model):
         return f"{self.role_title} at {self.company.name}"
 
 class Offer(models.Model):
+    EQUITY_LIQUIDITY_CHOICES = [
+        ('LIQUID', 'Public or Freely Tradable'),
+        ('BUYBACK', 'Private with Company Buyback'),
+        ('ILLIQUID', 'Private and Not Sellable'),
+    ]
+
     application = models.OneToOneField(Application, on_delete=models.CASCADE, related_name='offer')
     
     base_salary = models.DecimalField(max_digits=12, decimal_places=2, help_text="Annual Base Salary")
@@ -137,6 +143,8 @@ class Offer(models.Model):
     equity_total_grant = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Total equity grant value")
     equity_vesting_percent = models.DecimalField(max_digits=5, decimal_places=2, default=25, help_text="Annual vesting percent used for annualized equity")
     equity_vesting_schedule = models.JSONField(default=list, blank=True, help_text="Four-year equity vesting percentages, e.g. [20, 20, 30, 30]")
+    equity_liquidity = models.CharField(max_length=20, choices=EQUITY_LIQUIDITY_CHOICES, default='LIQUID')
+    equity_buyback_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Annual equity value realizable through a company buyback")
     sign_on = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Sign On Bonus")
     benefits_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Estimated Annual Benefits Value")
     benefit_items = models.JSONField(default=list, blank=True, help_text="Benefit item breakdown used to derive annual benefits value")

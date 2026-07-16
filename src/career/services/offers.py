@@ -1,9 +1,25 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db import transaction
 
 from career.models import Application, Offer
 
 
 OFFER_APPLICATION_STATUSES = {'OFFER', 'ACCEPTED'}
+
+
+def calculate_realizable_equity(equity, liquidity='LIQUID', buyback_value=0):
+    try:
+        granted = max(Decimal('0'), Decimal(str(equity or 0)))
+        buyback = max(Decimal('0'), Decimal(str(buyback_value or 0)))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal('0')
+
+    if liquidity == 'ILLIQUID':
+        return Decimal('0')
+    if liquidity == 'BUYBACK':
+        return buyback
+    return granted
 
 
 def ensure_offer_for_application(application):
