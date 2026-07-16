@@ -37,6 +37,8 @@ def ensure_offer_for_application(application):
             'benefit_items': [],
             'pto_days': 15,
             'is_unlimited_pto': False,
+            'sick_leave_days': 0,
+            'sick_leave_included_in_unlimited_pto': True,
             'holiday_days': 11,
             'is_current': application.status == 'ACCEPTED',
         },

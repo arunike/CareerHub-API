@@ -153,6 +153,8 @@ class OfferStatusApplicationAPITests(APITestCase):
             {
                 'equity_liquidity': 'BUYBACK',
                 'equity_buyback_value': 18000,
+                'sick_leave_days': 10,
+                'sick_leave_included_in_unlimited_pto': False,
             },
             format='json',
         )
@@ -160,11 +162,27 @@ class OfferStatusApplicationAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['equity_liquidity'], 'BUYBACK')
         self.assertEqual(Decimal(response.data['equity_buyback_value']), Decimal('18000.00'))
+        self.assertEqual(response.data['sick_leave_days'], 10)
+        self.assertFalse(response.data['sick_leave_included_in_unlimited_pto'])
         self.assertEqual(
             calculate_realizable_equity(30000, 'BUYBACK', 18000),
             Decimal('18000'),
         )
         self.assertEqual(calculate_realizable_equity(30000, 'ILLIQUID'), Decimal('0'))
+
+    def test_offer_defaults_to_zero_sick_leave_days(self):
+        company = Company.objects.create(user=self.user, name='Default Leave Co')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Software Engineer',
+            status='OFFER',
+        )
+
+        offer = Offer.objects.create(application=application, base_salary=150000)
+
+        self.assertEqual(offer.sick_leave_days, 0)
+        self.assertTrue(offer.sick_leave_included_in_unlimited_pto)
 
 
 class AIArtifactAPITests(APITestCase):

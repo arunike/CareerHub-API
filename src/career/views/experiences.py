@@ -145,6 +145,11 @@ def _build_offer_payload(raw_offer):
         'benefit_items': _parse_structured_value(offer_payload.get('benefit_items'), []),
         'pto_days': 15 if _empty_value(offer_payload.get('pto_days')) else offer_payload.get('pto_days'),
         'is_unlimited_pto': _parse_bool(offer_payload.get('is_unlimited_pto'), default=False),
+        'sick_leave_days': 0 if _empty_value(offer_payload.get('sick_leave_days')) else offer_payload.get('sick_leave_days'),
+        'sick_leave_included_in_unlimited_pto': _parse_bool(
+            offer_payload.get('sick_leave_included_in_unlimited_pto'),
+            default=True,
+        ),
         'holiday_days': 11 if _empty_value(offer_payload.get('holiday_days')) else offer_payload.get('holiday_days'),
         'is_current': _parse_bool(offer_payload.get('is_current'), default=False),
         'raise_history': _parse_structured_value(offer_payload.get('raise_history'), []),

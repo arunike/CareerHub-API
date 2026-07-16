@@ -150,6 +150,8 @@ class Offer(models.Model):
     benefit_items = models.JSONField(default=list, blank=True, help_text="Benefit item breakdown used to derive annual benefits value")
     pto_days = models.IntegerField(default=15)
     is_unlimited_pto = models.BooleanField(default=False, help_text="Offer includes unlimited PTO")
+    sick_leave_days = models.IntegerField(default=0)
+    sick_leave_included_in_unlimited_pto = models.BooleanField(default=True)
     holiday_days = models.IntegerField(default=11)
     is_current = models.BooleanField(default=False, help_text="Is this your current role?")
     raise_history = models.JSONField(default=list, blank=True, help_text="List of raise events [{id, date, type, base_before, base_after, bonus_before, bonus_after, equity_before, equity_after, label, notes}]")
