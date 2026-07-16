@@ -145,6 +145,12 @@ class Offer(models.Model):
     holiday_days = models.IntegerField(default=11)
     is_current = models.BooleanField(default=False, help_text="Is this your current role?")
     raise_history = models.JSONField(default=list, blank=True, help_text="List of raise events [{id, date, type, base_before, base_after, bonus_before, bonus_after, equity_before, equity_after, label, notes}]")
+    counteroffer_history = models.JSONField(default=list, blank=True)
+    deadline = models.DateField(null=True, blank=True)
+    final_decision_reasoning = models.TextField(blank=True)
+    final_decision_status = models.CharField(max_length=20, default='PENDING')
+    negotiation_rounds = models.JSONField(default=list, blank=True)
+    risk_notes = models.TextField(blank=True)
     
     health_premium_monthly = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Monthly Health Insurance Premium")
     hsa_employer_contribution = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Annual Employer HSA Contribution")
