@@ -250,12 +250,15 @@ def application_timeline_stage_order(stage, configured_stages=None):
     if round_match:
         return 30 + (int(round_match.group(1)) - 1) * 10
 
+    if stage in DEFAULT_TIMELINE_STAGE_ORDER:
+        return DEFAULT_TIMELINE_STAGE_ORDER[stage]
+
     if configured_stages:
         order_map = {s['key']: idx * 10 for idx, s in enumerate(configured_stages)}
         if stage in order_map:
             return order_map[stage]
 
-    return DEFAULT_TIMELINE_STAGE_ORDER.get(stage, 999)
+    return 999
 
 
 class ApplicationTimelineEntry(models.Model):

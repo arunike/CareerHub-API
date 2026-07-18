@@ -17,7 +17,7 @@ class ApplicationTimelineEntryViewSet(viewsets.ModelViewSet):
             )
             .select_related('application', 'application__company')
             .prefetch_related('documents')
-            .order_by('application_id', 'stage_order')
+            .order_by('application_id', 'stage_order', 'event_date', 'created_at')
         )
         application_id = self.request.query_params.get('application')
         if application_id:

@@ -105,6 +105,45 @@ class ApplicationTimelineEntryModelTests(APITestCase):
             ['ROUND_2', 'ROUND_3'],
         )
 
+    def test_canonical_stage_order_ignores_profile_position(self):
+        UserSettings.objects.create(
+            user=self.user,
+            application_stages=[
+                {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': '#DCEBFF'},
+                {'key': 'OFFER', 'label': 'Offer', 'shortLabel': 'Offer', 'tone': '#34A853'},
+                {
+                    'key': 'FINAL_ROUND',
+                    'label': 'Final Round',
+                    'shortLabel': 'Final',
+                    'tone': '#6F42C1',
+                },
+            ],
+        )
+
+        offer = ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=self.application,
+            stage='OFFER',
+            event_date='2026-07-15',
+        )
+        final_round = ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=self.application,
+            stage='FINAL_ROUND',
+            event_date='2026-07-08',
+        )
+
+        self.assertEqual(final_round.stage_order, 890)
+        self.assertEqual(offer.stage_order, 1000)
+        self.assertEqual(
+            list(
+                ApplicationTimelineEntry.objects.filter(application=self.application)
+                .order_by('stage_order', 'event_date')
+                .values_list('stage', flat=True)
+            ),
+            ['FINAL_ROUND', 'OFFER'],
+        )
+
 
 class ApplicationTimelineEntryAPITests(APITestCase):
     def setUp(self):
