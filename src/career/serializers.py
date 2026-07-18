@@ -342,7 +342,7 @@ class TimelineDocumentSerializer(serializers.ModelSerializer):
 
 
 class ApplicationTimelineEntrySerializer(serializers.ModelSerializer):
-    stage_label = serializers.CharField(source='stage', read_only=True)
+    stage_label = serializers.SerializerMethodField(read_only=True)
     document_details = TimelineDocumentSerializer(source='documents', many=True, read_only=True)
 
     class Meta:
@@ -353,6 +353,7 @@ class ApplicationTimelineEntrySerializer(serializers.ModelSerializer):
             'stage',
             'stage_label',
             'stage_order',
+            'display_title',
             'event_date',
             'notes',
             'documents',
@@ -361,6 +362,9 @@ class ApplicationTimelineEntrySerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['stage_label', 'stage_order', 'document_details', 'created_at', 'updated_at']
+
+    def get_stage_label(self, obj):
+        return obj.display_title or obj.stage
 
     def get_fields(self):
         fields = super().get_fields()
@@ -384,7 +388,51 @@ class ApplicationTimelineEntrySerializer(serializers.ModelSerializer):
         application = attrs.get('application') or getattr(self.instance, 'application', None)
         if application and request and application.user_id != request.user.id:
             raise serializers.ValidationError({'application': 'Selected application was not found for this account.'})
+        if self.instance:
+            if 'stage' in attrs and attrs['stage'] != self.instance.stage:
+                raise serializers.ValidationError({'stage': 'The synced stage key cannot be changed.'})
+            if 'application' in attrs and attrs['application'] != self.instance.application:
+                raise serializers.ValidationError({'application': 'A timeline entry cannot be moved to another application.'})
         return attrs
+
+    def create(self, validated_data):
+        provided_fields = set(validated_data)
+        documents = validated_data.pop('documents', None)
+        existing = ApplicationTimelineEntry.objects.filter(
+            user=validated_data['user'],
+            application=validated_data['application'],
+            stage=validated_data['stage'],
+        ).filter(
+            Q(deleted_by_user_at__isnull=False) | Q(hidden_by_sync_at__isnull=False)
+        ).first()
+
+        if existing:
+            for field, value in validated_data.items():
+                if field != 'user':
+                    setattr(existing, field, value)
+            existing.deleted_by_user_at = None
+            existing.hidden_by_sync_at = None
+            if 'event_date' in provided_fields:
+                existing.event_date_is_user_override = True
+            if 'notes' in provided_fields:
+                existing.notes_is_user_override = True
+            existing.save()
+            if documents is not None:
+                existing.documents.set(documents)
+            return existing
+
+        validated_data['event_date_is_user_override'] = 'event_date' in provided_fields
+        validated_data['notes_is_user_override'] = 'notes' in provided_fields
+        if documents is not None:
+            validated_data['documents'] = documents
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'event_date' in validated_data and validated_data['event_date'] != instance.event_date:
+            validated_data['event_date_is_user_override'] = True
+        if 'notes' in validated_data and validated_data['notes'] != instance.notes:
+            validated_data['notes_is_user_override'] = True
+        return super().update(instance, validated_data)
 
 
 class ApplicationSerializer(serializers.ModelSerializer):

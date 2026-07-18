@@ -37,16 +37,16 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 🏢 Application Management
 - **CRUD API**: Full create, read, update, delete operations for job applications
-- **Status Tracking**: Support for 8 application stages (Applied, OA, Screen, Onsite, Offer, Rejected, Accepted, Ghosted)
+- **Status Tracking**: Default pipeline stages use the shared blue-to-purple palette for Applied, rounds 1–4, Final Round, Onsite, Offer, Rejected, Ghosted, and Removed without overwriting saved per-user stage settings
 - **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
 - **Bulk Import**: Upload CSV/XLSX files to import multiple applications at once
-- **Google Sheets Sync**: Link a Google Sheet, auto-map columns from headers, optionally adjust fields, and import changed rows into Applications from the Settings integration UI
+- **Google Sheets Sync**: Link a Google Sheet, auto-map columns from headers, optionally adjust fields, and import changed rows into Applications from the Settings integration UI; newly encountered numbered rounds automatically append deterministic, algorithmically generated blue-to-purple stage colors to that user's pipeline
 - **Job Board URL Import**: Extract company, role, location, and job description from public HTTPS job pages, using the user's AI provider when configured and falling back to deterministic parsing
 - **Export Options**: Download data as CSV, JSON, or XLSX
 - **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
 - **Detail Aggregation Ready**: Application records expose linked timeline, event, document, AI artifact, and notes data consumed by the frontend detail drawer
 - **Application Prep Workspace**: Aggregates one application's JD reports, cover letters, linked documents, notes, timeline, and resume evidence for the frontend prep drawer
-- **Company Timeline**: Persist per-stage application timeline entries with dates, notes, and attached documents
+- **Company Timeline**: Persist editable per-application stage titles, dates, notes, and attached documents; user overrides and removals are protected from Google Sheets repair, while manually authored later-round history is hidden instead of destroyed when a synced status moves backward
 - **Timeline Analytics**: Aggregate timeline and sheet sync history into average time from applied to interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 - **Locking**: Locked applications cannot be deleted
 - **Delete All**: Bulk delete endpoint respects lock status
@@ -412,8 +412,9 @@ Base prefix: `/api/career/`
 - `POST /api/career/job-import/` — Extract application fields from a public HTTPS job board URL with optional AI-assisted parsing
 - `GET /api/career/applications/export/?fmt=csv` — Export applications (csv/json/xlsx)
 - `GET /api/career/application-timeline/?application={id}` — List timeline entries for one application
-- `POST /api/career/application-timeline/` — Create a stage timeline entry with notes/docs
-- `PATCH /api/career/application-timeline/{id}/` — Update a stage timeline entry
+- `POST /api/career/application-timeline/` — Create or restore a stage timeline entry with a per-application title, date, notes, and documents
+- `PATCH /api/career/application-timeline/{id}/` — Update a timeline title, date, notes, or documents without changing its canonical synced stage key
+- `DELETE /api/career/application-timeline/{id}/` — Remove a timeline entry while suppressing automatic Google Sheets recreation
 - `GET /api/career/application-timeline-analytics/` — Return timeline-driven application analytics, including time-to-interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 
 #### Offers

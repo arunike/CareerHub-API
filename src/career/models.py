@@ -236,6 +236,7 @@ DEFAULT_TIMELINE_STAGE_ORDER = {
     'APPLIED': 0,
     'OA': 10,
     'SCREEN': 20,
+    'FINAL_ROUND': 890,
     'ONSITE': 900,
     'OFFER': 1000,
     'REJECTED': 1010,
@@ -264,8 +265,13 @@ class ApplicationTimelineEntry(models.Model):
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='timeline_entries')
     stage = models.CharField(max_length=50)
     stage_order = models.PositiveSmallIntegerField(default=999)
+    display_title = models.CharField(max_length=120, blank=True)
     event_date = models.DateField(null=True, blank=True)
+    event_date_is_user_override = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
+    notes_is_user_override = models.BooleanField(default=False)
+    deleted_by_user_at = models.DateTimeField(null=True, blank=True)
+    hidden_by_sync_at = models.DateTimeField(null=True, blank=True)
     documents = models.ManyToManyField(Document, blank=True, related_name='timeline_entries')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

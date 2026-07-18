@@ -6,7 +6,12 @@ def build_application_summary(queryset):
         total=Count('id'),
         interviews=Count(
             'id',
-            filter=Q(status='SCREEN') | Q(status='ONSITE') | Q(status__startswith='ROUND_'),
+            filter=(
+                Q(status='SCREEN')
+                | Q(status='FINAL_ROUND')
+                | Q(status='ONSITE')
+                | Q(status__startswith='ROUND_')
+            ),
         ),
         offers=Count('id', filter=Q(status='OFFER')),
         locked=Count('id', filter=Q(is_locked=True)),
@@ -29,6 +34,7 @@ def _status_order_expression():
     ]
     return Case(
         When(status='OFFER', then=Value(0)),
+        When(status='FINAL_ROUND', then=Value(30)),
         When(status='ONSITE', then=Value(40)),
         *round_whens,
         When(status='SCREEN', then=Value(110)),

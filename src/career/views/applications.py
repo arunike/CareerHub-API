@@ -229,7 +229,12 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         )
         timeline = (
             ApplicationTimelineEntry.objects
-            .filter(user=request.user, application=application)
+            .filter(
+                user=request.user,
+                application=application,
+                deleted_by_user_at__isnull=True,
+                hidden_by_sync_at__isnull=True,
+            )
             .prefetch_related('documents')
             .order_by('stage_order', 'event_date', 'created_at')
         )

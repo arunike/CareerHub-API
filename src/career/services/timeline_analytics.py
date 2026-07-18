@@ -93,7 +93,10 @@ def build_application_timeline_analytics(user):
         .prefetch_related(
             Prefetch(
                 'timeline_entries',
-                queryset=ApplicationTimelineEntry.objects.only(
+                queryset=ApplicationTimelineEntry.objects.filter(
+                    deleted_by_user_at__isnull=True,
+                    hidden_by_sync_at__isnull=True,
+                ).only(
                     'application_id',
                     'stage',
                     'event_date',

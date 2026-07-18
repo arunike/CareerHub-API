@@ -3,6 +3,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 import os
 import re
 from datetime import datetime
@@ -66,25 +67,25 @@ EVENT_DEFAULT_MAPPING = {
 }
 
 DEFAULT_APPLICATION_STAGES = [
-    {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': 'bg-blue-500'},
-    {'key': 'OA', 'label': 'Online Assessment', 'shortLabel': 'OA', 'tone': 'bg-violet-500'},
-    {'key': 'SCREEN', 'label': 'Phone Screen', 'shortLabel': 'Phone', 'tone': 'bg-sky-500'},
-    {'key': 'ROUND_1', 'label': '1st Round', 'shortLabel': 'R1', 'tone': 'bg-amber-400'},
-    {'key': 'ROUND_2', 'label': '2nd Round', 'shortLabel': 'R2', 'tone': 'bg-amber-500'},
-    {'key': 'ROUND_3', 'label': '3rd Round', 'shortLabel': 'R3', 'tone': 'bg-orange-500'},
-    {'key': 'ROUND_4', 'label': '4th Round', 'shortLabel': 'R4', 'tone': 'bg-orange-600'},
-    {'key': 'ONSITE', 'label': 'Onsite Interview', 'shortLabel': 'Onsite', 'tone': 'bg-red-500'},
-    {'key': 'OFFER', 'label': 'Offer', 'shortLabel': 'Offer', 'tone': 'bg-emerald-500'},
-    {'key': 'REJECTED', 'label': 'Rejected', 'shortLabel': 'Reject', 'tone': 'bg-rose-500'},
-    {'key': 'GHOSTED', 'label': 'Ghosted', 'shortLabel': 'Ghost', 'tone': 'bg-slate-400'},
+    {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': '#DCEBFF'},
+    {'key': 'ROUND_1', 'label': '1st Round', 'shortLabel': 'R1', 'tone': '#A9CCFF'},
+    {'key': 'ROUND_2', 'label': '2nd Round', 'shortLabel': 'R2', 'tone': '#6EA8FE'},
+    {'key': 'ROUND_3', 'label': '3rd Round', 'shortLabel': 'R3', 'tone': '#7B8CDE'},
+    {'key': 'ROUND_4', 'label': '4th Round', 'shortLabel': 'R4', 'tone': '#9B7EDE'},
+    {'key': 'FINAL_ROUND', 'label': 'Final Round', 'shortLabel': 'Final', 'tone': '#6F42C1'},
+    {'key': 'ONSITE', 'label': 'Onsite Interview', 'shortLabel': 'Onsite', 'tone': '#20B2AA'},
+    {'key': 'OFFER', 'label': 'Offer', 'shortLabel': 'Offer', 'tone': '#34A853'},
+    {'key': 'REJECTED', 'label': 'Rejected', 'shortLabel': 'Reject', 'tone': '#E85D5D'},
+    {'key': 'GHOSTED', 'label': 'Ghosted', 'shortLabel': 'Ghost', 'tone': '#9AA0A6'},
+    {'key': 'REMOVED_FROM_SHEET', 'label': 'Removed', 'shortLabel': 'Removed', 'tone': '#5F6368'},
 ]
 
 REMOVED_FROM_SHEET_STATUS = 'REMOVED_FROM_SHEET'
 REMOVED_FROM_SHEET_STAGE = {
     'key': REMOVED_FROM_SHEET_STATUS,
-    'label': 'Removed from Sheet',
+    'label': 'Removed',
     'shortLabel': 'Removed',
-    'tone': 'bg-slate-500',
+    'tone': '#5F6368',
 }
 
 STATUS_ALIASES = {
@@ -100,8 +101,8 @@ STATUS_ALIASES = {
     'recruiter call': 'SCREEN',
     'onsite': 'ONSITE',
     'onsite interview': 'ONSITE',
-    'final': 'ONSITE',
-    'final round': 'ONSITE',
+    'final': 'FINAL_ROUND',
+    'final round': 'FINAL_ROUND',
     'offer': 'OFFER',
     'accepted': 'OFFER',
     'reject': 'REJECTED',
@@ -110,7 +111,7 @@ STATUS_ALIASES = {
     'ghosted': 'GHOSTED',
 }
 
-ROUND_TONES = ['bg-amber-400', 'bg-amber-500', 'bg-orange-500', 'bg-orange-600', 'bg-red-500']
+ROUND_TONES = ['#A9CCFF', '#6EA8FE', '#7B8CDE', '#9B7EDE']
 CUSTOM_STAGE_TONES = ['bg-blue-500', 'bg-violet-500', 'bg-sky-500', 'bg-amber-500', 'bg-emerald-500']
 
 def default_mapping_for_target(target_type):
@@ -1205,6 +1206,8 @@ def _timeline_stage_cache(config, applications_by_id):
         user=config.user,
         application_id__in=applications_by_id.keys(),
         event_date__isnull=False,
+        deleted_by_user_at__isnull=True,
+        hidden_by_sync_at__isnull=True,
     ).only('application_id', 'stage'):
         cache.setdefault(entry.application_id, set()).add(entry.stage)
     return cache
@@ -1406,11 +1409,24 @@ def _prune_later_round_timeline_entries(application, old_status, new_status):
         return
 
     later_round_keys = [f'ROUND_{round_number}' for round_number in range(new_round + 1, old_round + 1)]
-    ApplicationTimelineEntry.objects.filter(
+    later_entries = ApplicationTimelineEntry.objects.filter(
         user=application.user,
         application=application,
         stage__in=later_round_keys,
-    ).delete()
+        deleted_by_user_at__isnull=True,
+    )
+    for entry in later_entries:
+        has_user_content = bool(
+            entry.display_title
+            or entry.notes
+            or entry.event_date_is_user_override
+            or entry.notes_is_user_override
+        )
+        if has_user_content:
+            entry.hidden_by_sync_at = timezone.now()
+            entry.save(update_fields=['hidden_by_sync_at', 'updated_at'])
+        else:
+            entry.delete()
 
 
 def _repair_tracked_application_timeline_from_sync_history(
@@ -1519,11 +1535,26 @@ def _ensure_application_timeline_entry(application, stage, event_date, notes=Non
         stage=stage,
         defaults=defaults,
     )
+    if entry.deleted_by_user_at:
+        return entry
     update_fields = []
-    if not created and entry.event_date is None and event_date:
+    if entry.hidden_by_sync_at:
+        entry.hidden_by_sync_at = None
+        update_fields.append('hidden_by_sync_at')
+    if (
+        not created
+        and not entry.event_date_is_user_override
+        and entry.event_date is None
+        and event_date
+    ):
         entry.event_date = event_date
         update_fields.append('event_date')
-    if not created and notes is not None and entry.notes != notes:
+    if (
+        not created
+        and not entry.notes_is_user_override
+        and notes is not None
+        and entry.notes != notes
+    ):
         entry.notes = notes
         update_fields.append('notes')
     if update_fields:
@@ -1686,7 +1717,47 @@ def _round_label(round_number):
 
 
 def _round_tone(round_number):
-    return ROUND_TONES[min(max(round_number, 1), len(ROUND_TONES)) - 1]
+    normalized_round = max(round_number, 1)
+    if normalized_round <= len(ROUND_TONES):
+        return ROUND_TONES[normalized_round - 1]
+    return _generated_round_tone(normalized_round)
+
+
+def _generated_round_tone(round_number):
+    sequence_index = round_number - len(ROUND_TONES)
+    hue_phase = (sequence_index * 0.618033988749895) % 1
+    lightness_phase = (sequence_index * 0.414213562373095) % 1
+    hue = 255 + (hue_phase * 70)
+    lightness = 0.64 - (lightness_phase * 0.1)
+    return _oklch_to_hex(lightness, 0.13, hue)
+
+
+def _oklch_to_hex(lightness, chroma, hue_degrees):
+    hue_radians = math.radians(hue_degrees)
+    a = chroma * math.cos(hue_radians)
+    b = chroma * math.sin(hue_radians)
+
+    l_root = lightness + (0.3963377774 * a) + (0.2158037573 * b)
+    m_root = lightness - (0.1055613458 * a) - (0.0638541728 * b)
+    s_root = lightness - (0.0894841775 * a) - (1.291485548 * b)
+    l_value, m_value, s_value = l_root**3, m_root**3, s_root**3
+
+    linear_rgb = (
+        (4.0767416621 * l_value) - (3.3077115913 * m_value) + (0.2309699292 * s_value),
+        (-1.2684380046 * l_value) + (2.6097574011 * m_value) - (0.3413193965 * s_value),
+        (-0.0041960863 * l_value) - (0.7034186147 * m_value) + (1.707614701 * s_value),
+    )
+
+    def to_srgb(channel):
+        encoded = (
+            12.92 * channel
+            if channel <= 0.0031308
+            else (1.055 * (channel ** (1 / 2.4))) - 0.055
+        )
+        return round(min(max(encoded, 0), 1) * 255)
+
+    red, green, blue = (to_srgb(channel) for channel in linear_rgb)
+    return f'#{red:02X}{green:02X}{blue:02X}'
 
 
 def _custom_stage_tone(user):

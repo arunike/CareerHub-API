@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import viewsets
 
 from ..models import ApplicationTimelineEntry
@@ -9,7 +10,11 @@ class ApplicationTimelineEntryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = (
-            ApplicationTimelineEntry.objects.filter(user=self.request.user)
+            ApplicationTimelineEntry.objects.filter(
+                user=self.request.user,
+                deleted_by_user_at__isnull=True,
+                hidden_by_sync_at__isnull=True,
+            )
             .select_related('application', 'application__company')
             .prefetch_related('documents')
             .order_by('application_id', 'stage_order')
@@ -21,3 +26,7 @@ class ApplicationTimelineEntryViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        instance.deleted_by_user_at = timezone.now()
+        instance.save(update_fields=['deleted_by_user_at', 'updated_at'])

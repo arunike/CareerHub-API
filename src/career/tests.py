@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime, time, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from io import BytesIO
@@ -27,7 +28,10 @@ from .models import (
 )
 from .serializers import ExperienceSerializer
 from .services.google_sheets import (
+    DEFAULT_APPLICATION_STAGES,
     _is_sync_config_due,
+    _ensure_application_timeline_entry,
+    _round_tone,
     _upsert_application,
     apply_import_review,
     build_import_review,
@@ -50,6 +54,20 @@ class ApplicationTimelineEntryModelTests(APITestCase):
             company=self.company,
             role_title='Backend Engineer',
         )
+
+    def test_user_date_override_is_not_refilled_by_sync(self):
+        entry = ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=self.application,
+            stage='ROUND_1',
+            event_date=None,
+            event_date_is_user_override=True,
+        )
+
+        _ensure_application_timeline_entry(self.application, 'ROUND_1', '2026-07-18')
+
+        entry.refresh_from_db()
+        self.assertIsNone(entry.event_date)
 
     def test_round_stage_order_uses_round_number_not_settings_position(self):
         UserSettings.objects.create(
@@ -86,6 +104,96 @@ class ApplicationTimelineEntryModelTests(APITestCase):
             ),
             ['ROUND_2', 'ROUND_3'],
         )
+
+
+class ApplicationTimelineEntryAPITests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='timeline-api-user@example.com',
+            email='timeline-api-user@example.com',
+            password='StrongPassw0rd!',
+        )
+        self.client.force_authenticate(self.user)
+        company = Company.objects.create(user=self.user, name='Acme')
+        self.application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Backend Engineer',
+            status='ROUND_2',
+        )
+        self.entry = ApplicationTimelineEntry.objects.create(
+            user=self.user,
+            application=self.application,
+            stage='ROUND_2',
+            event_date='2026-07-17',
+            notes='Technical interview',
+        )
+
+    def test_patch_updates_display_title_and_protects_changed_fields(self):
+        response = self.client.patch(
+            f'/api/career/application-timeline/{self.entry.id}/',
+            {
+                'display_title': 'Architecture Interview',
+                'event_date': None,
+                'notes': 'System design and API discussion',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.stage, 'ROUND_2')
+        self.assertEqual(self.entry.display_title, 'Architecture Interview')
+        self.assertIsNone(self.entry.event_date)
+        self.assertTrue(self.entry.event_date_is_user_override)
+        self.assertTrue(self.entry.notes_is_user_override)
+
+        stage_response = self.client.patch(
+            f'/api/career/application-timeline/{self.entry.id}/',
+            {'stage': 'ROUND_3'},
+            format='json',
+        )
+        self.assertEqual(stage_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.entry.refresh_from_db()
+        self.assertEqual(self.entry.stage, 'ROUND_2')
+
+    def test_delete_suppresses_sync_repair_and_manual_create_revives_entry(self):
+        delete_response = self.client.delete(
+            f'/api/career/application-timeline/{self.entry.id}/'
+        )
+
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.entry.refresh_from_db()
+        self.assertIsNotNone(self.entry.deleted_by_user_at)
+
+        _ensure_application_timeline_entry(self.application, 'ROUND_2', '2026-07-18')
+        self.entry.refresh_from_db()
+        self.assertIsNotNone(self.entry.deleted_by_user_at)
+        self.assertEqual(self.entry.event_date.isoformat(), '2026-07-17')
+
+        list_response = self.client.get(
+            f'/api/career/application-timeline/?application={self.application.id}'
+        )
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data, [])
+
+        create_response = self.client.post(
+            '/api/career/application-timeline/',
+            {
+                'application': self.application.id,
+                'stage': 'ROUND_2',
+                'display_title': 'Re-added interview',
+                'event_date': '2026-07-19',
+                'notes': 'Restored manually',
+            },
+            format='json',
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data['id'], self.entry.id)
+        self.entry.refresh_from_db()
+        self.assertIsNone(self.entry.deleted_by_user_at)
+        self.assertEqual(self.entry.display_title, 'Re-added interview')
 
 
 class OfferStatusApplicationAPITests(APITestCase):
@@ -779,6 +887,24 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             password="StrongPassw0rd!",
         )
 
+    def test_default_application_stages_use_requested_palette(self):
+        self.assertEqual(
+            DEFAULT_APPLICATION_STAGES,
+            [
+                {'key': 'APPLIED', 'label': 'Applied', 'shortLabel': 'Apply', 'tone': '#DCEBFF'},
+                {'key': 'ROUND_1', 'label': '1st Round', 'shortLabel': 'R1', 'tone': '#A9CCFF'},
+                {'key': 'ROUND_2', 'label': '2nd Round', 'shortLabel': 'R2', 'tone': '#6EA8FE'},
+                {'key': 'ROUND_3', 'label': '3rd Round', 'shortLabel': 'R3', 'tone': '#7B8CDE'},
+                {'key': 'ROUND_4', 'label': '4th Round', 'shortLabel': 'R4', 'tone': '#9B7EDE'},
+                {'key': 'FINAL_ROUND', 'label': 'Final Round', 'shortLabel': 'Final', 'tone': '#6F42C1'},
+                {'key': 'ONSITE', 'label': 'Onsite Interview', 'shortLabel': 'Onsite', 'tone': '#20B2AA'},
+                {'key': 'OFFER', 'label': 'Offer', 'shortLabel': 'Offer', 'tone': '#34A853'},
+                {'key': 'REJECTED', 'label': 'Rejected', 'shortLabel': 'Reject', 'tone': '#E85D5D'},
+                {'key': 'GHOSTED', 'label': 'Ghosted', 'shortLabel': 'Ghost', 'tone': '#9AA0A6'},
+                {'key': 'REMOVED_FROM_SHEET', 'label': 'Removed', 'shortLabel': 'Removed', 'tone': '#5F6368'},
+            ],
+        )
+
     def test_parenthesized_round_status_reuses_existing_round_stage(self):
         UserSettings.objects.create(
             user=self.user,
@@ -823,6 +949,69 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(application.status, 'ROUND_10')
         self.assertEqual(stage['label'], '10th Round')
         self.assertEqual(stage['shortLabel'], 'R10')
+        self.assertEqual(stage['tone'], _round_tone(10))
+
+    def test_extra_round_colors_are_generated_and_distinct(self):
+        generated_tones = [_round_tone(round_number) for round_number in range(5, 13)]
+
+        self.assertEqual(len(generated_tones), len(set(generated_tones)))
+        self.assertTrue(all(re.fullmatch(r'#[0-9A-F]{6}', tone) for tone in generated_tones))
+        self.assertTrue(set(generated_tones).isdisjoint({'#A9CCFF', '#6EA8FE', '#7B8CDE', '#9B7EDE'}))
+
+    def test_extra_round_import_preserves_existing_profile_stages(self):
+        existing_stages = [
+            {
+                'key': 'APPLIED',
+                'label': 'My Applied Stage',
+                'shortLabel': 'Mine',
+                'tone': '#123456',
+            }
+        ]
+        UserSettings.objects.create(user=self.user, application_stages=existing_stages)
+
+        application, _, _ = _upsert_application(
+            config=type('Config', (), {'user': self.user})(),
+            payload={
+                '_user': self.user,
+                'company_name': 'Acme',
+                'role_title': 'Platform Engineer',
+                'status': '7th round',
+            },
+            tracked=None,
+        )
+
+        settings = UserSettings.objects.get(user=self.user)
+        self.assertEqual(application.status, 'ROUND_7')
+        self.assertEqual(settings.application_stages[0], existing_stages[0])
+        self.assertEqual(
+            settings.application_stages[1],
+            {
+                'key': 'ROUND_7',
+                'label': '7th Round',
+                'shortLabel': 'R7',
+                'tone': _round_tone(7),
+            },
+        )
+        self.assertEqual(len(settings.application_stages), 2)
+
+    def test_final_round_import_is_distinct_from_onsite(self):
+        application, _, _ = _upsert_application(
+            config=type('Config', (), {'user': self.user})(),
+            payload={
+                '_user': self.user,
+                'company_name': 'Acme',
+                'role_title': 'Product Engineer',
+                'status': 'Final Round',
+            },
+            tracked=None,
+        )
+
+        settings = UserSettings.objects.get(user=self.user)
+        final_stage = next(
+            stage for stage in settings.application_stages if stage['key'] == 'FINAL_ROUND'
+        )
+        self.assertEqual(application.status, 'FINAL_ROUND')
+        self.assertEqual(final_stage['tone'], '#6F42C1')
 
     def test_round_status_jump_backfills_missing_timeline_rounds_with_sync_date(self):
         config = type('Config', (), {'user': self.user, 'overwrite_strategies': {}})()
@@ -1047,7 +1236,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         self.assertEqual(entries['ROUND_4'].isoformat(), '2026-05-20')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
-    def test_round_status_drop_removes_later_round_and_preserves_current_stage_notes(self, mock_fetch_sheet_rows):
+    def test_round_status_drop_hides_later_round_and_preserves_manual_notes(self, mock_fetch_sheet_rows):
         company = Company.objects.create(user=self.user, name='Acme')
         application = Application.objects.create(
             user=self.user,
@@ -1102,16 +1291,30 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             result = sync_google_sheet(config, force=True)
 
         application.refresh_from_db()
-        entries = {
+        visible_entries = {
             entry.stage: entry
-            for entry in ApplicationTimelineEntry.objects.filter(application=application)
+            for entry in ApplicationTimelineEntry.objects.filter(
+                application=application,
+                hidden_by_sync_at__isnull=True,
+            )
         }
+        hidden_round_four = ApplicationTimelineEntry.objects.get(
+            application=application,
+            stage='ROUND_4',
+        )
         self.assertEqual(result['updated'], 1)
         self.assertEqual(application.status, 'ROUND_3')
-        self.assertIn('ROUND_3', entries)
-        self.assertEqual(entries['ROUND_3'].event_date.isoformat(), '2026-05-20')
-        self.assertEqual(entries['ROUND_3'].notes, 'Old third round detail.')
-        self.assertNotIn('ROUND_4', entries)
+        self.assertIn('ROUND_3', visible_entries)
+        self.assertEqual(visible_entries['ROUND_3'].event_date.isoformat(), '2026-05-20')
+        self.assertEqual(visible_entries['ROUND_3'].notes, 'Old third round detail.')
+        self.assertNotIn('ROUND_4', visible_entries)
+        self.assertIsNotNone(hidden_round_four.hidden_by_sync_at)
+        self.assertEqual(hidden_round_four.notes, 'Former fourth round detail.')
+
+        _ensure_application_timeline_entry(application, 'ROUND_4', '2026-05-23')
+        hidden_round_four.refresh_from_db()
+        self.assertIsNone(hidden_round_four.hidden_by_sync_at)
+        self.assertEqual(hidden_round_four.notes, 'Former fourth round detail.')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_same_company_and_role_with_different_locations_create_distinct_applications(self, mock_fetch_sheet_rows):
