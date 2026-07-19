@@ -108,7 +108,15 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(search_filter)
 
         if 'status' in filters:
-            queryset = queryset.filter(status=filters['status'])
+            if filters['status'] == 'INTERVIEWS':
+                queryset = queryset.filter(
+                    Q(status='SCREEN')
+                    | Q(status='FINAL_ROUND')
+                    | Q(status='ONSITE')
+                    | Q(status__startswith='ROUND_')
+                )
+            else:
+                queryset = queryset.filter(status=filters['status'])
 
         if 'employment_type' in filters:
             queryset = queryset.filter(employment_type=filters['employment_type'])
@@ -121,11 +129,73 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         if 'year' in filters:
             queryset = queryset.filter(date_applied__year=filters['year'])
 
+        is_locked_filter = params.get('is_locked')
+        if is_locked_filter:
+            if is_locked_filter.lower() == 'true':
+                queryset = queryset.filter(is_locked=True)
+            elif is_locked_filter.lower() == 'false':
+                queryset = queryset.filter(is_locked=False)
+
         return apply_application_ordering(queryset, params.get('ordering'))
+
+    def get_summary_queryset(self, request):
+        queryset = Application.objects.filter(user=request.user).select_related('company')
+        params = request.query_params
+
+        ids_filter = params.get('ids')
+        if ids_filter:
+            try:
+                ids = [int(id_str) for id_str in ids_filter.split(',') if id_str.strip().isdigit()]
+                queryset = queryset.filter(id__in=ids)
+            except ValueError:
+                pass
+
+        search = (params.get('search') or '').strip()
+        filters = {}
+        employment_type_filter = (params.get('employment_type') or '').strip()
+        if employment_type_filter and employment_type_filter != 'ALL':
+            filters['employment_type'] = employment_type_filter
+
+        location_filter = (params.get('location') or '').strip()
+        if location_filter and location_filter != 'ALL':
+            filters['location'] = location_filter
+
+        year_filter = (params.get('year') or '').strip()
+        if year_filter and year_filter != 'all':
+            try:
+                filters['year'] = int(year_filter)
+            except ValueError:
+                return queryset.none()
+
+        if search:
+            search_filter = Q()
+            for term in search.split():
+                search_filter &= (
+                    Q(company__name__icontains=term)
+                    | Q(role_title__icontains=term)
+                    | Q(location__icontains=term)
+                    | Q(office_location__icontains=term)
+                    | Q(notes__icontains=term)
+                )
+            queryset = queryset.filter(search_filter)
+
+        if 'employment_type' in filters:
+            queryset = queryset.filter(employment_type=filters['employment_type'])
+
+        if 'location' in filters:
+            queryset = queryset.filter(
+                Q(office_location__icontains=filters['location']) | Q(location__icontains=filters['location'])
+            )
+
+        if 'year' in filters:
+            queryset = queryset.filter(date_applied__year=filters['year'])
+
+        return queryset
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        summary = build_application_summary(queryset)
+        summary_queryset = self.get_summary_queryset(request)
+        summary = build_application_summary(summary_queryset)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
