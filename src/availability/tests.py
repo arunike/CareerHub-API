@@ -488,7 +488,7 @@ class UserSettingsNavigationTests(APITestCase):
         self.current_settings_url = '/api/user-settings/current/'
 
     def test_current_settings_saves_mobile_toolbar_items_in_order(self):
-        toolbar_items = ['/applications', '/events', '/tasks', '/analytics']
+        toolbar_items = ['/applications', '__smart__', '/tasks', '/analytics']
 
         response = self.client.put(
             self.current_settings_url,

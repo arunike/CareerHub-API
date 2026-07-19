@@ -73,6 +73,7 @@ class AvailabilitySettingSerializer(serializers.ModelSerializer):
 
 class UserSettingsSerializer(serializers.ModelSerializer):
     MOBILE_TOOLBAR_ROUTE_KEYS = {
+        '__smart__',
         '/',
         '/events',
         '/holidays',
