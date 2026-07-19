@@ -477,6 +477,49 @@ class PublicBookingEnhancementTests(APITestCase):
         self.assertEqual(booking.event.start_time, '09:30:00')
 
 
+class UserSettingsNavigationTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='richie',
+            email='richie@example.com',
+            password='test-pass-123',
+        )
+        self.client.force_login(self.user)
+        self.current_settings_url = '/api/user-settings/current/'
+
+    def test_current_settings_saves_mobile_toolbar_items_in_order(self):
+        toolbar_items = ['/applications', '/events', '/tasks', '/analytics']
+
+        response = self.client.put(
+            self.current_settings_url,
+            {'mobile_toolbar_items': toolbar_items},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['mobile_toolbar_items'], toolbar_items)
+        settings = UserSettings.objects.get(user=self.user)
+        self.assertEqual(settings.mobile_toolbar_items, toolbar_items)
+
+    def test_current_settings_rejects_invalid_mobile_toolbar_items(self):
+        invalid_values = [
+            ['/applications'] * 5,
+            ['/applications', '/applications'],
+            ['/not-a-page'],
+        ]
+
+        for toolbar_items in invalid_values:
+            with self.subTest(toolbar_items=toolbar_items):
+                response = self.client.put(
+                    self.current_settings_url,
+                    {'mobile_toolbar_items': toolbar_items},
+                    format='json',
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn('mobile_toolbar_items', response.data)
+
+
 class AIProviderSettingsTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(

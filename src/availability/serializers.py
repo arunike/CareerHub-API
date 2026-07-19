@@ -72,6 +72,22 @@ class AvailabilitySettingSerializer(serializers.ModelSerializer):
         fields = ['id', 'key', 'value']
 
 class UserSettingsSerializer(serializers.ModelSerializer):
+    MOBILE_TOOLBAR_ROUTE_KEYS = {
+        '/',
+        '/events',
+        '/holidays',
+        '/applications',
+        '/offers',
+        '/documents',
+        '/tasks',
+        '/experience',
+        '/jd-reports',
+        '/ai-tools?tab=cover-letters',
+        '/ai-tools?tab=negotiation-results',
+        '/ai-tools?tab=promotion-reviews',
+        '/analytics',
+    }
+
     ai_provider_api_key = serializers.CharField(
         write_only=True,
         required=False,
@@ -90,6 +106,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'theme', 'notification_preferences', 'global_availability',
             'ghosting_threshold_days', 'default_event_category',
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
+            'mobile_toolbar_items',
             'is_locked',
             'ai_provider_adapter', 'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',
             'ai_provider_api_key_configured', 'ai_provider_api_key_masked',
@@ -112,6 +129,17 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         else:
             fields['default_event_category'].queryset = EventCategory.objects.none()
         return fields
+
+    def validate_mobile_toolbar_items(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Mobile toolbar items must be a list.')
+        if len(value) > 4:
+            raise serializers.ValidationError('Choose no more than 4 mobile toolbar items.')
+        if any(not isinstance(key, str) or key not in self.MOBILE_TOOLBAR_ROUTE_KEYS for key in value):
+            raise serializers.ValidationError('One or more mobile toolbar items are invalid.')
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError('Mobile toolbar items cannot contain duplicates.')
+        return value
 
     def get_ai_provider_api_key_configured(self, obj):
         return obj.has_ai_provider_api_key()
