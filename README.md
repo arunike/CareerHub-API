@@ -112,6 +112,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category used by new event forms, and notification preferences
+- **Mobile Toolbar Preferences** (`mobile_toolbar_items` JSONField): Persist an ordered, validated set of up to four mobile navigation slots per user, including one optional `__smart__` slot; empty values retain the default Home, Applications, Offers, and Insights toolbar
 - **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
 - **Privacy Export Center APIs**: Account-level export, backup restore, and confirmed account deletion endpoints live under `user-settings`.
 - **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows with optional `days` lists for day-specific schedules (e.g., Mon–Thu 10am–3pm, Fri 1pm–4pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges matching ranges after subtracting event conflicts
@@ -520,7 +521,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 #### Settings
 - `GET /api/security/dashboard/` — Authenticated security posture summary for Settings, including environment flags, auth throttles, Google sync health, and Vercel WAF setup hints
 - `GET /api/user-settings/current/` — Retrieve user settings (singleton)
-- `PUT /api/user-settings/current/` — Update all settings fields including `availability_weeks`, `employment_types`, `holiday_tabs`, `work_time_ranges`, and AI provider fields
+- `PUT /api/user-settings/current/` — Update all settings fields including `availability_weeks`, `employment_types`, `holiday_tabs`, `work_time_ranges`, `mobile_toolbar_items`, and AI provider fields
 - `GET /api/user-settings/account-export/?fmt=json|zip` — Download account-level CareerHub export data
 - `POST /api/user-settings/restore-backup/` — Restore a CareerHub account export in merge or replace mode
 - `DELETE /api/user-settings/account/` — Schedule authenticated account deletion with a 14-day grace period when the payload includes `confirm=DELETE`
