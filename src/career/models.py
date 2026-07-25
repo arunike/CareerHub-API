@@ -111,6 +111,7 @@ class Application(models.Model):
     )
     
     employment_type = models.CharField(max_length=20, default='full_time', null=True, blank=True)
+    level = models.CharField(max_length=50, blank=True, default='', help_text="Job level or band, e.g. L5, Senior, Staff, IC3")
     flexible_hours_policy = models.CharField(max_length=20, choices=FLEXIBLE_HOURS_CHOICES, default='UNKNOWN')
     travel_frequency = models.CharField(max_length=20, choices=TRAVEL_FREQUENCY_CHOICES, default='UNKNOWN')
 

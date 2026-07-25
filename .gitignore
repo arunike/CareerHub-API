@@ -37,3 +37,4 @@ media/
 !.env.*.example
 .vercel
 .env*.local
+_uv/

@@ -267,6 +267,36 @@ class OfferStatusApplicationAPITests(APITestCase):
         self.assertEqual(offers_response.data[0]['application'], application.id)
         self.assertEqual(offers_response.data[0]['application_details']['company'], 'Acme')
 
+    def test_application_level_can_be_created_updated_and_read(self):
+        create_response = self.client.post(
+            '/api/career/applications/',
+            {
+                'company_name': 'Level Test Co',
+                'role_title': 'Software Engineer',
+                'status': 'APPLIED',
+                'level': 'L4',
+            },
+            format='json',
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data['level'], 'L4')
+
+        application_id = create_response.data['id']
+        update_response = self.client.patch(
+            f'/api/career/applications/{application_id}/',
+            {'level': 'L5'},
+            format='json',
+        )
+
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data['level'], 'L5')
+
+        retrieve_response = self.client.get(f'/api/career/applications/{application_id}/')
+        self.assertEqual(retrieve_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(retrieve_response.data['level'], 'L5')
+        self.assertEqual(Application.objects.get(id=application_id).level, 'L5')
+
     def test_offer_list_backfills_legacy_offer_status_applications(self):
         company = Company.objects.create(user=self.user, name='Plaid')
         application = Application.objects.create(
