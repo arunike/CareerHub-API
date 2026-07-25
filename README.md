@@ -141,7 +141,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
   - `GET /api/internal/cron/daily-maintenance/`
   - `GET /api/internal/cron/google-sheet-syncs/`
   - guarded by `CRON_SECRET` via the `Authorization: Bearer ...` header that Vercel automatically sends for cron invocations
-  - Hobby-safe Vercel deploys run one daily cron at `0 5 * * *`; daily maintenance handles stale applications, share links, account deletion purges, and enabled Google Sheets syncs
+  - Hobby-safe Vercel deploys run one daily cron at `0 8 * * *`; daily maintenance handles stale applications, share links, account deletion purges, and enabled Google Sheets syncs
 
 - **Rate Limiting**
   - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
