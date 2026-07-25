@@ -7,6 +7,7 @@ import json
 import io
 import holidays
 from .models import UserSettings, AvailabilityOverride, CustomHoliday, Event
+from .holiday_recurrence import project_recurring_holiday_dates
 from .recurrence import generate_recurring_instances
 
 def get_availability_dates(start_date=None, weeks=2):
@@ -198,11 +199,25 @@ def calculate_availability_for_dates(dates, timezone_str='America/Los_Angeles', 
         for o in AvailabilityOverride.objects.filter(user=user, date__range=[start_date, end_date])
     }
     
-    custom_holidays = set(
-        CustomHoliday.objects.filter(user=user, date__range=[start_date, end_date]).values_list('date', flat=True)
-    )
-    
     years = set(d.year for d in date_list)
+    custom_holidays = set(
+        CustomHoliday.objects.filter(
+            user=user,
+            is_recurring=False,
+            date__range=[start_date, end_date],
+        ).values_list('date', flat=True)
+    )
+    recurring_holidays = list(
+        CustomHoliday.objects.filter(user=user, is_recurring=True)
+    )
+    for year in years:
+        projected_dates = project_recurring_holiday_dates(recurring_holidays, year)
+        custom_holidays.update(
+            projected_date
+            for projected_date in projected_dates.values()
+            if start_date <= projected_date <= end_date
+        )
+
     fed_holidays = {}
     for year in years:
         fed_holidays.update(get_custom_us_holidays(year))

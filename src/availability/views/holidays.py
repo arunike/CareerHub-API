@@ -1,7 +1,9 @@
 from datetime import datetime
 
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from django.core.cache import cache
 
@@ -9,6 +11,22 @@ from ..models import CustomHoliday, UserSettings
 from ..serializers import CustomHolidaySerializer
 from ..utils import export_data, get_federal_holidays
 from ..cache import get_holidays_cache_key, invalidate_holidays_cache
+from ..holiday_recurrence import project_recurring_holiday_dates
+
+
+def _get_requested_holiday_year(request):
+    raw_year = request.query_params.get('year')
+    if raw_year in (None, ''):
+        return datetime.now().year
+
+    try:
+        year = int(raw_year)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError({'year': 'Year must be a four-digit number.'}) from exc
+
+    if year < 1900 or year > 2100:
+        raise ValidationError({'year': 'Year must be between 1900 and 2100.'})
+    return year
 
 
 class HolidayViewSet(viewsets.ModelViewSet):
@@ -16,7 +34,10 @@ class HolidayViewSet(viewsets.ModelViewSet):
     serializer_class = CustomHolidaySerializer
 
     def get_queryset(self):
-        return CustomHoliday.objects.filter(user=self.request.user)
+        queryset = CustomHoliday.objects.filter(user=self.request.user)
+        if self.action == 'list':
+            return queryset.exclude(holiday_type='federal')
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -32,7 +53,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         user_id = request.user.id
-        cache_key = get_holidays_cache_key(user_id, "list", request.query_params)
+        cache_key = get_holidays_cache_key(user_id, "list-personal", request.query_params)
         
         cached_response = cache.get(cache_key)
         if cached_response is not None:
@@ -51,7 +72,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
         if cached_response is not None:
             return Response(cached_response)
             
-        year = datetime.now().year
+        year = _get_requested_holiday_year(request)
         holidays_dict = get_federal_holidays(year)
         
         user_settings = UserSettings.objects.filter(user=request.user).first()
@@ -68,15 +89,25 @@ class HolidayViewSet(viewsets.ModelViewSet):
                 'is_ignored': is_ignored
             })
             
-        custom_federal = CustomHoliday.objects.filter(user=request.user, holiday_type='federal', date__year=year)
+        custom_federal = list(
+            CustomHoliday.objects.filter(
+                Q(date__year=year) | Q(is_recurring=True),
+                user=request.user,
+                holiday_type='federal',
+            )
+        )
+        projected_dates = project_recurring_holiday_dates(custom_federal, year)
         for custom in custom_federal:
-            date_str = custom.date.strftime('%Y-%m-%d')
+            date_str = projected_dates[custom.id].strftime('%Y-%m-%d')
             is_ignored = custom.description in ignored_holidays or date_str in ignored_holidays
             data.append({
                 'id': custom.id,
                 'date': date_str,
+                'group_id': custom.group_id,
                 'description': custom.description,
                 'holiday_type': 'federal',
+                'is_recurring': custom.is_recurring,
+                'is_locked': custom.is_locked,
                 'is_ignored': is_ignored
             })
             
@@ -92,10 +123,11 @@ class HolidayViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = self.get_queryset().filter(is_locked=False).delete()
+        count, _ = self.get_queryset().exclude(
+            holiday_type='federal'
+        ).filter(is_locked=False).delete()
         invalidate_holidays_cache(request.user.id)
         return Response(
             {'message': f'Deleted {count} holidays. Locked holidays were preserved.'},
             status=status.HTTP_200_OK,
         )
-
