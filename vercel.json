@@ -41,7 +41,7 @@
   ],
   "crons": [
     {
-      "path": "/api/internal/cron/google-sheet-syncs/",
+      "path": "/api/internal/cron/daily-maintenance/",
       "schedule": "0 8 * * *"
     }
   ]

@@ -126,6 +126,14 @@ class Application(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=['user', 'status', 'date_applied'],
+                name='career_app_ghost_idx',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.role_title} at {self.company.name}"
 

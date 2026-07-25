@@ -2,12 +2,12 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-PENDING_STATUSES = ("APPLIED", "OA", "SCREEN", "ONSITE")
 DEFAULT_GHOSTING_THRESHOLD_DAYS = 30
 
 
 def auto_ghost_stale_applications():
     from career.models import Application
+    from career.cache import invalidate_applications_cache
     from availability.models import UserSettings
 
     count = 0
@@ -18,12 +18,15 @@ def auto_ghost_stale_applications():
 
     for user_id in Application.objects.exclude(user__isnull=True).values_list('user_id', flat=True).distinct():
         threshold_days = user_settings_map.get(user_id, DEFAULT_GHOSTING_THRESHOLD_DAYS)
-        cutoff_date = timezone.now() - timedelta(days=threshold_days)
+        cutoff_date = timezone.localdate() - timedelta(days=threshold_days)
         stale_applications = Application.objects.filter(
             user_id=user_id,
-            status__in=PENDING_STATUSES,
-            updated_at__lte=cutoff_date,
+            status="APPLIED",
+            date_applied__lte=cutoff_date,
         )
-        count += stale_applications.update(status="GHOSTED")
+        updated_count = stale_applications.update(status="GHOSTED")
+        if updated_count:
+            invalidate_applications_cache(user_id)
+            count += updated_count
 
     return f"Ghosted {count} stale application(s)."
