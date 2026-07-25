@@ -246,19 +246,67 @@ class ExperienceViewSet(viewsets.ModelViewSet):
     serializer_class = ExperienceSerializer
 
     def get_queryset(self):
-        return Experience.objects.filter(user=self.request.user).order_by('-start_date', '-created_at')
+        if not self.request.user or not self.request.user.is_authenticated:
+            return Experience.objects.none()
+        try:
+            return Experience.objects.filter(user=self.request.user).order_by('-is_pinned', 'position', '-start_date', '-created_at')
+        except Exception:
+            return Experience.objects.filter(user=self.request.user).order_by('-start_date', '-created_at')
+
+    @action(detail=False, methods=['post'], url_path='reorder')
+    def reorder(self, request):
+        order_list = request.data.get('order', [])
+        if not isinstance(order_list, list):
+            return Response({'error': 'Invalid order data.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            for item in order_list:
+                if isinstance(item, dict) and 'id' in item and 'position' in item:
+                    try:
+                        Experience.objects.filter(id=item['id'], user=request.user).update(position=item['position'])
+                    except Exception:
+                        pass
+        if request.user and request.user.id:
+            invalidate_experiences_cache(request.user.id)
+        return Response({'status': 'reordered'})
 
     def list(self, request, *args, **kwargs):
-        user_id = request.user.id
-        cache_key = get_experiences_cache_key(user_id, "list", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
+        user_id = getattr(request.user, 'id', None)
+        cache_key = None
+        if user_id:
+            try:
+                cache_key = get_experiences_cache_key(user_id, "list", request.query_params)
+                cached_response = cache.get(cache_key)
+                if cached_response is not None:
+                    return Response(cached_response)
+            except Exception:
+                pass
             
         response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=300)
+        if user_id and cache_key:
+            try:
+                cache.set(cache_key, response.data, timeout=300)
+            except Exception:
+                pass
         return response
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+        user_id = getattr(self.request.user, 'id', None)
+        if user_id:
+            invalidate_experiences_cache(user_id)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        user_id = getattr(self.request.user, 'id', None)
+        if user_id:
+            invalidate_experiences_cache(user_id)
+
+    def perform_destroy(self, instance):
+        user_id = getattr(self.request.user, 'id', None)
+        instance.delete()
+        if user_id:
+            invalidate_experiences_cache(user_id)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

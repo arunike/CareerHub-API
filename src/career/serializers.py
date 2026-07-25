@@ -155,15 +155,33 @@ class OfferSerializer(serializers.ModelSerializer):
         return attrs
 
     def get_application_details(self, obj):
-        app = obj.application
-        loc = getattr(app, 'location', '') or getattr(app, 'office_location', '') or ''
-        return {
-            'company': app.company.name if app.company else '',
-            'role_title': app.role_title or '',
-            'level': getattr(app, 'level', '') or '',
-            'location': loc,
-            'employment_type': getattr(app, 'employment_type', 'full_time') or 'full_time',
-        }
+        try:
+            app = getattr(obj, 'application', None)
+            if not app:
+                return {'company': '', 'role_title': '', 'level': '', 'location': '', 'employment_type': 'full_time'}
+            company_name = app.company.name if (hasattr(app, 'company') and app.company) else ''
+            role_title = getattr(app, 'role_title', '') or ''
+            try:
+                level = getattr(app, 'level', '') or ''
+            except Exception:
+                level = ''
+            try:
+                location = getattr(app, 'office_location', '') or getattr(app, 'location', '') or ''
+            except Exception:
+                location = ''
+            try:
+                emp_type = getattr(app, 'employment_type', 'full_time') or 'full_time'
+            except Exception:
+                emp_type = 'full_time'
+            return {
+                'company': company_name,
+                'role_title': role_title,
+                'level': level,
+                'location': location,
+                'employment_type': emp_type,
+            }
+        except Exception:
+            return {'company': '', 'role_title': '', 'level': '', 'location': '', 'employment_type': 'full_time'}
 
 
 class OfferDecisionSnapshotSerializer(serializers.ModelSerializer):
@@ -739,14 +757,27 @@ class TaskSerializer(serializers.ModelSerializer):
 
 class ExperienceSerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField(read_only=True)
+    level = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
         model = Experience
-        fields = ['id', 'title', 'company', 'level', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'company', 'level', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'position', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_logo(self, obj):
         return normalize_logo_url(obj.logo)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            data['level'] = getattr(instance, 'level', '') or ''
+        except Exception:
+            data['level'] = ''
+        try:
+            data['position'] = getattr(instance, 'position', None)
+        except Exception:
+            data['position'] = None
+        return data
 
     def get_fields(self):
         fields = super().get_fields()

@@ -590,6 +590,7 @@ class Experience(models.Model):
     team_history = models.JSONField(default=list, blank=True, help_text="List of team entries [{id, name, start_date, end_date, is_current, norms}]")
     schedule_phases = models.JSONField(default=list, blank=True, help_text="List of schedule phases [{id, name, start_date, end_date, is_current, hourly_rate, hours_per_day, working_days_per_week, total_hours_worked, overtime_hours, overtime_rate, overtime_multiplier, total_earnings_override}]")
     is_pinned = models.BooleanField(default=False, help_text="Pinned experiences appear at the top of the list")
+    position = models.PositiveIntegerField(default=0, blank=True, null=True, help_text="Custom display order position")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
