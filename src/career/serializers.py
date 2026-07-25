@@ -155,9 +155,14 @@ class OfferSerializer(serializers.ModelSerializer):
         return attrs
 
     def get_application_details(self, obj):
+        app = obj.application
+        loc = getattr(app, 'location', '') or getattr(app, 'office_location', '') or ''
         return {
-            'company': obj.application.company.name,
-            'role_title': obj.application.role_title,
+            'company': app.company.name if app.company else '',
+            'role_title': app.role_title or '',
+            'level': getattr(app, 'level', '') or '',
+            'location': loc,
+            'employment_type': getattr(app, 'employment_type', 'full_time') or 'full_time',
         }
 
 
@@ -737,7 +742,7 @@ class ExperienceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Experience
-        fields = ['id', 'title', 'company', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'company', 'level', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_logo(self, obj):

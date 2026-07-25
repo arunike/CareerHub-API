@@ -563,6 +563,7 @@ class Experience(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='experiences')
     title = models.CharField(max_length=255)
     company = models.CharField(max_length=255)
+    level = models.CharField(max_length=50, blank=True, default='', help_text="Job level or band, e.g. L5, Senior, Staff, IC3")
     location = models.CharField(max_length=255, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
