@@ -544,6 +544,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 ## 🔗 Frontend
 
 - **Frontend**: [CareerHub Frontend](https://github.com/arunike/CareerHub-Frontend)
+- The authenticated Availability workspace presents these generation and booking APIs in phone-, tablet-, and wide-desktop-safe layouts.
 
 ## 📄 License
 
