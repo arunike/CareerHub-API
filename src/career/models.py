@@ -221,7 +221,7 @@ class OfferDecisionSnapshot(models.Model):
     decision_score = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
-        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        validators=[MinValueValidator(0)],
     )
     rank = models.PositiveSmallIntegerField(null=True, blank=True)
     total_comp = models.DecimalField(max_digits=12, decimal_places=2, default=0)

@@ -776,6 +776,23 @@ class OfferDecisionSnapshotAPITests(APITestCase):
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]["decision_score"], 87)
 
+    def test_snapshot_accepts_decision_score_above_financial_benchmark(self):
+        response = self.client.post(
+            "/api/career/offer-decision-snapshots/",
+            self._snapshot_payload(
+                decision_score=125,
+                score_categories=[
+                    {"key": "financial", "label": "Financial", "score": 156, "weight": 44},
+                    {"key": "team", "label": "Team", "score": 80, "weight": 6},
+                ],
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["decision_score"], 125)
+        self.assertEqual(response.data["score_categories"][0]["score"], 156)
+
     def test_locked_snapshots_are_preserved_from_delete_actions(self):
         locked = self.client.post(
             "/api/career/offer-decision-snapshots/",
