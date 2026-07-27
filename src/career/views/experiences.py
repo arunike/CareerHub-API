@@ -124,7 +124,7 @@ def _build_application_payload(raw_application, fallback_company, fallback_title
         'employment_type': application_payload.get('employment_type') or 'full_time',
         'notes': application_payload.get('notes') or '',
         'current_round': application_payload.get('current_round') or 0,
-        'is_locked': _parse_bool(application_payload.get('is_locked'), default=False),
+        'is_locked': False,
         'date_applied': _parse_date_value(application_payload.get('date_applied')),
     }
     return payload
