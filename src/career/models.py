@@ -179,6 +179,33 @@ class Offer(models.Model):
     forty_one_k_max_match = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Maximum Employee 401(k) Contribution matched (e.g. 6.00 for 6%)")
     relocation_bonus = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Relocation or Signing Perk Cash Value")
 
+    # Paycheck Schedule & Benefits Detail
+    paychecks_per_year = models.IntegerField(default=26, help_text="Number of paychecks per year (e.g. 26 or 27)")
+    health_premium_paycheck = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Medical premium per paycheck")
+    dental_premium_paycheck = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Dental premium per paycheck")
+    vision_premium_paycheck = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Vision premium per paycheck")
+    health_deductible = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    health_family_oop_max = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    health_pcp_copay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    health_specialist_copay = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dental_plan_name = models.CharField(max_length=100, blank=True, default='')
+    dental_monthly_premium = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dental_annual_max = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dental_deductible = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vision_plan_name = models.CharField(max_length=100, blank=True, default='')
+    vision_monthly_premium = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vision_frames_allowance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    vision_contacts_allowance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Dependent Coverage Fields
+    has_dependents = models.BooleanField(default=False)
+    dependent_coverage_tier = models.CharField(max_length=50, blank=True, default='EMPLOYEE_SPOUSE')
+    dependent_count = models.IntegerField(default=0)
+    health_family_deductible = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dependent_health_premium_paycheck = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dependent_dental_premium_paycheck = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dependent_vision_premium_paycheck = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
