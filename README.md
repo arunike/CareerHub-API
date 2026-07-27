@@ -58,7 +58,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
-- **Decision Snapshots**: Persist point-in-time offer decisions with scorecard rank, frontend-calculated adjusted value, tax/rent/commute assumptions, separate Remote/RTO category scores, offer snapshot, and notes
+- **Decision Snapshots**: Persist point-in-time offer decisions with scorecard rank, frontend-calculated adjusted value and uncapped logarithmic Financial score, totals above the $300k = 100 benchmark, tax/rent/commute assumptions, separate Remote/RTO category scores, offer snapshot, and notes
 - **Negotiation Context API**: Offer and Application data power the frontend negotiation advisor and backend relay flow
 
 ### 🤖 Frontend BYOK AI
