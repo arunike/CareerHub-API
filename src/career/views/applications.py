@@ -273,6 +273,96 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         return Response(options)
 
     @action(detail=False, methods=['get'])
+    def funnel(self, request):
+        """Application funnel driven by the user's own configured stages.
+
+        Counts how many applications *ever reached* each stage using the timeline,
+        not how many currently sit there — an application rejected after round 3 still
+        reached round 3, and counting current status alone erases most of the pipeline.
+        Falls back to current status for the handful of applications with no timeline.
+        """
+        user = request.user
+        applications = list(
+            Application.objects.filter(user=user).values('id', 'status', 'date_applied')
+        )
+        total = len(applications)
+
+        user_settings = UserSettings.objects.filter(user=user).first()
+        configured = (user_settings.application_stages if user_settings else None) or []
+        stages = [
+            {'key': stage.get('key'), 'label': stage.get('label') or stage.get('key')}
+            for stage in configured
+            if stage.get('key')
+        ] or [
+            {'key': 'APPLIED', 'label': 'Applied'},
+            {'key': 'ROUND_1', 'label': '1st Round'},
+            {'key': 'ROUND_2', 'label': '2nd Round'},
+            {'key': 'ROUND_3', 'label': '3rd Round'},
+            {'key': 'ROUND_4', 'label': '4th Round'},
+            {'key': 'FINAL_ROUND', 'label': 'Final Round'},
+            {'key': 'OFFER', 'label': 'Offer'},
+        ]
+
+        reached = {}
+        for stage_key, application_id in ApplicationTimelineEntry.objects.filter(
+            user=user
+        ).values_list('stage', 'application_id'):
+            reached.setdefault(stage_key, set()).add(application_id)
+
+        # Applications with no timeline rows still count at their current status.
+        with_timeline = set()
+        for ids in reached.values():
+            with_timeline |= ids
+        for application in applications:
+            if application['id'] not in with_timeline:
+                reached.setdefault(application['status'], set()).add(application['id'])
+
+        current_counts = {}
+        for application in applications:
+            current_counts[application['status']] = current_counts.get(application['status'], 0) + 1
+
+        # Terminal outcomes are reported separately; they are not pipeline progress.
+        terminal_keys = {'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET', 'OFFER_REJECTED', 'ACCEPTED'}
+        pipeline = [
+            {
+                'key': stage['key'],
+                'label': stage['label'],
+                'reached': len(reached.get(stage['key'], set())),
+                'currentlyAt': current_counts.get(stage['key'], 0),
+            }
+            for stage in stages
+            if stage['key'] not in terminal_keys
+        ]
+
+        outcomes = [
+            {
+                'key': key,
+                'label': next(
+                    (s['label'] for s in stages if s['key'] == key), key.replace('_', ' ').title()
+                ),
+                'count': current_counts.get(key, 0),
+            }
+            for key in ('OFFER', 'ACCEPTED', 'REJECTED', 'GHOSTED', 'OFFER_REJECTED')
+            if current_counts.get(key, 0) > 0
+        ]
+
+        # Anything past the first pipeline stage counts as a real response.
+        beyond_first = set()
+        for stage in pipeline[1:]:
+            beyond_first |= reached.get(stage['key'], set())
+        ghosted = current_counts.get('GHOSTED', 0)
+
+        return Response({
+            'totalApplications': total,
+            'pipeline': pipeline,
+            'outcomes': outcomes,
+            'respondedCount': len(beyond_first),
+            'responseRate': round(len(beyond_first) / total * 100, 1) if total else 0,
+            'ghostedCount': ghosted,
+            'ghostRate': round(ghosted / total * 100, 1) if total else 0,
+        })
+
+    @action(detail=False, methods=['get'])
     def export(self, request):
         fmt = request.query_params.get('fmt', 'csv')
         return export_data(self.get_queryset(), ApplicationExportSerializer, fmt, 'applications')
