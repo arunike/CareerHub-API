@@ -53,6 +53,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
+- **Application funnel**: `GET /career/applications/funnel/` aggregates the funnel server-side from `ApplicationTimelineEntry`, keyed on the user's configured `application_stages`. Returns per-stage `reached` (ever) and `currentlyAt` counts plus response rate, ghost rate, and outcome totals
 - **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
 - **Document filtering**: `GET /career/documents/?application=<id>` restricts documents to one application, used by the offer modal's attachment list
 - **Offer validation**: `refresh_starts_year` must be 1-4 and `annual_refresh_value` cannot be negative, enforced in `OfferSerializer` because the DB column carries no CHECK constraint
