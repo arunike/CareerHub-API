@@ -53,6 +53,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
+- **Offer lifecycle fields**: `deadline` (decision due date), `negotiation_rounds` (JSON log of asked-vs-received per round), `risk_notes` (watch-outs, written by the Negotiation Advisor), and `final_decision_status` / `final_decision_reasoning` are all surfaced in the frontend. `final_decision_status` accepts `PENDING`, `ACCEPTED`, `REJECTED`, `EXPIRED`, and `WITHDRAWN`; the legacy `DECLINED` value is still read and preserved
+- **Removed `counteroffer_history`** (migration `0016`): redundant with `negotiation_rounds`, which models the same asked-and-answered cycle. Nothing read or wrote the field
 - **Private Equity Liquidity**: Classify annual equity as freely tradable, company-buyback, or currently unsellable; store the annual buyback value separately so downstream comparisons count only realizable equity while preserving the full grant amount
 - **Simulator Inputs**: Offer and Application records expose tax overrides, monthly rent, commute cost, food perk, PTO, and equity vesting fields used by the frontend compensation simulator
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
