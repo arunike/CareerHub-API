@@ -1,3 +1,4 @@
+from .application_contacts import ApplicationContactViewSet
 from .applications import (
     ApplicationViewSet,
     ApplyImportApplicationsView,
@@ -17,6 +18,7 @@ from .tasks import TaskViewSet
 from .timeline import ApplicationTimelineEntryViewSet
 
 __all__ = [
+    'ApplicationContactViewSet',
     'AIArtifactViewSet',
     'ApplicationViewSet',
     'ApplicationTimelineAnalyticsView',

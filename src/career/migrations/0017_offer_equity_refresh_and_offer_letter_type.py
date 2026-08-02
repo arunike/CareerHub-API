@@ -2,17 +2,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Adds optional equity refresh fields and the Offer Letter document type.
-
-    Django normally follows ``ADD COLUMN ... DEFAULT x`` with ``ALTER COLUMN ... DROP
-    DEFAULT``, because it manages defaults in application code rather than the
-    database. This project's Postgres engine rejects that second statement with
-    "this form of ALTER TABLE is not supported", so the columns are added with raw
-    SQL that stops after the ADD. Leaving the database-level default in place is
-    harmless: Django always sends an explicit value on insert, and the default only
-    serves to backfill existing rows.
-    """
-
     dependencies = [
         ("career", "0016_remove_offer_counteroffer_history"),
     ]

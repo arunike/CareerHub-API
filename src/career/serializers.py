@@ -9,6 +9,7 @@ from .models import (
     AIArtifactGenerationJob,
     Company,
     Application,
+    ApplicationContact,
     ApplicationTimelineEntry,
     GoogleSheetSyncConfig,
     GoogleSheetSyncRun,
@@ -26,6 +27,53 @@ from .services import (
     read_logo_bytes,
 )
 from .skills_extractor import extract_skills_from_text
+
+class ApplicationContactSerializer(serializers.ModelSerializer):
+    # Set when a contact is surfaced on an experience but actually belongs to the
+    # application that produced it, so the UI can mark it as inherited.
+    inherited = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = ApplicationContact
+        fields = [
+            'id', 'application', 'experience', 'name', 'email', 'notes',
+            'is_locked', 'inherited', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_inherited(self, obj):
+        return bool(getattr(obj, '_inherited', False))
+
+    def validate_application(self, value):
+        # A contact must hang off an application the requester actually owns.
+        request = self.context.get('request')
+        if value is not None and request and value.user_id != request.user.id:
+            raise serializers.ValidationError('Application not found.')
+        return value
+
+    def validate_experience(self, value):
+        request = self.context.get('request')
+        if value is not None and request and value.user_id != request.user.id:
+            raise serializers.ValidationError('Experience not found.')
+        return value
+
+    def validate_name(self, value):
+        cleaned = (value or '').strip()
+        if not cleaned:
+            raise serializers.ValidationError('Name is required.')
+        return cleaned
+
+    def validate(self, attrs):
+        # Mirrors the DB check constraint: a contact with neither owner would be
+        # unreachable from any screen.
+        application = attrs.get('application', getattr(self.instance, 'application', None))
+        experience = attrs.get('experience', getattr(self.instance, 'experience', None))
+        if not application and not experience:
+            raise serializers.ValidationError(
+                'A contact must belong to an application or an experience.'
+            )
+        return attrs
+
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
@@ -775,7 +823,7 @@ class ExperienceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Experience
-        fields = ['id', 'title', 'company', 'level', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'position', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'company', 'level', 'work_email', 'location', 'start_date', 'end_date', 'is_current', 'description', 'skills', 'logo', 'employment_type', 'is_promotion', 'is_return_offer', 'is_locked', 'is_pinned', 'position', 'offer', 'hourly_rate', 'hours_per_day', 'working_days_per_week', 'total_hours_worked', 'overtime_hours', 'overtime_rate', 'overtime_multiplier', 'total_earnings_override', 'base_salary', 'bonus', 'equity', 'team_history', 'schedule_phases', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_logo(self, obj):

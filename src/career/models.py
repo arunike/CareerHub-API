@@ -250,6 +250,42 @@ class OfferDecisionSnapshot(models.Model):
         return self.title or f"Decision snapshot for offer {self.offer_id}"
 
 
+class ApplicationContact(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='application_contacts'
+    )
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, related_name='contacts', null=True, blank=True
+    )
+    experience = models.ForeignKey(
+        'Experience', on_delete=models.CASCADE, related_name='contacts', null=True, blank=True
+    )
+    # Often all you have at first is a name on a calendar invite.
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True)
+    notes = models.TextField(blank=True)
+    is_locked = models.BooleanField(default=False, help_text="Locked contacts cannot be deleted")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['user', 'application'], name='career_contact_app_idx'),
+            models.Index(fields=['user', 'experience'], name='career_contact_exp_idx'),
+        ]
+        constraints = [
+            # A contact with no owner would be unreachable from any screen.
+            models.CheckConstraint(
+                check=models.Q(application__isnull=False) | models.Q(experience__isnull=False),
+                name='contact_has_application_or_experience',
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Document(models.Model):
     DOCUMENT_TYPES = [
         ('RESUME', 'Resume'),
@@ -622,6 +658,7 @@ class Experience(models.Model):
     base_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Annual base salary")
     bonus = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Annual target bonus")
     equity = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Annualized equity value")
+    work_email = models.EmailField(blank=True, help_text="Your work email address at this job")
     team_history = models.JSONField(default=list, blank=True, help_text="List of team entries [{id, name, start_date, end_date, is_current, norms}]")
     schedule_phases = models.JSONField(default=list, blank=True, help_text="List of schedule phases [{id, name, start_date, end_date, is_current, hourly_rate, hours_per_day, working_days_per_week, total_hours_worked, overtime_hours, overtime_rate, overtime_multiplier, total_earnings_override}]")
     is_pinned = models.BooleanField(default=False, help_text="Pinned experiences appear at the top of the list")
