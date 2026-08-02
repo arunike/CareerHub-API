@@ -130,7 +130,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'ordering': ['date', 'start_time'],
-                'unique_together': {('share_link', 'date', 'start_time', 'end_time')},
+
             },
         ),
         migrations.CreateModel(
@@ -277,10 +277,6 @@ class Migration(migrations.Migration):
             model_name='sharelink',
             name='intake_questions',
             field=models.JSONField(blank=True, default=list, help_text='Custom questions for booking intake [{id, label, type, required}]'),
-        ),
-        migrations.AlterUniqueTogether(
-            name='publicbooking',
-            unique_together=set(),
         ),
         migrations.AddField(
             model_name='publicbooking',
