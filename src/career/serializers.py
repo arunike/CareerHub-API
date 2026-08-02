@@ -535,7 +535,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'salary_range', 'location', 'office_location',
             'visa_sponsorship', 'day_one_gc', 'flexible_hours_policy', 'travel_frequency', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
-            'notes', 'current_round', 'is_locked',
+            'job_description', 'notes', 'current_round', 'is_locked',
             'source_removed_at', 'source_removed_delete_after',
             'date_applied', 'offer', 'created_at'
         ]

@@ -115,6 +115,10 @@ class Application(models.Model):
     flexible_hours_policy = models.CharField(max_length=20, choices=FLEXIBLE_HOURS_CHOICES, default='UNKNOWN')
     travel_frequency = models.CharField(max_length=20, choices=TRAVEL_FREQUENCY_CHOICES, default='UNKNOWN')
 
+    job_description = models.TextField(
+        blank=True,
+        help_text="Full job posting text, kept because postings are taken down while you interview",
+    )
     notes = models.TextField(blank=True)
     current_round = models.IntegerField(default=0, help_text="Current interview round number (0 for none)")
     is_locked = models.BooleanField(default=False, help_text="Locked applications cannot be deleted")
