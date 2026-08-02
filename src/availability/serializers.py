@@ -107,6 +107,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'theme', 'notification_preferences', 'global_availability',
             'ghosting_threshold_days', 'default_event_category',
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
+            'offer_adjustment_settings',
             'mobile_toolbar_items',
             'is_locked',
             'ai_provider_adapter', 'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',

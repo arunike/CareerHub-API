@@ -145,6 +145,20 @@ class OfferSerializer(serializers.ModelSerializer):
             fields['application'].queryset = Application.objects.none()
         return fields
 
+    def validate_refresh_starts_year(self, value):
+        # The DB column carries no CHECK constraint (see Offer.refresh_starts_year),
+        # so the four-year projection window is enforced here.
+        if value is None:
+            return value
+        if value < 1 or value > 4:
+            raise serializers.ValidationError('Must be between 1 and 4.')
+        return value
+
+    def validate_annual_refresh_value(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError('Cannot be negative.')
+        return value
+
     def validate(self, attrs):
         application = attrs.get('application')
         if application and not self.instance:

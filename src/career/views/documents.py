@@ -64,6 +64,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 | Q(application__company__name__icontains=search)
             )
 
+        application = (params.get('application') or '').strip()
+        if application:
+            try:
+                queryset = queryset.filter(application_id=int(application))
+            except ValueError:
+                return queryset.none()
+
         document_type = (params.get('document_type') or '').strip()
         if document_type and document_type != 'ALL':
             queryset = queryset.filter(document_type=document_type)
