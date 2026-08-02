@@ -53,6 +53,13 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
+- **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
+- **Document filtering**: `GET /career/documents/?application=<id>` restricts documents to one application, used by the offer modal's attachment list
+- **Offer validation**: `refresh_starts_year` must be 1-4 and `annual_refresh_value` cannot be negative, enforced in `OfferSerializer` because the DB column carries no CHECK constraint
+- **`UserSettings.offer_adjustment_settings`** (JSONField): stores offer comparison scenarios and adjustment assumptions `{maritalStatus, simulatedOffers, savedAt}` per user, replacing browser-only storage
+- **Equity refresh fields**: `annual_refresh_value` and `refresh_starts_year` on Offer, both optional (0 disables refresh modelling)
+- **Offer Letter document type**: `OFFER_LETTER` added to `Document.DOCUMENT_TYPES`
+- **Migration note**: this Postgres engine rejects `ALTER COLUMN ... DROP DEFAULT`, which Django emits after every `AddField` with a default. Migration `0017` uses `SeparateDatabaseAndState` with raw `ADD COLUMN` SQL to work around it; follow the same pattern for future defaulted fields
 - **Offer lifecycle fields**: `deadline` (decision due date), `negotiation_rounds` (JSON log of asked-vs-received per round), `risk_notes` (watch-outs, written by the Negotiation Advisor), and `final_decision_status` / `final_decision_reasoning` are all surfaced in the frontend. `final_decision_status` accepts `PENDING`, `ACCEPTED`, `REJECTED`, `EXPIRED`, and `WITHDRAWN`; the legacy `DECLINED` value is still read and preserved
 - **Removed `counteroffer_history`** (migration `0016`): redundant with `negotiation_rounds`, which models the same asked-and-answered cycle. Nothing read or wrote the field
 - **Private Equity Liquidity**: Classify annual equity as freely tradable, company-buyback, or currently unsellable; store the annual buyback value separately so downstream comparisons count only realizable equity while preserving the full grant amount
