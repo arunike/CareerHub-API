@@ -153,6 +153,14 @@ class Offer(models.Model):
     equity_vesting_percent = models.DecimalField(max_digits=5, decimal_places=2, default=25, help_text="Annual vesting percent used for annualized equity")
     equity_vesting_schedule = models.JSONField(default=list, blank=True, help_text="Four-year equity vesting percentages, e.g. [20, 20, 30, 30]")
     equity_liquidity = models.CharField(max_length=20, choices=EQUITY_LIQUIDITY_CHOICES, default='LIQUID')
+    annual_refresh_value = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Optional annual equity refresh grant value. 0 disables refresh modelling.",
+    )
+    refresh_starts_year = models.SmallIntegerField(
+        default=2,
+        help_text="First year a refresh grant is issued. Refreshes vest evenly over four years.",
+    )
     equity_buyback_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Annual equity value realizable through a company buyback")
     sign_on = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Sign On Bonus")
     benefits_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Estimated Annual Benefits Value")
@@ -246,6 +254,7 @@ class Document(models.Model):
     DOCUMENT_TYPES = [
         ('RESUME', 'Resume'),
         ('COVER_LETTER', 'Cover Letter'),
+        ('OFFER_LETTER', 'Offer Letter'),
         ('PORTFOLIO', 'Portfolio'),
         ('OTHER', 'Other'),
     ]

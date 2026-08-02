@@ -4,10 +4,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from availability.models import UserSettings
+from availability.utils import export_data
 from availability.ai_provider import relay_ai_provider_chat_completion
 
 from ..models import Offer
-from ..serializers import OfferSerializer
+from ..serializers import OfferExportSerializer, OfferSerializer
 from ..services.offers import calculate_realizable_equity, ensure_offers_for_offer_status_applications
 
 
@@ -38,6 +39,11 @@ class OfferViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         ensure_offers_for_offer_status_applications(self.request.user)
         return Offer.objects.select_related('application__company').filter(application__user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        fmt = request.query_params.get('fmt', 'csv')
+        return export_data(self.get_queryset(), OfferExportSerializer, fmt, 'offers')
 
     @action(detail=False, methods=['post'], url_path='transition-advisor')
     def transition_advisor(self, request):
