@@ -6,7 +6,6 @@ from .applications import (
 )
 from .ai_artifacts import AIArtifactGenerationJobViewSet, AIArtifactViewSet
 from .analytics import ApplicationTimelineAnalyticsView
-from .companies import CompanyViewSet
 from .documents import DocumentViewSet
 from .experiences import ExperienceViewSet, ImportExperiencesView
 from .google_oauth import GoogleOAuthCallbackView, GoogleOAuthViewSet
@@ -18,7 +17,6 @@ from .tasks import TaskViewSet
 from .timeline import ApplicationTimelineEntryViewSet
 
 __all__ = [
-    'CompanyViewSet',
     'AIArtifactViewSet',
     'ApplicationViewSet',
     'ApplicationTimelineAnalyticsView',

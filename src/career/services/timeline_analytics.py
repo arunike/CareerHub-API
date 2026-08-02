@@ -226,6 +226,41 @@ def build_application_timeline_analytics(user):
         if reached_by_stage[key] or current_by_stage[key]
     ]
 
+    # Terminal outcomes are results, not pipeline progress, so they are reported
+    # separately from stage_conversion rather than appearing as funnel steps.
+    TERMINAL_STAGE_KEYS = ('OFFER', 'ACCEPTED', 'REJECTED', 'GHOSTED', 'OFFER_REJECTED')
+    outcomes = [
+        {
+            'key': key,
+            'label': _stage_label(key, stage_map),
+            'count': current_by_stage[key],
+        }
+        for key in TERMINAL_STAGE_KEYS
+        if current_by_stage[key]
+    ]
+
+    pipeline_stages = [
+        row for row in stage_conversion if row['key'] not in {'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET', 'OFFER_REJECTED', 'ACCEPTED'}
+    ]
+
+    # Anything that got past the first pipeline stage counts as a real response.
+    responded_count = 0
+    for row in pipeline_stages[1:]:
+        responded_count = max(responded_count, row['reached_count'])
+
+    ghosted_count = current_by_stage['GHOSTED']
+
+    # The steepest consecutive drop is usually the most actionable number here.
+    biggest_drop = None
+    for previous, current in zip(pipeline_stages, pipeline_stages[1:]):
+        lost = previous['reached_count'] - current['reached_count']
+        if lost > 0 and (biggest_drop is None or lost > biggest_drop['lost']):
+            biggest_drop = {
+                'from_label': previous['label'],
+                'to_label': current['label'],
+                'lost': lost,
+            }
+
     def rate_rows(grouped):
         rows = []
         for name, values in grouped.items():
@@ -253,6 +288,13 @@ def build_application_timeline_analytics(user):
         'average_days_to_offer': average_days_to_offer,
         'days_to_offer_sample_size': offer_sample_size,
         'stage_conversion': stage_conversion,
+        'total_applications': total_applications,
+        'outcomes': outcomes,
+        'responded_count': responded_count,
+        'response_rate': round(responded_count / total_applications * 100, 1) if total_applications else 0,
+        'ghosted_count': ghosted_count,
+        'ghost_rate': round(ghosted_count / total_applications * 100, 1) if total_applications else 0,
+        'biggest_drop': biggest_drop,
         'stale_threshold_days': threshold_days,
         'stale_in_stage': sorted(stale_in_stage, key=lambda row: row['days_in_stage'], reverse=True),
         'offer_rate_by_source': rate_rows(offer_by_source),
