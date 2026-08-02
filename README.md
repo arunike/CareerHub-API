@@ -53,7 +53,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
-- **Application funnel**: `GET /career/applications/funnel/` aggregates the funnel server-side from `ApplicationTimelineEntry`, keyed on the user's configured `application_stages`. Returns per-stage `reached` (ever) and `currentlyAt` counts plus response rate, ghost rate, and outcome totals
+- **Application timeline analytics**: `GET /career/application-timeline-analytics/` is the single source for funnel data. Alongside the existing `stage_conversion` (per-stage `reached_count` / `current_count` from the timeline), it now also returns `total_applications`, `outcomes`, `response_rate`, `ghost_rate`, and `biggest_drop`
 - **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
 - **Document filtering**: `GET /career/documents/?application=<id>` restricts documents to one application, used by the offer modal's attachment list
 - **Offer validation**: `refresh_starts_year` must be 1-4 and `annual_refresh_value` cannot be negative, enforced in `OfferSerializer` because the DB column carries no CHECK constraint
@@ -448,10 +448,6 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `POST /api/career/experiences/import/` — Import experiences from JSON/CSV/XLSX, including linked offer/application snapshots when present
 - `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field, stores a public logo URL)
 - `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
-
-#### Companies
-- `GET /api/career/companies/` — List all companies
-- `POST /api/career/companies/` — Create a new company
 
 #### Documents
 - `GET /api/career/documents/` — List current document versions
