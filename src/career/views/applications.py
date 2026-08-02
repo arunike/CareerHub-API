@@ -239,6 +239,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def options(self, request):
         queryset = Application.objects.filter(user=request.user).select_related('company', 'offer')
+
         search = (request.query_params.get('search') or '').strip()
         if search:
             search_filter = Q()
