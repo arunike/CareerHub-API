@@ -53,6 +53,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
+- **Contacts**: `/api/career/application-contacts/` (CRUD) stores people as `ApplicationContact` (name, email, notes). A contact belongs to an application, an experience, or both — a DB check constraint and serializer validation reject one with neither. Filter with `?application=<id>` or `?experience=<id>`; filtering by experience also folds in contacts from the application that produced the role (via `experience.offer.application`), flagged `inherited: true` and read-only in the UI
+- **`Experience.work_email`**: the work email address you had at that job
 - **Application timeline analytics**: `GET /career/application-timeline-analytics/` is the single source for funnel data. Alongside the existing `stage_conversion` (per-stage `reached_count` / `current_count` from the timeline), it now also returns `total_applications`, `outcomes`, `response_rate`, `ghost_rate`, and `biggest_drop`
 - **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
 - **Document filtering**: `GET /career/documents/?application=<id>` restricts documents to one application, used by the offer modal's attachment list
