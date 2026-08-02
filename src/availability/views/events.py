@@ -4,7 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
+from availability.pagination import ConditionalPageNumberPagination
 from django.core.cache import cache
 from django.utils import timezone
 
@@ -15,17 +15,6 @@ from ..recurrence import delete_recurring_series, generate_recurring_instances, 
 from ..serializers import EventCategorySerializer, EventSerializer
 from ..utils import export_data
 
-
-
-class ConditionalPageNumberPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-    def paginate_queryset(self, queryset, request, view=None):
-        if 'page' not in request.query_params:
-            return None
-        return super().paginate_queryset(queryset, request, view)
 
 
 class EventViewSet(viewsets.ModelViewSet):

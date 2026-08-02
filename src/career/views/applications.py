@@ -41,19 +41,8 @@ from ..services.application_imports import (
 from ..services.application_listing import apply_application_ordering, build_application_summary
 from ..upload_validation import validate_import_row_count, validate_import_upload
 
-from rest_framework.pagination import PageNumberPagination
+from availability.pagination import ConditionalPageNumberPagination
 from ..cache import invalidate_applications_cache
-
-
-class ConditionalPageNumberPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-    def paginate_queryset(self, queryset, request, view=None):
-        if 'page' not in request.query_params:
-            return None
-        return super().paginate_queryset(queryset, request, view)
 
 
 

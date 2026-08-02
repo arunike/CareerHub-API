@@ -5,7 +5,7 @@ from django.db.models import Max, Q
 from django.http import FileResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import PageNumberPagination
+from availability.pagination import ConditionalPageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -21,17 +21,6 @@ from ..services import (
     store_document_file,
 )
 from ..upload_validation import validate_document_upload
-
-
-class ConditionalPageNumberPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-    def paginate_queryset(self, queryset, request, view=None):
-        if 'page' not in request.query_params:
-            return None
-        return super().paginate_queryset(queryset, request, view)
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
