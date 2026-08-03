@@ -115,6 +115,12 @@ class Application(models.Model):
     flexible_hours_policy = models.CharField(max_length=20, choices=FLEXIBLE_HOURS_CHOICES, default='UNKNOWN')
     travel_frequency = models.CharField(max_length=20, choices=TRAVEL_FREQUENCY_CHOICES, default='UNKNOWN')
 
+    submitted_documents = models.ManyToManyField(
+        'Document',
+        blank=True,
+        related_name='submitted_for_applications',
+        help_text="Exact document versions sent with this application; a later version does not replace them",
+    )
     job_description = models.TextField(
         blank=True,
         help_text="Full job posting text, kept because postings are taken down while you interview",
@@ -252,6 +258,34 @@ class OfferDecisionSnapshot(models.Model):
 
     def __str__(self):
         return self.title or f"Decision snapshot for offer {self.offer_id}"
+
+
+class InterviewDebrief(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='interview_debriefs'
+    )
+    application = models.ForeignKey(
+        Application, on_delete=models.CASCADE, related_name='debriefs'
+    )
+    # Stage key from the user's configured application_stages, e.g. ROUND_1.
+    stage = models.CharField(max_length=50)
+    interview_date = models.DateField(null=True, blank=True)
+    questions_asked = models.TextField(blank=True)
+    went_well = models.TextField(blank=True)
+    weak_areas = models.TextField(blank=True)
+    interviewer_notes = models.TextField(blank=True)
+    # 1-5. Range is enforced in the serializer; no DB CHECK, which this engine rejects.
+    confidence = models.SmallIntegerField(null=True, blank=True)
+    next_steps = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['interview_date', 'created_at']
+        indexes = [models.Index(fields=['user', 'application'], name='career_debrief_app_idx')]
+
+    def __str__(self):
+        return f"{self.application.role_title} - {self.stage}"
 
 
 class ApplicationContact(models.Model):

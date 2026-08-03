@@ -1,5 +1,6 @@
 from rest_framework.routers import DefaultRouter
 from .views import (
+    InterviewDebriefViewSet,
     ApplicationContactViewSet,
     AIArtifactViewSet,
     AIArtifactGenerationJobViewSet,
@@ -29,6 +30,7 @@ router.register(r'ai-artifacts', AIArtifactViewSet, basename='ai-artifact')
 router.register(r'ai-artifact-jobs', AIArtifactGenerationJobViewSet, basename='ai-artifact-job')
 router.register(r'applications', ApplicationViewSet)
 router.register(r'application-contacts', ApplicationContactViewSet, basename='application-contact')
+router.register(r'interview-debriefs', InterviewDebriefViewSet, basename='interview-debrief')
 router.register(r'offers', OfferViewSet)
 router.register(r'offer-decision-snapshots', OfferDecisionSnapshotViewSet, basename='offer-decision-snapshot')
 router.register(r'documents', DocumentViewSet)

@@ -2,7 +2,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 import pandas as pd
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework import status, viewsets
@@ -15,6 +15,7 @@ from availability.models import UserSettings
 from availability.utils import export_data
 from ..models import AIArtifact, Application, ApplicationTimelineEntry, Company, Document
 from ..serializers import (
+    NON_INTERVIEW_STAGES,
     AIArtifactSerializer,
     ApplicationExportSerializer,
     ApplicationSerializer,
@@ -52,7 +53,17 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     pagination_class = ConditionalPageNumberPagination
 
     def get_queryset(self):
-        queryset = Application.objects.filter(user=self.request.user).select_related('company')
+        # Annotated once for the whole page rather than a query per row.
+        reached_interview = Exists(
+            ApplicationTimelineEntry.objects.filter(application=OuterRef('pk')).exclude(
+                stage__in=NON_INTERVIEW_STAGES
+            )
+        )
+        queryset = (
+            Application.objects.filter(user=self.request.user)
+            .select_related('company')
+            .annotate(reached_interview_annotation=reached_interview)
+        )
         params = self.request.query_params
 
         ids_filter = params.get('ids')

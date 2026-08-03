@@ -10,6 +10,7 @@ from .models import (
     Company,
     Application,
     ApplicationContact,
+    InterviewDebrief,
     ApplicationTimelineEntry,
     GoogleSheetSyncConfig,
     GoogleSheetSyncRun,
@@ -27,6 +28,42 @@ from .services import (
     read_logo_bytes,
 )
 from .skills_extractor import extract_skills_from_text
+
+class InterviewDebriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterviewDebrief
+        fields = [
+            'id', 'application', 'stage', 'interview_date', 'questions_asked',
+            'went_well', 'weak_areas', 'interviewer_notes', 'confidence',
+            'next_steps', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate_application(self, value):
+        request = self.context.get('request')
+        if request and value.user_id != request.user.id:
+            raise serializers.ValidationError('Application not found.')
+        return value
+
+    def validate_confidence(self, value):
+        # No DB CHECK on this column, so the range is enforced here.
+        if value is not None and not (1 <= value <= 5):
+            raise serializers.ValidationError('Must be between 1 and 5.')
+        return value
+
+    def validate(self, attrs):
+        application = attrs.get('application', getattr(self.instance, 'application', None))
+        stage = attrs.get('stage', getattr(self.instance, 'stage', None))
+        if application and stage:
+            clash = InterviewDebrief.objects.filter(application=application, stage=stage)
+            if self.instance:
+                clash = clash.exclude(pk=self.instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError(
+                    {'stage': 'A debrief already exists for this round.'}
+                )
+        return attrs
+
 
 class ApplicationContactSerializer(serializers.ModelSerializer):
     # Set when a contact is surfaced on an experience but actually belongs to the
@@ -520,8 +557,14 @@ class ApplicationTimelineEntrySerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+# Stages that mean no interview has happened yet. Anything else — a numbered round,
+# onsite, offer, accepted — means the process got past screening.
+NON_INTERVIEW_STAGES = {'APPLIED', 'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
+
+
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)
+    has_reached_interview = serializers.SerializerMethodField(read_only=True)
     company_details = serializers.SerializerMethodField(read_only=True)
     offer = OfferSerializer(read_only=True)
     
@@ -535,13 +578,23 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'salary_range', 'location', 'office_location',
             'visa_sponsorship', 'day_one_gc', 'flexible_hours_policy', 'travel_frequency', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
-            'job_description', 'notes', 'current_round', 'is_locked',
+            'job_description', 'submitted_documents', 'notes', 'current_round', 'is_locked',
+            'has_reached_interview',
             'source_removed_at', 'source_removed_delete_after',
             'date_applied', 'offer', 'created_at'
         ]
         extra_kwargs = {
             'company': {'required': False}
         }
+
+    def get_has_reached_interview(self, obj):
+        # The list view annotates this; fall back to a query for single objects.
+        annotated = getattr(obj, 'reached_interview_annotation', None)
+        if annotated is not None:
+            return bool(annotated)
+        if obj.status not in NON_INTERVIEW_STAGES:
+            return True
+        return obj.timeline_entries.exclude(stage__in=NON_INTERVIEW_STAGES).exists()
 
     def get_company_details(self, obj):
         return CompanySerializer(obj.company).data
