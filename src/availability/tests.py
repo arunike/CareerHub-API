@@ -194,8 +194,8 @@ class PublicBookingEnhancementTests(APITestCase):
             user=self.user,
             uuid='public-link-1',
             title='Recruiter screen',
-            host_display_name='Richie',
-            host_email='host@example.com',
+            host_display_name='San Zhang',
+            host_email='sanzhang@example.com',
             duration_days=14,
             booking_block_minutes=30,
             buffer_minutes=0,
@@ -480,8 +480,8 @@ class PublicBookingEnhancementTests(APITestCase):
 class UserSettingsNavigationTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
-            username='richie',
-            email='richie@example.com',
+            username='sanzhang',
+            email='sanzhang@example.com',
             password='test-pass-123',
         )
         self.client.force_login(self.user)
@@ -523,8 +523,8 @@ class UserSettingsNavigationTests(APITestCase):
 class AIProviderSettingsTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
-            username='richie',
-            email='richie@example.com',
+            username='sanzhang',
+            email='sanzhang@example.com',
             password='test-pass-123',
         )
         self.client.force_login(self.user)
