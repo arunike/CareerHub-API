@@ -17,7 +17,11 @@ from .models import (
     AIArtifact,
     Application,
     ApplicationTimelineEntry,
+    CareerRecord,
     Company,
+    Contact,
+    ContactContext,
+    ContactRelationship,
     Document,
     Experience,
     GoogleSheetSyncConfig,
@@ -39,6 +43,156 @@ from .services.google_sheets import (
 )
 from .services.offers import calculate_realizable_equity
 from .services.timeline_analytics import build_application_timeline_analytics
+
+
+class CareerRelationshipNetworkTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='relationships@example.com',
+            email='relationships@example.com',
+            password='StrongPassw0rd!',
+        )
+        self.client.force_authenticate(self.user)
+        self.company = Company.objects.create(user=self.user, name='Northstar Labs')
+        self.application = Application.objects.create(
+            user=self.user,
+            company=self.company,
+            role_title='Platform Engineer',
+            status='OFFER',
+        )
+
+    def test_application_gets_one_shared_career_record(self):
+        record = CareerRecord.objects.get(application=self.application)
+
+        self.assertEqual(record.user, self.user)
+        self.assertEqual(self.application.career_record, record)
+
+    def test_embedded_contact_create_adds_context_and_direct_relationship(self):
+        response = self.client.post(
+            '/api/career/contacts/',
+            {
+                'application': self.application.id,
+                'name': 'Avery Morgan',
+                'email': 'AVERY@EXAMPLE.COM',
+                'relationship_kind': 'INTERVIEWER',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        contact = Contact.objects.get(user=self.user)
+        self.assertEqual(contact.email, 'avery@example.com')
+        self.assertTrue(
+            ContactContext.objects.filter(contact=contact, application=self.application).exists()
+        )
+        self.assertTrue(
+            ContactRelationship.objects.filter(
+                user=self.user,
+                source_contact=None,
+                target_contact=contact,
+                kind='INTERVIEWER',
+            ).exists()
+        )
+
+    def test_experience_reuses_email_contact_and_accepts_linked_application(self):
+        contact_response = self.client.post(
+            '/api/career/contacts/',
+            {
+                'application': self.application.id,
+                'name': 'Rowan Patel',
+                'email': 'rowan@example.com',
+            },
+            format='json',
+        )
+        offer = Offer.objects.create(application=self.application, base_salary=180000)
+
+        experience_response = self.client.post(
+            '/api/career/experiences/',
+            {
+                'title': 'Platform Engineer',
+                'company': 'Northstar Labs',
+                'offer': offer.id,
+                'is_current': True,
+            },
+            format='json',
+        )
+        self.assertEqual(experience_response.status_code, status.HTTP_201_CREATED)
+        experience_id = experience_response.data['id']
+        second_contact_response = self.client.post(
+            '/api/career/contacts/',
+            {
+                'experience': experience_id,
+                'name': 'Rowan P.',
+                'email': 'ROWAN@example.com',
+                'relationship_kind': 'COWORKER',
+            },
+            format='json',
+        )
+
+        self.assertEqual(contact_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_contact_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Contact.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(ContactContext.objects.filter(contact__user=self.user).count(), 2)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.status, 'ACCEPTED')
+        experience = Experience.objects.get(id=experience_id)
+        self.assertEqual(experience.career_record, self.application.career_record)
+
+    def test_indirect_custom_relationship_does_not_create_self_edge(self):
+        direct = Contact.objects.create(user=self.user, name='Casey Lin')
+        indirect = Contact.objects.create(user=self.user, name='Morgan Reed')
+        ContactRelationship.objects.create(
+            user=self.user,
+            source_contact=None,
+            target_contact=direct,
+            kind='COWORKER',
+        )
+
+        response = self.client.post(
+            '/api/career/contact-relationships/',
+            {
+                'source_contact': direct.id,
+                'target_contact': indirect.id,
+                'kind': 'CUSTOM',
+                'custom_label': 'Skip-level manager',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(
+            ContactRelationship.objects.filter(
+                user=self.user,
+                source_contact=None,
+                target_contact=indirect,
+            ).exists()
+        )
+
+    def test_scoped_delete_detaches_context_without_deleting_person(self):
+        response = self.client.post(
+            '/api/career/contacts/',
+            {'application': self.application.id, 'name': 'Taylor Brooks'},
+            format='json',
+        )
+        contact_id = response.data['id']
+
+        delete_response = self.client.delete(
+            f'/api/career/contacts/{contact_id}/?application={self.application.id}'
+        )
+
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertTrue(Contact.objects.filter(id=contact_id).exists())
+        self.assertFalse(ContactContext.objects.filter(contact_id=contact_id).exists())
+
+    def test_same_name_contacts_are_flagged_but_not_merged(self):
+        Contact.objects.create(user=self.user, name='Alex Kim', email='alex.one@example.com')
+        Contact.objects.create(user=self.user, name='Alex Kim', email='alex.two@example.com')
+
+        response = self.client.get('/api/career/contacts/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertTrue(all(item['possible_duplicate'] for item in response.data))
 
 
 class ApplicationTimelineEntryModelTests(APITestCase):
@@ -267,6 +421,102 @@ class OfferStatusApplicationAPITests(APITestCase):
         self.assertEqual(offers_response.data[0]['application'], application.id)
         self.assertEqual(offers_response.data[0]['application_details']['company'], 'Acme')
 
+    def test_accepting_offer_marks_application_accepted(self):
+        company = Company.objects.create(user=self.user, name='Accepted Co')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Staff Engineer',
+            status='OFFER',
+        )
+        offer = Offer.objects.create(application=application, base_salary=200000)
+
+        response = self.client.patch(
+            f'/api/career/offers/{offer.id}/',
+            {'final_decision_status': 'ACCEPTED'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        application.refresh_from_db()
+        self.assertEqual(application.status, 'ACCEPTED')
+
+    def test_application_endpoint_cannot_mark_offer_accepted(self):
+        company = Company.objects.create(user=self.user, name='Manual Accept Co')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Backend Engineer',
+            status='OFFER',
+        )
+        Offer.objects.create(application=application, base_salary=175000)
+
+        response = self.client.patch(
+            f'/api/career/applications/{application.id}/',
+            {'status': 'ACCEPTED'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['status'][0], 'Accept the offer from the Offers page.')
+        application.refresh_from_db()
+        self.assertEqual(application.status, 'OFFER')
+
+    def test_reopening_accepted_offer_returns_application_to_offer(self):
+        company = Company.objects.create(user=self.user, name='Reopened Co')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Platform Engineer',
+            status='ACCEPTED',
+        )
+        offer = Offer.objects.create(
+            application=application,
+            base_salary=180000,
+            final_decision_status='ACCEPTED',
+        )
+
+        response = self.client.patch(
+            f'/api/career/offers/{offer.id}/',
+            {'final_decision_status': 'PENDING'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        application.refresh_from_db()
+        self.assertEqual(application.status, 'OFFER')
+
+    def test_reopening_offer_keeps_application_accepted_when_experience_exists(self):
+        company = Company.objects.create(user=self.user, name='Current Co')
+        application = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title='Principal Engineer',
+            status='ACCEPTED',
+        )
+        offer = Offer.objects.create(
+            application=application,
+            base_salary=240000,
+            final_decision_status='ACCEPTED',
+        )
+        Experience.objects.create(
+            user=self.user,
+            title='Principal Engineer',
+            company='Current Co',
+            offer=offer,
+            is_current=True,
+        )
+
+        response = self.client.patch(
+            f'/api/career/offers/{offer.id}/',
+            {'final_decision_status': 'PENDING'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        application.refresh_from_db()
+        self.assertEqual(application.status, 'ACCEPTED')
+
     def test_application_level_can_be_created_updated_and_read(self):
         create_response = self.client.post(
             '/api/career/applications/',
@@ -296,6 +546,37 @@ class OfferStatusApplicationAPITests(APITestCase):
         self.assertEqual(retrieve_response.status_code, status.HTTP_200_OK)
         self.assertEqual(retrieve_response.data['level'], 'L5')
         self.assertEqual(Application.objects.get(id=application_id).level, 'L5')
+
+    def test_company_list_only_lists_companies_used_by_applications(self):
+        used_company = Company.objects.create(user=self.user, name='Used Company')
+        second_company = Company.objects.create(user=self.user, name='Another Company')
+        Company.objects.create(user=self.user, name='Unused Company')
+        Application.objects.create(
+            user=self.user,
+            company=used_company,
+            role_title='Backend Engineer',
+        )
+        Application.objects.create(
+            user=self.user,
+            company=used_company,
+            role_title='Platform Engineer',
+        )
+        Application.objects.create(
+            user=self.user,
+            company=second_company,
+            role_title='Frontend Engineer',
+        )
+
+        response = self.client.get('/api/career/applications/company-list/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data,
+            [
+                {'id': second_company.id, 'name': 'Another Company'},
+                {'id': used_company.id, 'name': 'Used Company'},
+            ],
+        )
 
     def test_offer_list_backfills_legacy_offer_status_applications(self):
         company = Company.objects.create(user=self.user, name='Plaid')
@@ -2587,13 +2868,14 @@ class CareerCachingTests(APITestCase):
 
     def test_application_list_summary_counts_all_matching_records(self):
         company = Company.objects.create(user=self.user, name="Summary Co")
-        Application.objects.create(
+        offer_application = Application.objects.create(
             user=self.user,
             company=company,
             role_title="Offer Role",
             status="OFFER",
             is_locked=True,
         )
+        Offer.objects.create(application=offer_application, base_salary=150000)
         Application.objects.create(
             user=self.user,
             company=company,
@@ -2615,6 +2897,54 @@ class CareerCachingTests(APITestCase):
         self.assertEqual(response.data['summary']['interviews'], 1)
         self.assertEqual(response.data['summary']['offers'], 1)
         self.assertEqual(response.data['summary']['locked'], 1)
+
+    def test_offer_filter_uses_offer_record_across_final_statuses(self):
+        company = Company.objects.create(user=self.user, name="Offer History Co")
+        accepted = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Accepted Role",
+            status="ACCEPTED",
+        )
+        declined = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Declined Role",
+            status="OFFER_REJECTED",
+        )
+        accepted_without_offer = Application.objects.create(
+            user=self.user,
+            company=company,
+            role_title="Accepted Without Offer",
+            status="ACCEPTED",
+        )
+        Offer.objects.create(application=accepted, base_salary=170000)
+        Offer.objects.create(application=declined, base_salary=160000)
+
+        response = self.client.get(
+            '/api/career/applications/',
+            {'page': 1, 'page_size': 10, 'status': 'OFFER'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(
+            {item['id'] for item in response.data['results']},
+            {accepted.id, declined.id},
+        )
+        self.assertEqual(response.data['summary']['offers'], 2)
+
+        accepted_response = self.client.get(
+            '/api/career/applications/',
+            {'page': 1, 'page_size': 10, 'status': 'ACCEPTED'},
+        )
+
+        self.assertEqual(accepted_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(accepted_response.data['count'], 2)
+        self.assertEqual(
+            {item['id'] for item in accepted_response.data['results']},
+            {accepted.id, accepted_without_offer.id},
+        )
 
     def test_application_list_orders_status_by_pipeline_progress(self):
         company = Company.objects.create(user=self.user, name="Status Sort Co")

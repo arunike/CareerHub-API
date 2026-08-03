@@ -5,6 +5,76 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def add_contact_experience_column(apps, schema_editor):
+    connection = schema_editor.connection
+    table_name = 'career_applicationcontact'
+    with connection.cursor() as cursor:
+        columns = {
+            column.name
+            for column in connection.introspection.get_table_description(cursor, table_name)
+        }
+    if 'experience_id' in columns:
+        return
+    quote_name = connection.ops.quote_name
+    reference = (
+        ''
+        if connection.vendor == 'postgresql'
+        else ' REFERENCES "career_experience" ("id")'
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f'ALTER TABLE {quote_name(table_name)} '
+            f'ADD COLUMN {quote_name("experience_id")} bigint NULL{reference}'
+        )
+        if connection.vendor == 'postgresql':
+            cursor.execute(
+                f'ALTER TABLE {quote_name(table_name)} '
+                'ADD CONSTRAINT "career_contact_experience_fk" '
+                'FOREIGN KEY ("experience_id") REFERENCES "career_experience" ("id")'
+            )
+
+
+def add_experience_work_email(apps, schema_editor):
+    connection = schema_editor.connection
+    table_name = 'career_experience'
+    with connection.cursor() as cursor:
+        columns = {
+            column.name
+            for column in connection.introspection.get_table_description(cursor, table_name)
+        }
+    if 'work_email' in columns:
+        return
+    quote_name = connection.ops.quote_name
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f'ALTER TABLE {quote_name(table_name)} '
+            f'ADD COLUMN {quote_name("work_email")} varchar(254) DEFAULT \'\' NOT NULL'
+        )
+
+
+def make_contact_application_nullable(apps, schema_editor):
+    if schema_editor.connection.vendor == 'postgresql':
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(
+                'ALTER TABLE "career_applicationcontact" '
+                'ALTER COLUMN "application_id" DROP NOT NULL'
+            )
+        return
+
+    ApplicationContact = apps.get_model('career', 'ApplicationContact')
+    Application = apps.get_model('career', 'Application')
+    old_field = ApplicationContact._meta.get_field('application')
+    new_field = models.ForeignKey(
+        Application,
+        blank=True,
+        null=True,
+        on_delete=django.db.models.deletion.CASCADE,
+        related_name='contacts',
+    )
+    new_field.set_attributes_from_name('application')
+    schema_editor.alter_field(ApplicationContact, old_field, new_field, strict=True)
+
+
 class Migration(migrations.Migration):
     # This engine rejects three things Django emits by default: ALTER COLUMN ...
     # DROP DEFAULT, an inline CONSTRAINT on ADD COLUMN, and SET CONSTRAINTS (issued
@@ -22,26 +92,7 @@ class Migration(migrations.Migration):
         # the related DROP DEFAULT limitation.
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql=(
-                        'ALTER TABLE "career_applicationcontact" '
-                        'ADD COLUMN "experience_id" bigint NULL;'
-                    ),
-                    reverse_sql=(
-                        'ALTER TABLE "career_applicationcontact" DROP COLUMN "experience_id";'
-                    ),
-                ),
-                migrations.RunSQL(
-                    sql=(
-                        'ALTER TABLE "career_applicationcontact" '
-                        'ADD CONSTRAINT "career_contact_experience_fk" '
-                        'FOREIGN KEY ("experience_id") REFERENCES "career_experience" ("id");'
-                    ),
-                    reverse_sql=(
-                        'ALTER TABLE "career_applicationcontact" '
-                        'DROP CONSTRAINT "career_contact_experience_fk";'
-                    ),
-                ),
+                migrations.RunPython(add_contact_experience_column, migrations.RunPython.noop),
             ],
             state_operations=[
                 migrations.AddField(
@@ -61,13 +112,7 @@ class Migration(migrations.Migration):
         # Django emits after adding a defaulted column. See migration 0017.
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql=(
-                        'ALTER TABLE "career_experience" '
-                        "ADD COLUMN \"work_email\" varchar(254) DEFAULT '' NOT NULL;"
-                    ),
-                    reverse_sql='ALTER TABLE "career_experience" DROP COLUMN "work_email";',
-                ),
+                migrations.RunPython(add_experience_work_email, migrations.RunPython.noop),
             ],
             state_operations=[
                 migrations.AddField(
@@ -86,16 +131,7 @@ class Migration(migrations.Migration):
         # existing constraint stays valid either way.
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql=(
-                        'ALTER TABLE "career_applicationcontact" '
-                        'ALTER COLUMN "application_id" DROP NOT NULL;'
-                    ),
-                    reverse_sql=(
-                        'ALTER TABLE "career_applicationcontact" '
-                        'ALTER COLUMN "application_id" SET NOT NULL;'
-                    ),
-                ),
+                migrations.RunPython(make_contact_application_nullable, migrations.RunPython.noop),
             ],
             state_operations=[
                 migrations.AlterField(

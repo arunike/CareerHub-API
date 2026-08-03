@@ -22,6 +22,24 @@ def calculate_realizable_equity(equity, liquidity='LIQUID', buyback_value=0):
     return granted
 
 
+def sync_application_status_for_offer_decision(offer, previous_decision_status):
+    application = Application.objects.select_for_update().get(id=offer.application_id)
+
+    if offer.final_decision_status == 'ACCEPTED':
+        if application.status != 'ACCEPTED':
+            application.status = 'ACCEPTED'
+            application.save(update_fields=['status', 'updated_at'])
+        return
+
+    if (
+        previous_decision_status == 'ACCEPTED'
+        and application.status == 'ACCEPTED'
+        and not offer.experiences.exists()
+    ):
+        application.status = 'OFFER'
+        application.save(update_fields=['status', 'updated_at'])
+
+
 def ensure_offer_for_application(application):
     if application.status not in OFFER_APPLICATION_STATUSES:
         return None

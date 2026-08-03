@@ -3,6 +3,54 @@
 from django.db import migrations, models
 
 
+OFFER_DETAIL_COLUMNS = {
+    'dental_annual_max': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'dental_deductible': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'dental_monthly_premium': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'dental_plan_name': "varchar(100) DEFAULT '' NOT NULL",
+    'dental_premium_paycheck': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'dependent_count': 'integer DEFAULT 0 NOT NULL',
+    'dependent_coverage_tier': "varchar(50) DEFAULT 'EMPLOYEE_SPOUSE' NOT NULL",
+    'dependent_dental_premium_paycheck': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'dependent_health_premium_paycheck': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'dependent_vision_premium_paycheck': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'has_dependents': 'boolean DEFAULT false NOT NULL',
+    'health_deductible': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'health_family_deductible': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'health_family_oop_max': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'health_pcp_copay': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'health_premium_paycheck': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'health_specialist_copay': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'paychecks_per_year': 'integer DEFAULT 26 NOT NULL',
+    'vision_contacts_allowance': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'vision_frames_allowance': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'vision_monthly_premium': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+    'vision_plan_name': "varchar(100) DEFAULT '' NOT NULL",
+    'vision_premium_paycheck': 'numeric(10, 2) DEFAULT 0 NOT NULL',
+}
+
+
+def add_offer_detail_columns(apps, schema_editor):
+    connection = schema_editor.connection
+    if connection.vendor not in {'postgresql', 'sqlite'}:
+        return
+    table_name = 'career_offer'
+    with connection.cursor() as cursor:
+        existing = {
+            column.name
+            for column in connection.introspection.get_table_description(cursor, table_name)
+        }
+    quote_name = connection.ops.quote_name
+    with connection.cursor() as cursor:
+        for column_name, definition in OFFER_DETAIL_COLUMNS.items():
+            if column_name in existing:
+                continue
+            cursor.execute(
+                f'ALTER TABLE {quote_name(table_name)} '
+                f'ADD COLUMN {quote_name(column_name)} {definition}'
+            )
+
+
 class Migration(migrations.Migration):
     atomic = False
 
@@ -13,58 +61,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dental_annual_max" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dental_deductible" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dental_monthly_premium" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dental_plan_name" varchar(100) DEFAULT '' NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dental_premium_paycheck" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dependent_count" integer DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dependent_coverage_tier" varchar(50) DEFAULT 'EMPLOYEE_SPOUSE' NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dependent_dental_premium_paycheck" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dependent_health_premium_paycheck" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "dependent_vision_premium_paycheck" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "has_dependents" boolean DEFAULT false NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "health_deductible" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "health_family_deductible" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "health_family_oop_max" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "health_pcp_copay" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "health_premium_paycheck" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "health_specialist_copay" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "paychecks_per_year" integer DEFAULT 26 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "vision_contacts_allowance" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "vision_frames_allowance" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "vision_monthly_premium" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "vision_plan_name" varchar(100) DEFAULT '' NOT NULL;
-                    ALTER TABLE "career_offer" ADD COLUMN IF NOT EXISTS "vision_premium_paycheck" numeric(10, 2) DEFAULT 0 NOT NULL;
-                    """,
-                    reverse_sql="""
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dental_annual_max";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dental_deductible";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dental_monthly_premium";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dental_plan_name";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dental_premium_paycheck";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dependent_count";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dependent_coverage_tier";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dependent_dental_premium_paycheck";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dependent_health_premium_paycheck";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "dependent_vision_premium_paycheck";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "has_dependents";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "health_deductible";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "health_family_deductible";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "health_family_oop_max";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "health_pcp_copay";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "health_premium_paycheck";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "health_specialist_copay";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "paychecks_per_year";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "vision_contacts_allowance";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "vision_frames_allowance";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "vision_monthly_premium";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "vision_plan_name";
-                    ALTER TABLE "career_offer" DROP COLUMN IF EXISTS "vision_premium_paycheck";
-                    """,
-                )
+                migrations.RunPython(add_offer_detail_columns, migrations.RunPython.noop)
             ],
             state_operations=[
                 migrations.AddField(

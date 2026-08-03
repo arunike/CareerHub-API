@@ -1,31 +1,28 @@
 from django.db import migrations
 
 
+def drop_reminder_columns(apps, schema_editor):
+    connection = schema_editor.connection
+    table_name = 'career_applicationtimelineentry'
+    with connection.cursor() as cursor:
+        existing = {
+            column.name
+            for column in connection.introspection.get_table_description(cursor, table_name)
+        }
+    quote_name = connection.ops.quote_name
+    with connection.cursor() as cursor:
+        for column_name in ('reminder_date', 'reminder_note'):
+            if column_name in existing:
+                cursor.execute(
+                    f'ALTER TABLE {quote_name(table_name)} DROP COLUMN {quote_name(column_name)}'
+                )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("career", "0017_offer_equity_refresh_and_offer_letter_type"),
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql=(
-                'ALTER TABLE "career_applicationtimelineentry" '
-                'DROP COLUMN IF EXISTS "reminder_date";'
-            ),
-            # Recreated nullable; the original data is gone either way.
-            reverse_sql=(
-                'ALTER TABLE "career_applicationtimelineentry" '
-                'ADD COLUMN IF NOT EXISTS "reminder_date" date NULL;'
-            ),
-        ),
-        migrations.RunSQL(
-            sql=(
-                'ALTER TABLE "career_applicationtimelineentry" '
-                'DROP COLUMN IF EXISTS "reminder_note";'
-            ),
-            reverse_sql=(
-                'ALTER TABLE "career_applicationtimelineentry" '
-                "ADD COLUMN IF NOT EXISTS \"reminder_note\" text NOT NULL DEFAULT '';"
-            ),
-        ),
+        migrations.RunPython(drop_reminder_columns, migrations.RunPython.noop),
     ]

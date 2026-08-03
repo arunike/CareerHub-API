@@ -39,7 +39,11 @@ from ..services.application_imports import (
     row_to_application_payload,
     row_value,
 )
-from ..services.application_listing import apply_application_ordering, build_application_summary
+from ..services.application_listing import (
+    OFFER_RECEIVED_FILTER,
+    apply_application_ordering,
+    build_application_summary,
+)
 from ..upload_validation import validate_import_row_count, validate_import_upload
 
 from availability.pagination import ConditionalPageNumberPagination
@@ -115,6 +119,8 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                     | Q(status='ONSITE')
                     | Q(status__startswith='ROUND_')
                 )
+            elif filters['status'] == 'OFFER':
+                queryset = queryset.filter(OFFER_RECEIVED_FILTER)
             else:
                 queryset = queryset.filter(status=filters['status'])
 
@@ -271,6 +277,16 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             for application in queryset.order_by('-date_applied', '-created_at', '-id')[:page_size]
         ]
         return Response(options)
+
+    @action(detail=False, methods=['get'], url_path='company-list')
+    def company_list(self, request):
+        companies = (
+            Company.objects.filter(user=request.user, applications__user=request.user)
+            .distinct()
+            .order_by('name')
+            .values('id', 'name')
+        )
+        return Response(list(companies))
 
     @action(detail=False, methods=['get'])
     def export(self, request):

@@ -3,6 +3,30 @@
 from django.db import migrations, models
 
 
+def add_offer_adjustment_settings(apps, schema_editor):
+    connection = schema_editor.connection
+    if connection.vendor not in {'postgresql', 'sqlite'}:
+        return
+    table_name = 'availability_usersettings'
+    with connection.cursor() as cursor:
+        columns = {
+            column.name
+            for column in connection.introspection.get_table_description(cursor, table_name)
+        }
+    if 'offer_adjustment_settings' in columns:
+        return
+    definition = (
+        "jsonb DEFAULT '{}'::jsonb NOT NULL"
+        if connection.vendor == 'postgresql'
+        else "text DEFAULT '{}' NOT NULL"
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f'ALTER TABLE {connection.ops.quote_name(table_name)} '
+            f'ADD COLUMN {connection.ops.quote_name("offer_adjustment_settings")} {definition}'
+        )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("availability", "0003_usersettings_mobile_toolbar_items"),
@@ -11,16 +35,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql=(
-                        'ALTER TABLE "availability_usersettings" '
-                        "ADD COLUMN \"offer_adjustment_settings\" jsonb DEFAULT '{}'::jsonb NOT NULL;"
-                    ),
-                    reverse_sql=(
-                        'ALTER TABLE "availability_usersettings" '
-                        'DROP COLUMN "offer_adjustment_settings";'
-                    ),
-                ),
+                migrations.RunPython(add_offer_adjustment_settings, migrations.RunPython.noop),
             ],
             state_operations=[
                 migrations.AddField(

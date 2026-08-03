@@ -9,6 +9,10 @@ from .cache import (
 )
 from .models import Document, Application, Company, Experience, Task, AIArtifact, ApplicationTimelineEntry
 from .services import delete_document_asset
+from .services.career_records import (
+    ensure_application_career_record,
+    ensure_experience_career_record,
+)
 
 
 @receiver(post_delete, sender=Document)
@@ -18,6 +22,8 @@ def cleanup_document_file(sender, instance, **kwargs):
 
 @receiver([post_save, post_delete], sender=Application)
 def on_application_change(sender, instance, **kwargs):
+    if kwargs.get('created'):
+        ensure_application_career_record(instance)
     try:
         invalidate_applications_cache(instance.user_id)
     except Exception:
@@ -42,6 +48,8 @@ def on_timeline_entry_change(sender, instance, **kwargs):
 
 @receiver([post_save, post_delete], sender=Experience)
 def on_experience_change(sender, instance, **kwargs):
+    if not kwargs.get('signal') == post_delete:
+        ensure_experience_career_record(instance)
     try:
         invalidate_experiences_cache(instance.user_id)
     except Exception:

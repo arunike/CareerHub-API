@@ -1,5 +1,7 @@
 from django.db.models import Case, Count, IntegerField, Q, Value, When
 
+OFFER_RECEIVED_FILTER = Q(offer__isnull=False)
+
 
 def build_application_summary(queryset):
     return queryset.aggregate(
@@ -13,7 +15,7 @@ def build_application_summary(queryset):
                 | Q(status__startswith='ROUND_')
             ),
         ),
-        offers=Count('id', filter=Q(status='OFFER')),
+        offers=Count('id', filter=OFFER_RECEIVED_FILTER),
         locked=Count('id', filter=Q(is_locked=True)),
     )
 
