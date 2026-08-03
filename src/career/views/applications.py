@@ -246,6 +246,14 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def options(self, request):
         queryset = Application.objects.filter(user=request.user).select_related('company', 'offer')
 
+        # Resolving specific ids: a value already saved on a record may sit on any page, so
+        # the picker asks for it directly rather than paging until it appears.
+        raw_ids = (request.query_params.get('ids') or '').strip()
+        if raw_ids:
+            wanted = [int(part) for part in raw_ids.split(',') if part.strip().isdigit()]
+            queryset = queryset.filter(id__in=wanted[:100])
+            return Response([self._application_option(a) for a in queryset])
+
         search = (request.query_params.get('search') or '').strip()
         if search:
             search_filter = Q()
@@ -261,24 +269,32 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             page_size = int(request.query_params.get('page_size') or 50)
         except ValueError:
             page_size = 50
-        # Pickers load the whole list to filter client-side; a low cap silently hides
-        # older applications rather than paginating, so keep the ceiling above any real total.
-        page_size = max(1, min(page_size, 1000))
+        page_size = max(1, min(page_size, 200))
 
-        options = [
-            {
-                'id': application.id,
-                'role_title': application.role_title,
-                'status': application.status,
-                'company_details': {
-                    'id': application.company_id,
-                    'name': application.company.name,
-                },
-                'has_offer': hasattr(application, 'offer'),
-            }
-            for application in queryset.order_by('-date_applied', '-created_at', '-id')[:page_size]
+        try:
+            page = int(request.query_params.get('page') or 1)
+        except ValueError:
+            page = 1
+        page = max(1, page)
+        start = (page - 1) * page_size
+
+        page_items = queryset.order_by('-date_applied', '-created_at', '-id')[
+            start:start + page_size
         ]
-        return Response(options)
+        return Response([self._application_option(a) for a in page_items])
+
+    @staticmethod
+    def _application_option(application):
+        return {
+            'id': application.id,
+            'role_title': application.role_title,
+            'status': application.status,
+            'company_details': {
+                'id': application.company_id,
+                'name': application.company.name,
+            },
+            'has_offer': hasattr(application, 'offer'),
+        }
 
     @action(detail=False, methods=['get'], url_path='company-list')
     def company_list(self, request):
