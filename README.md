@@ -26,6 +26,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, review detected application imports, resolve possible duplicates, approve selected changes, inspect last-run change history, run manual syncs, and configure daily cron refreshes
 - 📊 **Timeline Analytics**: Application timeline entries and Google Sheet row provenance power time-to-interview, stage conversion, stale-stage warnings, and offer-rate breakdowns
+- 👥 **Career Relationship Network**: Canonical contacts connect to Application and Experience contexts, expose company metadata for shared list/network filtering, support direct and person-to-person relationship edges, and preserve one logical career lifecycle from application through employment
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
@@ -53,7 +54,12 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💎 Offer Management
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
-- **Contacts**: `/api/career/application-contacts/` (CRUD) stores people as `ApplicationContact` (name, email, notes). A contact belongs to an application, an experience, or both — a DB check constraint and serializer validation reject one with neither. Filter with `?application=<id>` or `?experience=<id>`; filtering by experience also folds in contacts from the application that produced the role (via `experience.offer.application`), flagged `inherited: true` and read-only in the UI
+- **`Application.job_description`**: the full posting text. Postings are routinely taken down while you are still interviewing, so the link alone is not a record. The URL importer already extracted this text but the frontend was folding it into `notes`; it now has its own column and is exposed by `ApplicationSerializer`
+- **`Application.has_reached_interview`** (read-only): true once the timeline shows a stage past screening. Annotated with a single `Exists` subquery on the list endpoint rather than a query per row, and falls back to a direct check for single objects. Drives whether the Debriefs tab appears
+- **Interview debriefs**: `/api/career/interview-debriefs/` (CRUD, `?application=<id>`) stores one `InterviewDebrief` per application round — questions asked, what went well, weak areas, interviewer notes, confidence (1-5), and next steps. The serializer enforces one debrief per round, the confidence range, and application ownership
+- **`Application.submitted_documents`** (M2M to `Document`): the exact document versions sent with an application. Because each version is its own `Document` row, uploading a new version never changes what is pinned
+- **Canonical Contacts**: `/api/career/contacts/` stores each person once per user with optional email, job title, company, and notes; obsolete phone and LinkedIn fields are not part of the model or API, Application and Experience associations are retained as contexts, normalized non-empty email matches are reused, and same-name records remain separate for manual review
+- **Relationship Network**: `/api/career/contact-relationships/` stores optional direct-to-user and person-to-person edges with standard or custom labels and optional career-record context; the legacy `/application-contacts/` route remains an API alias during migration
 - **`Experience.work_email`**: the work email address you had at that job
 - **Application timeline analytics**: `GET /career/application-timeline-analytics/` is the single source for funnel data. Alongside the existing `stage_conversion` (per-stage `reached_count` / `current_count` from the timeline), it now also returns `total_applications`, `outcomes`, `response_rate`, `ghost_rate`, and `biggest_drop`
 - **`unlocked_count` on paginated lists**: applications, documents, and events return how many rows across the *whole* filtered set are unlocked, not just the current page. A "Delete All" control needs this — `count` alone cannot tell it whether anything is deletable. Provided by the shared `availability.pagination.ConditionalPageNumberPagination`, which replaced three byte-identical copies
@@ -104,6 +110,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 👤 Experience
 - Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
+- **Application → Experience lifecycle**: every application and experience belongs to a shared `CareerRecord`; linking an offer to Experience reuses the application's record and atomically marks the application `ACCEPTED` while leaving it visible in Applications
 - Skills are auto-extracted from descriptions and can be AI-refined after save when a provider key is configured
 - Experience data is the shared context for all AI features
 - **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; logos are stored as URL-backed assets and use Vercel Blob automatically when `BLOB_READ_WRITE_TOKEN` is configured
@@ -381,11 +388,11 @@ api/
 │   │   └── utils.py          # Utilities (holiday fetching, export helpers)
 │   │
 │   ├── career/               # Job applications, offers & AI tools module
-│   │   ├── models.py         # Company, Application, Offer, Document, TimelineEntry, sync, Task, Experience models
+│   │   ├── models.py         # Applications, offers, experiences, canonical contacts, career records, and relationship models
 │   │   ├── serializers.py    # DRF serializers with auto company creation and export payloads
 │   │   ├── views/            # API ViewSets (package)
 │   │   ├── skills_extractor.py
-│   │   ├── services/         # Business logic (reference data, rent, weekly review, Google Sheets, storage)
+│   │   ├── services/         # Business logic (career records, reference data, rent, weekly review, Google Sheets, storage)
 │   │   ├── tasks.py          # Maintenance helper: auto_ghost_stale_applications
 │   │   ├── migrations/       # Database migrations
 │   │   └── urls.py           # URL routing
@@ -417,6 +424,7 @@ Base prefix: `/api/career/`
 
 #### Applications
 - `GET /api/career/applications/` — List all applications
+- `GET /api/career/applications/company-list/` — List distinct companies used by the authenticated user's applications for shared selectors
 - `POST /api/career/applications/` — Create a new application
 - `GET /api/career/applications/{id}/` — Retrieve application details
 - `GET /api/career/applications/{id}/prep_workspace/` — Retrieve the application's prep workspace with JD reports, cover letters, linked documents, notes, timeline, and resume evidence
@@ -452,6 +460,16 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `POST /api/career/experiences/import/` — Import experiences from JSON/CSV/XLSX, including linked offer/application snapshots when present
 - `POST /api/career/experiences/{id}/upload-logo/` — Upload company logo (multipart `logo` field, stores a public logo URL)
 - `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
+
+#### Contacts and Relationships
+- `GET /api/career/applications/options/` — Lightweight application options for pickers; supports `search`, `page`, `page_size` (default 50, max 200), and `ids` for resolving specific applications regardless of paging
+- `GET /api/career/contacts/` — List canonical contacts; filter by `application`, `experience`, `context`, `relationship`, `direct`, or `search`
+- `POST /api/career/contacts/` — Create or reuse a contact and optionally attach Application/Experience context plus a direct relationship
+- `PATCH /api/career/contacts/{id}/` — Update canonical contact details
+- `DELETE /api/career/contacts/{id}/?application={id}` — Detach a contact from one Application or Experience context without deleting the person globally
+- `POST /api/career/contacts/{id}/merge/` — Merge a confirmed duplicate while preserving contexts, notes, locks, and relationships
+- `GET|POST /api/career/contact-relationships/` — List or create direct and person-to-person relationship edges
+- `PATCH|DELETE /api/career/contact-relationships/{id}/` — Update or delete one relationship edge
 
 #### Documents
 - `GET /api/career/documents/` — List current document versions
