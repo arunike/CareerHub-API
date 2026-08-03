@@ -261,7 +261,9 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             page_size = int(request.query_params.get('page_size') or 50)
         except ValueError:
             page_size = 50
-        page_size = max(1, min(page_size, 100))
+        # Pickers load the whole list to filter client-side; a low cap silently hides
+        # older applications rather than paginating, so keep the ceiling above any real total.
+        page_size = max(1, min(page_size, 1000))
 
         options = [
             {

@@ -398,7 +398,6 @@ class ContactContext(models.Model):
         blank=True,
     )
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES)
-    notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

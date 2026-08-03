@@ -81,7 +81,7 @@ class ContactContextSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactContext
         fields = [
-            'id', 'career_record', 'application', 'experience', 'source', 'notes',
+            'id', 'career_record', 'application', 'experience', 'source',
             'summary', 'created_at',
         ]
 
@@ -174,7 +174,6 @@ class ContactRelationshipSerializer(serializers.ModelSerializer):
 class ContactSerializer(serializers.ModelSerializer):
     application = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     experience = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    context_notes = serializers.CharField(write_only=True, required=False, allow_blank=True)
     connect_to_self = serializers.BooleanField(write_only=True, required=False)
     relationship_kind = serializers.ChoiceField(
         choices=ContactRelationship.KIND_CHOICES,
@@ -190,7 +189,7 @@ class ContactSerializer(serializers.ModelSerializer):
         model = Contact
         fields = [
             'id', 'application', 'experience', 'name', 'email', 'job_title', 'company',
-            'notes', 'is_locked', 'contexts', 'context_notes',
+            'notes', 'is_locked', 'contexts',
             'connect_to_self', 'relationship_kind', 'custom_label', 'inherited',
             'possible_duplicate', 'created_at', 'updated_at',
         ]
@@ -227,7 +226,7 @@ class ContactSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'experience': 'Experience not found.'})
         return application, experience
 
-    def _add_contexts(self, contact, application, experience, notes):
+    def _add_contexts(self, contact, application, experience):
         records = []
         if application:
             record = ensure_application_career_record(application)
@@ -238,7 +237,6 @@ class ContactSerializer(serializers.ModelSerializer):
                 defaults={
                     'career_record': record,
                     'source': 'APPLICATION',
-                    'notes': notes,
                 },
             )
             records.append(record)
@@ -251,14 +249,12 @@ class ContactSerializer(serializers.ModelSerializer):
                 defaults={
                     'career_record': record,
                     'source': 'EXPERIENCE',
-                    'notes': notes,
                 },
             )
             records.append(record)
         return records
 
     def create(self, validated_data):
-        context_notes = validated_data.pop('context_notes', '')
         connect_to_self = validated_data.pop('connect_to_self', None)
         relationship_kind = validated_data.pop('relationship_kind', 'CONTACT')
         custom_label = (validated_data.pop('custom_label', '') or '').strip()
@@ -278,7 +274,7 @@ class ContactSerializer(serializers.ModelSerializer):
                         setattr(contact, field, validated_data[field])
                 contact.save()
 
-            records = self._add_contexts(contact, application, experience, context_notes)
+            records = self._add_contexts(contact, application, experience)
             should_connect = bool(application or experience) if connect_to_self is None else connect_to_self
             if should_connect:
                 if relationship_kind == 'CUSTOM' and not custom_label:
@@ -294,14 +290,13 @@ class ContactSerializer(serializers.ModelSerializer):
             return contact
 
     def update(self, instance, validated_data):
-        context_notes = validated_data.pop('context_notes', '')
         validated_data.pop('connect_to_self', None)
         validated_data.pop('relationship_kind', None)
         validated_data.pop('custom_label', None)
         application, experience = self._context_owners(validated_data)
         with transaction.atomic():
             contact = super().update(instance, validated_data)
-            self._add_contexts(contact, application, experience, context_notes)
+            self._add_contexts(contact, application, experience)
             return contact
 
     def to_representation(self, instance):
