@@ -54,6 +54,8 @@ class Event(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='events')
     name = models.CharField(max_length=255)
     date = models.DateField()
+    # Null for a single-day event; otherwise the last day the event spans.
+    end_date = models.DateField(null=True, blank=True)
     start_time = models.CharField(max_length=20) 
     end_time = models.CharField(max_length=20)
     timezone = models.CharField(max_length=64, default='America/Los_Angeles')
@@ -68,6 +70,17 @@ class Event(models.Model):
     is_recurring = models.BooleanField(default=False)
     recurrence_rule = models.JSONField(null=True, blank=True)
     parent_event = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='instances')
+
+    # One day of a multi-day span edited on its own. The override is a normal event row that
+    # the calendar renders in place of its parent on override_date.
+    span_parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='day_overrides',
+    )
+    override_date = models.DateField(null=True, blank=True)
     
     # Link to Job Application
     application = models.ForeignKey('career.Application', on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
@@ -75,6 +88,7 @@ class Event(models.Model):
     notes = models.TextField(blank=True)
     reminder_minutes = models.IntegerField(default=15)
     
+    is_all_day = models.BooleanField(default=False)
     is_locked = models.BooleanField(default=False, help_text="Locked events cannot be deleted")
     
     created_at = models.DateTimeField(auto_now_add=True)

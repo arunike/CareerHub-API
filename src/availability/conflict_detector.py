@@ -65,6 +65,27 @@ def events_overlap(event1, event2):
 
     return start1 < end2 and start2 < end1
 
+def _span_family_ids(data, exclude_id=None):
+    def get_val(obj, attr):
+        if isinstance(obj, dict):
+            return obj.get(attr)
+        return getattr(obj, attr, None)
+
+    parent = get_val(data, 'span_parent')
+    parent_id = getattr(parent, 'id', parent)
+    ids = set()
+    if parent_id:
+        ids.add(parent_id)
+        ids.update(
+            Event.objects.filter(span_parent_id=parent_id).values_list('id', flat=True)
+        )
+    anchor = exclude_id or get_val(data, 'id')
+    if anchor:
+        ids.add(anchor)
+        ids.update(Event.objects.filter(span_parent_id=anchor).values_list('id', flat=True))
+    return {i for i in ids if i}
+
+
 def detect_conflicts_for_event(event):
     target_date = event.date
     if isinstance(target_date, str):
@@ -77,7 +98,7 @@ def detect_conflicts_for_event(event):
     candidate_events = Event.objects.filter(
         user=event_user,
         date__range=[start_window, end_window]
-    ).exclude(id=event.id)
+    ).exclude(id=event.id).exclude(id__in=_span_family_ids(event, exclude_id=event.id))
     
     conflicts = []
     for other_event in candidate_events:
@@ -101,6 +122,7 @@ def check_for_conflicts(data, user, exclude_id=None):
     candidate_events = Event.objects.filter(user=user, date__range=[start_window, end_window])
     if exclude_id:
         candidate_events = candidate_events.exclude(id=exclude_id)
+    candidate_events = candidate_events.exclude(id__in=_span_family_ids(data, exclude_id))
         
     conflicts = []
     for other_event in candidate_events:

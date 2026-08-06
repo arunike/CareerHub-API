@@ -19,12 +19,13 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = [
-            'id', 'name', 'date', 'start_time', 'end_time', 'timezone',
+            'id', 'name', 'date', 'end_date', 'start_time', 'end_time', 'timezone',
             'category', 'category_details', 'color',
             'location_type', 'location', 'meeting_link',
             'is_recurring', 'recurrence_rule', 'parent_event',
+            'span_parent', 'override_date',
             'application', 'application_details',
-            'notes', 'reminder_minutes', 'is_locked',
+            'notes', 'reminder_minutes', 'is_all_day', 'is_locked',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -54,6 +55,16 @@ class EventSerializer(serializers.ModelSerializer):
 
     def validate_timezone(self, value):
         return normalize_timezone(value, raise_exception=True)
+
+    def validate(self, attrs):
+        # PATCH may send only one of the two, so fall back to what is already stored.
+        start = attrs.get('date', getattr(self.instance, 'date', None))
+        end = attrs.get('end_date', getattr(self.instance, 'end_date', None))
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {'end_date': 'The end date cannot be before the start date.'}
+            )
+        return attrs
 
 class CustomHolidaySerializer(serializers.ModelSerializer):
     class Meta:

@@ -276,7 +276,7 @@ class PublicBookingEnhancementTests(APITestCase):
         )
         self.assertTrue(response.data['booking']['ics_url'].startswith('http://testserver/api/booking/'))
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['host@example.com'])
+        self.assertEqual(mail.outbox[0].to, ['sanzhang@example.com'])
         self.assertEqual(mail.outbox[0].attachments[0][2], 'text/calendar')
         self.assertIn('https://careerhub-frontend.vercel.app/book/', mail.outbox[0].body)
 
