@@ -22,6 +22,135 @@ class EventViewSet(viewsets.ModelViewSet):
     serializer_class = EventSerializer
     pagination_class = ConditionalPageNumberPagination
 
+    @action(detail=False, methods=['get'], url_path='suggest-link')
+    def suggest_link(self, request):
+        """Suggest an application for a title being typed into the event form."""
+        from career.models import Application, Company
+        from career.services.event_linking import (
+            build_company_index,
+            match_company,
+            pick_application,
+        )
+
+        title = (request.query_params.get('title') or '').strip()
+        if len(title) < 3:
+            return Response({'suggestion': None})
+
+        raw_date = (request.query_params.get('date') or '').strip()
+        event_date = None
+        if raw_date:
+            try:
+                event_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+            except ValueError:
+                event_date = None
+
+        companies = build_company_index(
+            Company.objects.filter(user=request.user).values_list('id', 'name')
+        )
+        hit = match_company(title, companies)
+        if not hit:
+            return Response({'suggestion': None})
+
+        company_id, company_name = hit
+        candidates = list(
+            Application.objects.filter(user=request.user, company_id=company_id)
+        )
+        application = pick_application(candidates, event_date)
+        if application is None:
+            return Response({'suggestion': None})
+
+        return Response({
+            'suggestion': {
+                'application': application.id,
+                'company_name': company_name,
+                'role_title': application.role_title,
+                'application_status': application.status,
+                'other_applications': max(0, len(candidates) - 1),
+            }
+        })
+
+    @action(detail=False, methods=['get'], url_path='link-suggestions')
+    def link_suggestions(self, request):
+        """Unlinked events paired with the application they most likely belong to."""
+        from career.models import Application, Company
+        from career.services.event_linking import (
+            build_company_index,
+            confidence_for,
+            match_company,
+            pick_application,
+        )
+
+        companies = build_company_index(
+            Company.objects.filter(user=request.user).values_list('id', 'name')
+        )
+        by_company = {}
+        for app in Application.objects.filter(user=request.user).select_related('company'):
+            by_company.setdefault(app.company_id, []).append(app)
+
+        events = Event.objects.filter(
+            user=request.user, application__isnull=True, parent_event__isnull=True
+        ).order_by('-date')
+
+        rank = {'high': 0, 'medium': 1, 'low': 2}
+        suggestions = []
+        for event in events:
+            hit = match_company(event.name, companies)
+            if not hit:
+                continue
+            company_id, company_name = hit
+            candidates = by_company.get(company_id, [])
+            application = pick_application(candidates, event.date)
+            if application is None:
+                continue
+            suggestions.append({
+                'event': event.id,
+                'event_name': event.name,
+                'event_date': event.date,
+                'application': application.id,
+                'company_name': company_name,
+                'role_title': application.role_title,
+                'application_status': application.status,
+                'other_applications': max(0, len(candidates) - 1),
+                'confidence': confidence_for(company_name, len(candidates)),
+            })
+
+        suggestions.sort(key=lambda row: (rank[row['confidence']], str(row['event_date'] or '')))
+        return Response({
+            'suggestions': suggestions,
+            'unlinked_total': events.count(),
+        })
+
+    @action(detail=False, methods=['post'], url_path='apply-links')
+    def apply_links(self, request):
+        """Attach several events to applications in one go."""
+        from career.models import Application
+
+        pairs = request.data.get('links') or []
+        if not isinstance(pairs, list):
+            raise ValidationError({'links': 'Expected a list of {event, application} pairs.'})
+
+        owned_events = {
+            event.id: event for event in Event.objects.filter(user=request.user)
+        }
+        owned_apps = set(
+            Application.objects.filter(user=request.user).values_list('id', flat=True)
+        )
+
+        linked = 0
+        for pair in pairs:
+            event = owned_events.get(pair.get('event'))
+            application_id = pair.get('application')
+            # Silently skipping anything not owned keeps a stale review list harmless.
+            if event is None or application_id not in owned_apps:
+                continue
+            event.application_id = application_id
+            event.save(update_fields=['application', 'updated_at'])
+            linked += 1
+
+        if linked:
+            invalidate_events_cache(request.user.id)
+        return Response({'linked': linked, 'requested': len(pairs)})
+
     def list(self, request, *args, **kwargs):
         user_id = request.user.id
         cache_key = get_events_cache_key(user_id, "list", request.query_params)
@@ -52,6 +181,10 @@ class EventViewSet(viewsets.ModelViewSet):
         start = self.request.query_params.get('start_date')
         end = self.request.query_params.get('end_date')
         include_instances = self.request.query_params.get('include_instances', 'true').lower() == 'true'
+
+        application = (self.request.query_params.get('application') or '').strip()
+        if application.isdigit():
+            queryset = queryset.filter(application_id=int(application))
 
         if start:
             queryset = queryset.filter(date__gte=start)
