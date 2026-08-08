@@ -173,6 +173,8 @@ class Offer(models.Model):
     )
     equity_buyback_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Annual equity value realizable through a company buyback")
     sign_on = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Sign On Bonus")
+    # Per-year sign-on amounts, e.g. [30000, 20000]. Empty means it is all paid in year 1.
+    sign_on_schedule = models.JSONField(default=list, blank=True)
     benefits_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Estimated Annual Benefits Value")
     benefit_items = models.JSONField(default=list, blank=True, help_text="Benefit item breakdown used to derive annual benefits value")
     pto_days = models.IntegerField(default=15)
