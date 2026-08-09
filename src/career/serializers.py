@@ -1,4 +1,5 @@
 import base64
+import datetime
 
 from django.db import transaction
 from django.db.models import Q
@@ -413,10 +414,35 @@ class AIArtifactGenerationJobSerializer(serializers.ModelSerializer):
 
 class OfferSerializer(serializers.ModelSerializer):
     application_details = serializers.SerializerMethodField(read_only=True)
+    linked_experience = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Offer
         fields = '__all__'
+
+    def get_linked_experience(self, obj):
+        """The role this offer turned into, if it turned into one.
+
+        Several experiences can point at one offer (an internship and the return offer it
+        became), so the most recent wins. Consumers use this to tell a role still being
+        held from one already left.
+        """
+        # start_date is nullable on a hand-created row, so it is coerced for ordering only.
+        experience = max(
+            obj.experiences.all(),
+            key=lambda e: (e.start_date is not None, e.start_date or datetime.date.min),
+            default=None,
+        )
+        if experience is None:
+            return None
+        return {
+            'id': experience.id,
+            'title': experience.title,
+            'company': experience.company,
+            'start_date': experience.start_date,
+            'end_date': experience.end_date,
+            'is_current': experience.is_current,
+        }
 
     def get_fields(self):
         fields = super().get_fields()

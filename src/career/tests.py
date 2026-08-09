@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, time, timedelta, timezone as dt_timezone
+from datetime import date, datetime, time, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from io import BytesIO
 from unittest.mock import patch
@@ -937,6 +937,82 @@ class AIArtifactAPITests(APITestCase):
         self.assertEqual(len(restored), 1)
         self.assertEqual(restored[0]['title'], 'Exported Letter')
         self.assertTrue(restored[0]['is_locked'])
+
+
+class OfferLinkedExperienceSerializerTests(APITestCase):
+    """The Past Experience filter on the offers page reads this field, so an offer that
+    became a role must be distinguishable from one that never did."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="linked-exp@example.com",
+            email="linked-exp@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+        self.company = Company.objects.create(user=self.user, name="Google")
+
+    def _offer(self, role_title, base=100000):
+        application = Application.objects.create(
+            user=self.user,
+            company=self.company,
+            role_title=role_title,
+            status='OFFER',
+        )
+        return Offer.objects.create(application=application, base_salary=base)
+
+    def test_offer_without_experience_reports_none(self):
+        self._offer("Software Engineer")
+        response = self.client.get('/api/career/offers/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data[0]['linked_experience'])
+
+    def test_offer_with_experience_reports_the_flag_and_dates(self):
+        offer = self._offer("Software Engineer")
+        Experience.objects.create(
+            user=self.user,
+            offer=offer,
+            title="Software Engineer",
+            company="Google",
+            start_date=date(2025, 1, 6),
+            end_date=date(2026, 8, 14),
+            is_current=False,
+        )
+        response = self.client.get('/api/career/offers/')
+        linked = response.data[0]['linked_experience']
+        self.assertEqual(linked['title'], "Software Engineer")
+        self.assertEqual(linked['company'], "Google")
+        self.assertEqual(str(linked['start_date']), '2025-01-06')
+        self.assertEqual(str(linked['end_date']), '2026-08-14')
+        self.assertFalse(linked['is_current'])
+
+    def test_most_recent_experience_wins(self):
+        """An internship and the return offer it became can share one offer."""
+        offer = self._offer("Software Engineer")
+        Experience.objects.create(
+            user=self.user, offer=offer, title="Intern", company="Google",
+            start_date=date(2024, 6, 1), end_date=date(2024, 8, 30), is_current=False,
+        )
+        Experience.objects.create(
+            user=self.user, offer=offer, title="Software Engineer", company="Google",
+            start_date=date(2025, 1, 6), end_date=None, is_current=True,
+        )
+        response = self.client.get('/api/career/offers/')
+        self.assertEqual(response.data[0]['linked_experience']['title'], "Software Engineer")
+
+    def test_experience_without_start_date_does_not_crash(self):
+        offer = self._offer("Software Engineer")
+        Experience.objects.create(
+            user=self.user, offer=offer, title="Undated", company="Google",
+            start_date=None, end_date=None, is_current=False,
+        )
+        Experience.objects.create(
+            user=self.user, offer=offer, title="Also Undated", company="Google",
+            start_date=None, end_date=None, is_current=False,
+        )
+        response = self.client.get('/api/career/offers/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(response.data[0]['linked_experience'])
 
 
 class OfferDecisionSnapshotAPITests(APITestCase):

@@ -33,12 +33,16 @@ def _clean_json_output(text):
 
 
 class OfferViewSet(viewsets.ModelViewSet):
-    queryset = Offer.objects.select_related('application__company').all()
+    queryset = Offer.objects.select_related('application__company').prefetch_related('experiences').all()
     serializer_class = OfferSerializer
 
     def get_queryset(self):
         ensure_offers_for_offer_status_applications(self.request.user)
-        return Offer.objects.select_related('application__company').filter(application__user=self.request.user)
+        return (
+            Offer.objects.select_related('application__company')
+            .prefetch_related('experiences')
+            .filter(application__user=self.request.user)
+        )
 
     @action(detail=False, methods=['get'])
     def export(self, request):
