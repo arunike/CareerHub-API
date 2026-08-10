@@ -138,6 +138,11 @@ class UserSettings(models.Model):
         blank=True,
         help_text="Ordered list of route keys pinned to the mobile toolbar",
     )
+    nav_item_order = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Ordered list of sidebar route keys; keys absent from the list keep their built-in order",
+    )
     is_locked = models.BooleanField(default=False, help_text="Locked settings cannot be edited until unlocked")
     ai_provider_adapter = models.CharField(
         max_length=32,

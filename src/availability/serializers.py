@@ -120,6 +120,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'ignored_federal_holidays', 'employment_types', 'holiday_tabs', 'application_stages', 'hidden_nav_items',
             'offer_adjustment_settings',
             'mobile_toolbar_items',
+            'nav_item_order',
             'is_locked',
             'ai_provider_adapter', 'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',
             'ai_provider_api_key_configured', 'ai_provider_api_key_masked',
