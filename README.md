@@ -139,6 +139,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ### ⚙️ Settings
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category used by new event forms, and notification preferences
 - **Mobile Toolbar Preferences** (`mobile_toolbar_items` JSONField): Persist an ordered, validated set of up to four mobile navigation slots per user, including one optional `__smart__` slot; empty values retain the default Home, Applications, Offers, and Insights toolbar
+- **Event date range validation**: `EventSerializer.validate` rejects an `end_date` earlier than `date`, falling back to the stored value so a PATCH that moves only one side is still checked. Covered by `EventEndDateValidationTests`
 - **Sidebar Order** (`nav_item_order` JSONField, migration `0008`): Ordered list of sidebar route keys. Keys missing from the list keep their built-in position, so shipping a new page does not hide it from users who have already reordered. Added with the same `SeparateDatabaseAndState` + idempotent `ADD COLUMN` pattern as the other defaulted JSON fields
 - **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
 - **Privacy Export Center APIs**: Account-level export, backup restore, and confirmed account deletion endpoints live under `user-settings`.
