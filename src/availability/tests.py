@@ -182,6 +182,72 @@ class EventFeedPaginationTests(APITestCase):
         self.assertEqual([item['name'] for item in response.data['results']], ['Future event'])
 
 
+
+
+class EventEndDateValidationTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username='span-user',
+            email='span-user@example.com',
+            password='test-pass-123',
+        )
+        self.client.force_login(self.user)
+
+    def _payload(self, **overrides):
+        payload = {
+            'name': 'Offsite',
+            'date': '2026-03-10',
+            'start_time': '09:00:00',
+            'end_time': '17:00:00',
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_rejects_end_date_before_start_date(self):
+        response = self.client.post(
+            '/api/events/', self._payload(end_date='2026-03-09'), format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('end_date', response.data)
+
+    def test_allows_end_date_equal_to_or_after_start_date(self):
+        same_day = self.client.post(
+            '/api/events/', self._payload(end_date='2026-03-10'), format='json'
+        )
+        self.assertEqual(same_day.status_code, status.HTTP_201_CREATED)
+
+        # A separate week, so the overlap check does not mask the range check.
+        multi_day = self.client.post(
+            '/api/events/',
+            self._payload(name='Offsite II', date='2026-04-10', end_date='2026-04-12'),
+            format='json',
+        )
+        self.assertEqual(multi_day.status_code, status.HTTP_201_CREATED, multi_day.data)
+
+    def test_patching_start_past_a_stored_end_date_is_rejected(self):
+        created = self.client.post(
+            '/api/events/', self._payload(end_date='2026-03-12'), format='json'
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+
+        # Only the start moves, so the check has to fall back to the stored end date.
+        response = self.client.patch(
+            f'/api/events/{created.data["id"]}/', {'date': '2026-03-20'}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('end_date', response.data)
+
+    def test_clearing_end_date_shortens_the_event(self):
+        created = self.client.post(
+            '/api/events/', self._payload(end_date='2026-03-12'), format='json'
+        )
+        response = self.client.patch(
+            f'/api/events/{created.data["id"]}/', {'end_date': None}, format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.data['end_date'])
+
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class PublicBookingEnhancementTests(APITestCase):
     def setUp(self):
