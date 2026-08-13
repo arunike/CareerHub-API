@@ -806,7 +806,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'company_name', 'company_details', 'role_title', 'status', 'employment_type', 'level', 'job_link',
             'rto_policy', 'rto_days_per_week',
-            'commute_cost_value', 'commute_cost_frequency',
+            'commute_cost_value', 'commute_cost_frequency', 'commute_options',
             'free_food_perk_value', 'free_food_perk_frequency',
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'salary_range', 'location', 'office_location',
@@ -967,7 +967,7 @@ class ApplicationExportSerializer(serializers.ModelSerializer):
         model = Application
         fields = [
             'id', 'company', 'role_title', 'status', 'rto_policy', 'rto_days_per_week',
-            'commute_cost_value', 'commute_cost_frequency',
+            'commute_cost_value', 'commute_cost_frequency', 'commute_options',
             'free_food_perk_value', 'free_food_perk_frequency',
             'tax_base_rate', 'tax_bonus_rate', 'tax_equity_rate', 'monthly_rent_override',
             'current_round', 'job_link', 'salary_range', 'location', 'office_location',

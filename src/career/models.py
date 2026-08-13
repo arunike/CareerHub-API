@@ -74,6 +74,9 @@ class Application(models.Model):
     rto_days_per_week = models.PositiveSmallIntegerField(default=0)
     commute_cost_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     commute_cost_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='MONTHLY')
+    # [{mode, minutes_each_way, cost_value, cost_frequency, is_usable_time, is_primary}].
+    # Empty falls back to commute_cost_value/frequency above, so older rows keep working.
+    commute_options = models.JSONField(default=list, blank=True, help_text="Per-mode commute entries used for time and cost comparison")
     free_food_perk_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     free_food_perk_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='YEARLY')
     tax_base_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
