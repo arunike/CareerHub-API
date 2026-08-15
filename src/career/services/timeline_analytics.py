@@ -232,7 +232,10 @@ def build_application_timeline_analytics(user, year=None):
             'label': _stage_label(key, stage_map),
             'reached_count': reached_by_stage[key],
             'current_count': current_by_stage[key],
-            'conversion_rate': round(reached_by_stage[key] / total_applications, 4) if total_applications else 0,
+            # 6dp, not 4: at the bottom of a large funnel the interesting digits are past
+            # the fourth. 2 offers in 806 is 0.002481, which 4dp flattened to 0.0025 and
+            # left the display a rounding step away from reading 0%.
+            'conversion_rate': round(reached_by_stage[key] / total_applications, 6) if total_applications else 0,
         }
         for key in ordered_stage_keys
         if reached_by_stage[key] or current_by_stage[key]

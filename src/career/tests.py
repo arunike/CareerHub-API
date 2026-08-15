@@ -3119,6 +3119,47 @@ class CareerCachingTests(APITestCase):
         self.assertNotIn("notes", response.data[0])
 
 
+class FunnelConversionPrecisionTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="funnel-precision@example.com",
+            email="funnel-precision@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_rare_stage_keeps_enough_precision_to_avoid_reading_as_zero(self):
+        """A real count must never be reportable as 0%.
+
+        2 offers out of 806 is 0.248%. Rounded to four decimals that became 0.0025, and the
+        display's whole-percent rounding turned it into a flat 0% next to "2 reached" — a
+        funnel that looks like it never produced an offer.
+        """
+        company = Company.objects.create(user=self.user, name='Google')
+        applied = timezone.localdate()
+        for index in range(806):
+            application = Application.objects.create(
+                user=self.user,
+                company=company,
+                role_title=f'Engineer {index}',
+                status='OFFER' if index < 2 else 'APPLIED',
+                date_applied=applied,
+            )
+            ApplicationTimelineEntry.objects.create(
+                user=self.user,
+                application=application,
+                stage=application.status,
+                event_date=applied,
+            )
+
+        data = self.client.get('/api/career/application-timeline-analytics/').json()
+        offer = next(row for row in data['stage_conversion'] if row['key'] == 'OFFER')
+        self.assertEqual(offer['reached_count'], 2)
+        # Enough precision that a one-decimal percentage is non-zero and accurate.
+        self.assertAlmostEqual(offer['conversion_rate'], 2 / 806, places=6)
+        self.assertGreaterEqual(round(offer['conversion_rate'] * 100, 1), 0.2)
+
+
 class ApplicationStatsAPITests(APITestCase):
     """The dashboard's counts moved from the browser to the server.
 
