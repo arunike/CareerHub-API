@@ -1,8 +1,8 @@
 import statistics
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
 from django.utils import timezone
 
 from availability.models import UserSettings
@@ -34,6 +34,11 @@ RESPONSE_BUCKETS = (
 # A stage median built from one or two transitions is an anecdote, not a typical duration,
 # so it is reported with its sample size and only used as a comparison above this.
 MIN_DURATION_SAMPLE = 3
+
+# The trend compares two windows of this many days each.
+TREND_WINDOW_DAYS = 30
+# Below this, a period-over-period delta is noise rather than a signal.
+MIN_TREND_COHORT = 15
 
 
 def _percentile(values, fraction):
@@ -128,6 +133,43 @@ def _source_by_application_id(user):
     return source_map
 
 
+def _interview_link_stats(user, year=None):
+    """How much of the calendar is connected to the pipeline.
+
+    `Event.application` exists and the Events page can propose matches, but nothing forces
+    the link, so a calendar full of interviews can sit entirely disconnected from the
+    applications it belongs to. Interviews-per-offer is only answerable once they are linked,
+    so the unlinked count is the number worth surfacing until then.
+    """
+    from availability.models import Event
+
+    events = Event.objects.filter(user=user)
+    if year:
+        events = events.filter(date__year=year)
+
+    linked = events.exclude(application__isnull=True)
+    linked_count = linked.count()
+    total = events.count()
+
+    interviews_per_offer = None
+    if linked_count:
+        offers = (
+            Application.objects.filter(user=user, status__in=OFFER_STATUSES)
+            .annotate(interview_count=Count('events'))
+            .values_list('interview_count', flat=True)
+        )
+        counts = [count for count in offers if count]
+        if counts:
+            interviews_per_offer = round(sum(counts) / len(counts), 1)
+
+    return {
+        'total_events': total,
+        'linked_events': linked_count,
+        'unlinked_events': total - linked_count,
+        'interviews_per_offer': interviews_per_offer,
+    }
+
+
 def build_application_timeline_analytics(user, year=None):
     # Offers from two years ago drag an all-time rate towards zero, so the whole report is
     # scoped the same way the rest of the app scopes by year: on when you applied.
@@ -185,6 +227,13 @@ def build_application_timeline_analytics(user, year=None):
     offer_by_source = defaultdict(lambda: {'total': 0, 'offers': 0})
     offer_by_company = defaultdict(lambda: {'total': 0, 'offers': 0})
     days_to_response = []
+    # (submitted_date, responded) per application, so the trend can slice by cohort afterwards.
+    # Deliberately keyed on date_applied and not on the APPLIED timeline entry: on synced rows
+    # that entry drifts from the date you set — 404 of 806 differ, typically by 4-7 days, and
+    # 133 have no entry at all — which shuffled applications between cohorts and inverted the
+    # result. Elapsed-time measures below still use the timeline; only cohort membership needs
+    # the date the user actually recorded.
+    response_by_applied_date = []
     # Response rate, not offer rate: with a handful of offers every offer-rate breakdown is
     # noise, while a reply is common enough for the segments to mean something.
     response_by_source = defaultdict(lambda: {'total': 0, 'responded': 0})
@@ -244,6 +293,9 @@ def build_application_timeline_analytics(user, year=None):
             _entry_date(entry) for entry in entries if entry.stage not in NON_RESPONSE_STATUSES
         ]
         has_responded = bool(response_dates) or application.status not in NON_RESPONSE_STATUSES
+        submitted_date = application.date_applied or _application_start_date(application)
+        if submitted_date:
+            response_by_applied_date.append((submitted_date, has_responded))
         if response_dates:
             days = _days_between(applied_date, min(response_dates))
             if days is not None:
@@ -423,6 +475,39 @@ def build_application_timeline_analytics(user, year=None):
     # 32 days up to 60 and made the cutoff a month more forgiving than the data supports.
     followup_days = _percentile(days_to_response, 0.9)
 
+    # --- Is the response rate moving? ---
+    # Cohorts are only comparable once both have had the same chance to reply, so the windows
+    # end at today minus the p90. Comparing raw last-30-days against the prior 30 read 20% vs
+    # 29.5% purely because the recent applications had not matured yet.
+    response_trend = None
+    if followup_days is not None and response_by_applied_date:
+        matured_before = today - timedelta(days=followup_days)
+
+        def cohort(start, end):
+            rows = [row for row in response_by_applied_date if start <= row[0] <= end]
+            applied = len(rows)
+            responded = sum(1 for row in rows if row[1])
+            return {
+                'applied': applied,
+                'responded': responded,
+                'response_rate': round(responded / applied * 100, 1) if applied else 0,
+            }
+
+        recent = cohort(matured_before - timedelta(days=TREND_WINDOW_DAYS - 1), matured_before)
+        previous = cohort(
+            matured_before - timedelta(days=TREND_WINDOW_DAYS * 2 - 1),
+            matured_before - timedelta(days=TREND_WINDOW_DAYS),
+        )
+        # A delta off a handful of applications is noise, so it is withheld rather than shown.
+        if min(recent['applied'], previous['applied']) >= MIN_TREND_COHORT:
+            response_trend = {
+                'window_days': TREND_WINDOW_DAYS,
+                'matured_before': matured_before.isoformat(),
+                'recent': recent,
+                'previous': previous,
+                'delta': round(recent['response_rate'] - previous['response_rate'], 1),
+            }
+
     stage_durations = [
         {
             'key': key,
@@ -470,6 +555,8 @@ def build_application_timeline_analytics(user, year=None):
         'response_rate_by_source': _rate_rows(response_by_source),
         'response_rate_by_location': _rate_rows(response_by_location),
         'response_rate_by_level': _rate_rows(response_by_level),
+        'response_trend': response_trend,
+        'interview_links': _interview_link_stats(user, year),
         'stage_durations': stage_durations,
         'stage_conversion': stage_conversion,
         'total_applications': total_applications,

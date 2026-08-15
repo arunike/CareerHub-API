@@ -11,6 +11,7 @@ work here does not change a single number on the dashboard.
 from collections import defaultdict
 from datetime import date, datetime
 
+from django.db.models import Count, Q
 from django.utils import timezone
 
 INACTIVE_STATUSES = {'APPLIED', 'REJECTED', 'GHOSTED', 'ACCEPTED', 'REMOVED_FROM_SHEET'}
@@ -20,6 +21,17 @@ RESPONDED_EXCLUDE_STATUSES = {'APPLIED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
 OFFER_STATUSES = {'OFFER', 'ACCEPTED', 'OFFER_REJECTED'}
 
 AGE_BUCKETS = ('Last 7 days', '8-30 days', '31-90 days', '90+ days', 'Undated')
+
+# Fields that are worth filling in because something on the dashboard depends on them. A
+# breakdown by level cannot exist when level is blank on every row, and reporting the empty
+# breakdown is less useful than saying why it is empty.
+COMPLETENESS_FIELDS = (
+    ('level', 'Level', 'compare response rates by seniority'),
+    ('office_location', 'Office location', 'group locations precisely instead of by free text'),
+    ('salary_range', 'Salary range', 'compare advertised pay against your offers'),
+    ('job_link', 'Job link', 'reopen the posting and re-import details later'),
+    ('job_description', 'Job description', 'match your resume against the posting'),
+)
 
 
 def _rate(part, whole):
@@ -74,6 +86,32 @@ def build_application_stats(user, year=None):
         },
         reverse=True,
     )
+
+    # Blank counts for the fields the dashboard depends on. One aggregate query, not one per
+    # field, so this costs nothing next to the rest.
+    total_for_fields = queryset.count()
+    blank_counts = (
+        queryset.aggregate(
+            **{
+                name: Count('pk', filter=Q(**{name: ''}) | Q(**{f'{name}__isnull': True}))
+                for name, _, _ in COMPLETENESS_FIELDS
+            }
+        )
+        if total_for_fields
+        else {}
+    )
+    field_completeness = [
+        {
+            'field': name,
+            'label': label,
+            'missing': blank_counts.get(name, 0),
+            'total': total_for_fields,
+            'unlocks': unlocks,
+        }
+        for name, label, unlocks in COMPLETENESS_FIELDS
+        if blank_counts.get(name, 0)
+    ]
+    field_completeness.sort(key=lambda row: -row['missing'])
 
     # One query, six short columns. Everything below is arithmetic over that.
     rows = queryset.values_list(
@@ -154,4 +192,5 @@ def build_application_stats(user, year=None):
         # {'2026-08-12': 5, ...} — a few hundred entries at most, versus the whole list.
         'daily_applied': dict(sorted(daily.items())),
         'years': years,
+        'field_completeness': field_completeness,
     }
