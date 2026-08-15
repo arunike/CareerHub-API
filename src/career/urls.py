@@ -6,6 +6,7 @@ from .views import (
     AIArtifactViewSet,
     AIArtifactGenerationJobViewSet,
     ApplicationViewSet,
+    ApplicationStatsView,
     ApplicationTimelineAnalyticsView,
     ApplyImportApplicationsView,
     ImportApplicationsView,
@@ -51,6 +52,7 @@ urlpatterns = [
     path('reference-data/', ReferenceDataView.as_view(), name='career-reference-data'),
     path('rent-estimate/', RentEstimateView.as_view(), name='career-rent-estimate'),
     path('weekly-review/', WeeklyReviewView.as_view(), name='career-weekly-review'),
+    path('application-stats/', ApplicationStatsView.as_view(), name='application-stats'),
     path('application-timeline-analytics/', ApplicationTimelineAnalyticsView.as_view(), name='application-timeline-analytics'),
     path('google-oauth/callback/', GoogleOAuthCallbackView.as_view(), name='google-oauth-callback'),
 ] + router.urls

@@ -9,7 +9,13 @@ from career.models import Application, ApplicationTimelineEntry, GoogleSheetSync
 from career.services.google_sheets import DEFAULT_APPLICATION_STAGES
 
 
-TERMINAL_STATUSES = {'OFFER', 'REJECTED', 'GHOSTED'}
+# Reaching any of these means an offer was made, whatever happened next. Declining one
+# still counts as having received it, and accepting one certainly does — nothing here
+# stays in the pipeline.
+OFFER_STATUSES = {'OFFER', 'ACCEPTED', 'OFFER_REJECTED'}
+# A settled application is not "stale in stage"; it is finished. ACCEPTED was missing,
+# so an offer accepted two years ago was reported as 740 days stuck in a stage.
+TERMINAL_STATUSES = OFFER_STATUSES | {'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
 NON_INTERVIEW_STATUSES = {'APPLIED', 'OFFER', 'REJECTED', 'GHOSTED'}
 
 
@@ -77,9 +83,15 @@ def _source_by_application_id(user):
     return source_map
 
 
-def build_application_timeline_analytics(user):
+def build_application_timeline_analytics(user, year=None):
+    # Offers from two years ago drag an all-time rate towards zero, so the whole report is
+    # scoped the same way the rest of the app scopes by year: on when you applied.
+    queryset = Application.objects.filter(user=user)
+    if year:
+        queryset = queryset.filter(date_applied__year=year)
+
     applications = list(
-        Application.objects.filter(user=user)
+        queryset
         .select_related('company', 'offer')
         .only(
             'id',
@@ -169,7 +181,7 @@ def build_application_timeline_analytics(user):
 
         source = source_map.get(application.id)
         company_name = application.company.name
-        is_offer = application.status == 'OFFER' or hasattr(application, 'offer')
+        is_offer = application.status in OFFER_STATUSES or hasattr(application, 'offer')
         if source:
             source_key = source['name']
             offer_by_source[source_key]['total'] += 1
@@ -279,6 +291,7 @@ def build_application_timeline_analytics(user):
     sample_size = len(time_to_interview_days)
     average_days = round(sum(time_to_interview_days) / sample_size, 1) if sample_size else None
 
+    offer_count = sum(1 for row in offer_by_company.values() for _ in range(row['offers']))
     offer_sample_size = len(days_to_offer)
     average_days_to_offer = round(sum(days_to_offer) / offer_sample_size, 1) if offer_sample_size else None
 
@@ -289,6 +302,8 @@ def build_application_timeline_analytics(user):
         'days_to_offer_sample_size': offer_sample_size,
         'stage_conversion': stage_conversion,
         'total_applications': total_applications,
+        'offer_count': offer_count,
+        'offer_rate': round(offer_count / total_applications * 100, 1) if total_applications else 0,
         'outcomes': outcomes,
         'responded_count': responded_count,
         'response_rate': round(responded_count / total_applications * 100, 1) if total_applications else 0,
