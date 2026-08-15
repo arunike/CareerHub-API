@@ -66,6 +66,8 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **All-Day Events**: `Event.is_all_day` marks an event as spanning the whole day; times are still stored (`00:00`–`23:59`) so ordering, conflict checks, and ICS export keep working unchanged
 - **Relationship Network**: `/api/career/contact-relationships/` stores optional direct-to-user and person-to-person edges with standard or custom labels and optional career-record context; the legacy `/application-contacts/` route remains an API alias during migration
 - **`Experience.work_email`**: the work email address you had at that job
+- **Application stats**: `GET /career/application-stats/` returns the dashboard's counts — totals, offer/response rates, location and application-age groupings, a `daily_applied` date histogram, and `years` — without serialising the applications themselves. The Analytics page previously downloaded the full list (≈960 KB for 808 rows, mostly job descriptions it never read) just to count statuses in the browser; this is the same figures in ≈3 KB. Accepts `?year=`, and `years` is deliberately read from the unfiltered set so the year picker keeps every option while one is selected
+- **Application list query count**: `ApplicationSerializer` nests the offer, the offer's experiences, and submitted documents, so the list view `select_related`s `company`/`offer` and prefetches `submitted_documents`/`offer__experiences`. Without them each row cost two extra queries and 808 applications issued 1623; it is now a fixed handful regardless of row count, pinned by `ApplicationListQueryCountTests`
 - **Application timeline analytics**: `GET /career/application-timeline-analytics/` is the single source for funnel data. Alongside the existing `stage_conversion` (per-stage `reached_count` / `current_count` from the timeline), it now also returns `total_applications`, `outcomes`, `response_rate`, `ghost_rate`, and `biggest_drop`
 - **`unlocked_count` on paginated lists**: applications, documents, and events return how many rows across the *whole* filtered set are unlocked, not just the current page. A "Delete All" control needs this — `count` alone cannot tell it whether anything is deletable. Provided by the shared `availability.pagination.ConditionalPageNumberPagination`, which replaced three byte-identical copies
 - **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
@@ -445,6 +447,7 @@ Base prefix: `/api/career/`
 - `POST /api/career/application-timeline/` — Create or restore a stage timeline entry with a per-application title, date, notes, and documents
 - `PATCH /api/career/application-timeline/{id}/` — Update a timeline title, date, notes, or documents without changing its canonical synced stage key
 - `DELETE /api/career/application-timeline/{id}/` — Remove a timeline entry while suppressing automatic Google Sheets recreation
+- `GET /api/career/application-stats/` — Return dashboard aggregates (totals, rates, locations, age buckets, daily applied histogram, available years) without the application rows; accepts `?year=`
 - `GET /api/career/application-timeline-analytics/` — Return timeline-driven application analytics, including time-to-interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 
 #### Offers
