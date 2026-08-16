@@ -122,6 +122,15 @@ class UserSettings(models.Model):
     notification_preferences = models.JSONField(default=dict)
     global_availability = models.JSONField(default=dict)
     ghosting_threshold_days = models.IntegerField(default=30, help_text="Days of inactivity before marking application as ghosted")
+    # Your car and your local pump price, not a property of any one offer — so they are set
+    # once here and every offer's fuel estimate reads them, with a per-offer override kept on
+    # the commute entry for the cases where a role really does mean a different vehicle.
+    default_mpg = models.DecimalField(
+        max_digits=6, decimal_places=1, default=28, help_text="Fuel efficiency used for commute cost"
+    )
+    default_gas_price_per_gallon = models.DecimalField(
+        max_digits=6, decimal_places=2, default=4, help_text="Pump price used for commute cost"
+    )
     default_event_category = models.ForeignKey(EventCategory, on_delete=models.SET_NULL, null=True, blank=True)
     ignored_federal_holidays = models.JSONField(default=list, help_text="List of federal holiday names or dates to ignore")
     employment_types = models.JSONField(default=list, blank=True, help_text="Custom employment type definitions [{value, label, color}]")

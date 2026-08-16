@@ -3514,6 +3514,84 @@ class FieldCompletenessTests(APITestCase):
         )
 
 
+class FreeFoodPerMealTests(APITestCase):
+    """Free meals are valued per meal over office days, not as a flat yearly guess."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="free-food@example.com",
+            email="free-food@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+        self.company = Company.objects.create(user=self.user, name='TikTok')
+
+    def test_per_meal_entries_round_trip(self):
+        """The shape the offer form actually sends: one object per meal.
+
+        Each meal carries its own amount and whether the office provides it, so a meal you buy
+        yourself survives the round trip as a cost rather than being flattened away.
+        """
+        application = Application.objects.create(
+            user=self.user, company=self.company, role_title='Engineer', status='OFFER'
+        )
+        entries = [
+            {'meal': 'BREAKFAST', 'value': 8, 'provided': False},
+            {'meal': 'LUNCH', 'value': 15, 'provided': True},
+            {'meal': 'DINNER', 'value': 20, 'provided': True},
+        ]
+        response = self.client.patch(
+            f'/api/career/applications/{application.id}/',
+            {'free_food_meals': entries},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        application.refresh_from_db()
+        self.assertEqual(application.free_food_meals, entries)
+        # Read back through the API too, since the offer form reads the serialised shape.
+        fetched = self.client.get(f'/api/career/applications/{application.id}/').json()
+        self.assertEqual(fetched['free_food_meals'], entries)
+        # The provided flag must survive as False, not be coerced away.
+        self.assertIs(fetched['free_food_meals'][0]['provided'], False)
+
+    def test_legacy_string_list_shape_is_still_accepted(self):
+        application = Application.objects.create(
+            user=self.user, company=self.company, role_title='Engineer', status='OFFER'
+        )
+        response = self.client.patch(
+            f'/api/career/applications/{application.id}/',
+            {'free_food_meals': ['LUNCH', 'DINNER'], 'free_food_value_per_meal': '15.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        application.refresh_from_db()
+        self.assertEqual(application.free_food_meals, ['LUNCH', 'DINNER'])
+        self.assertEqual(application.free_food_value_per_meal, Decimal('15.00'))
+
+    def test_defaults_leave_offers_without_free_food_untouched(self):
+        application = Application.objects.create(
+            user=self.user, company=self.company, role_title='Engineer', status='APPLIED'
+        )
+        self.assertEqual(application.free_food_meals, [])
+        self.assertIsNone(application.free_food_value_per_meal)
+        # The legacy flat fields still exist, so an offer saved before per-meal keeps its value.
+        self.assertEqual(application.free_food_perk_value, 0)
+        self.assertEqual(application.free_food_perk_frequency, 'YEARLY')
+
+    def test_legacy_flat_amount_is_preserved_alongside_the_new_fields(self):
+        application = Application.objects.create(
+            user=self.user,
+            company=self.company,
+            role_title='Engineer',
+            status='OFFER',
+            free_food_perk_value=Decimal('3000'),
+            free_food_perk_frequency='YEARLY',
+        )
+        fetched = self.client.get(f'/api/career/applications/{application.id}/').json()
+        self.assertEqual(Decimal(fetched['free_food_perk_value']), Decimal('3000.00'))
+        self.assertEqual(fetched['free_food_meals'], [])
+
+
 class ApplicationStatsAPITests(APITestCase):
     """The dashboard's counts moved from the browser to the server.
 

@@ -6,6 +6,8 @@ from urllib.error import HTTPError
 
 from django.core.cache import cache
 from django.core import mail
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
@@ -584,6 +586,42 @@ class UserSettingsNavigationTests(APITestCase):
 
                 self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertIn('mobile_toolbar_items', response.data)
+
+
+class DrivingDefaultsSettingsTests(APITestCase):
+    """MPG and pump price belong to the person, not to one offer, so they live here and
+    every offer's commute cost reads them."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='chriswong',
+            email='chriswong@example.com',
+            password='test-pass-123',
+        )
+        self.client.force_login(self.user)
+        self.current_settings_url = '/api/user-settings/current/'
+
+    def test_current_settings_exposes_driving_defaults(self):
+        response = self.client.get(self.current_settings_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Present from the start, so the first offer priced by fuel has figures to use.
+        self.assertEqual(Decimal(str(response.data['default_mpg'])), Decimal('28'))
+        self.assertEqual(
+            Decimal(str(response.data['default_gas_price_per_gallon'])), Decimal('4')
+        )
+
+    def test_current_settings_saves_driving_defaults(self):
+        response = self.client.put(
+            self.current_settings_url,
+            {'default_mpg': 31.5, 'default_gas_price_per_gallon': 5.29},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        settings = UserSettings.objects.get(user=self.user)
+        self.assertEqual(settings.default_mpg, Decimal('31.5'))
+        self.assertEqual(settings.default_gas_price_per_gallon, Decimal('5.29'))
 
 
 class AIProviderSettingsTests(APITestCase):
