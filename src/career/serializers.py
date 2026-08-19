@@ -421,12 +421,7 @@ class OfferSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_linked_experience(self, obj):
-        """The role this offer turned into, if it turned into one.
-
-        Several experiences can point at one offer (an internship and the return offer it
-        became), so the most recent wins. Consumers use this to tell a role still being
-        held from one already left.
-        """
+        """The role this offer turned into, if it turned into one."""
         # start_date is nullable on a hand-created row, so it is coerced for ordering only.
         experience = max(
             obj.experiences.all(),

@@ -76,15 +76,12 @@ class Application(models.Model):
     commute_cost_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='MONTHLY')
     # [{mode, minutes_each_way, cost_value, cost_frequency, cost_mode, miles_each_way,
     #   distance_basis, mpg, gas_price_per_gallon, parking_tolls_per_day, is_primary}].
-    # Empty falls back to commute_cost_value/frequency above, so older rows keep working.
     commute_options = models.JSONField(default=list, blank=True, help_text="Per-mode commute entries used for time and cost comparison")
     # Legacy flat figure. Superseded by the per-meal fields below, kept so offers saved
     # before them keep their value instead of silently reading as zero.
     free_food_perk_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     free_food_perk_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='YEARLY')
-    # Which meals the office actually provides, e.g. ["LUNCH", "DINNER"]. Combined with the
-    # per-meal value and the office days the RTO policy implies, so a two-day hybrid is not
-    # credited with five days of free lunches.
+    # Which meals the office provides, e.g. ["LUNCH", "DINNER"], against the RTO office days.
     free_food_meals = models.JSONField(
         default=list, blank=True, help_text="Meals provided on an office day"
     )

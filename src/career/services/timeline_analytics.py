@@ -11,9 +11,7 @@ from career.services.application_stats import _group_location
 from career.services.google_sheets import DEFAULT_APPLICATION_STAGES
 
 
-# Reaching any of these means an offer was made, whatever happened next. Declining one
-# still counts as having received it, and accepting one certainly does — nothing here
-# stays in the pipeline.
+# Reaching any of these means an offer was made, whatever happened after.
 OFFER_STATUSES = {'OFFER', 'ACCEPTED', 'OFFER_REJECTED'}
 # A settled application is not "stale in stage"; it is finished. ACCEPTED was missing,
 # so an offer accepted two years ago was reported as 740 days stuck in a stage.
@@ -42,8 +40,7 @@ MIN_TREND_COHORT = 15
 
 
 def _percentile(values, fraction):
-    """Nearest-rank percentile. Small samples are the norm here, so interpolating between
-    two neighbours would invent precision the data does not have."""
+    """Nearest-rank percentile."""
     if not values:
         return None
     ordered = sorted(values)
@@ -52,10 +49,7 @@ def _percentile(values, fraction):
 
 
 def _rate_rows(counter):
-    """Segment rows with the sample size kept alongside the rate.
-
-    A 50% rate off two applications is noise, and the caller cannot tell without `total`,
-    so it is always returned rather than left for the UI to infer."""
+    """Segment rows with the sample size kept alongside the rate."""
     rows = [
         {
             'name': name,
@@ -134,13 +128,7 @@ def _source_by_application_id(user):
 
 
 def _interview_link_stats(user, year=None):
-    """How much of the calendar is connected to the pipeline.
-
-    `Event.application` exists and the Events page can propose matches, but nothing forces
-    the link, so a calendar full of interviews can sit entirely disconnected from the
-    applications it belongs to. Interviews-per-offer is only answerable once they are linked,
-    so the unlinked count is the number worth surfacing until then.
-    """
+    """How much of the calendar is connected to the pipeline."""
     from availability.models import Event
 
     events = Event.objects.filter(user=user)
@@ -227,12 +215,7 @@ def build_application_timeline_analytics(user, year=None):
     offer_by_source = defaultdict(lambda: {'total': 0, 'offers': 0})
     offer_by_company = defaultdict(lambda: {'total': 0, 'offers': 0})
     days_to_response = []
-    # (submitted_date, responded) per application, so the trend can slice by cohort afterwards.
-    # Deliberately keyed on date_applied and not on the APPLIED timeline entry: on synced rows
-    # that entry drifts from the date you set — 404 of 806 differ, typically by 4-7 days, and
-    # 133 have no entry at all — which shuffled applications between cohorts and inverted the
-    # result. Elapsed-time measures below still use the timeline; only cohort membership needs
-    # the date the user actually recorded.
+    # Keyed on date_applied, not the APPLIED timeline entry, which drifts on synced rows.
     response_by_applied_date = []
     # Response rate, not offer rate: with a handful of offers every offer-rate breakdown is
     # noise, while a reply is common enough for the segments to mean something.
@@ -341,9 +324,7 @@ def build_application_timeline_analytics(user, year=None):
         offer_by_company[company_name]['total'] += 1
         if is_offer:
             offer_by_company[company_name]['offers'] += 1
-            # When the offer arrived, which is what the timeline records. The Offer row's
-            # created_at is when it was typed into CareerHub: backfilling a 2024 offer in
-            # 2026 reported it as a 545-day wait and dragged the average to 7x reality.
+            # Timeline date, not Offer.created_at, which is when it was typed in.
             offer_dates = [_entry_date(entry) for entry in entries if entry.stage in OFFER_STATUSES]
             offer_date = min(offer_dates) if offer_dates else None
             if offer_date is None and getattr(application, 'offer', None) and application.offer.created_at:
@@ -386,9 +367,7 @@ def build_application_timeline_analytics(user, year=None):
             'label': _stage_label(key, stage_map),
             'reached_count': reached_by_stage[key],
             'current_count': current_by_stage[key],
-            # 6dp, not 4: at the bottom of a large funnel the interesting digits are past
-            # the fourth. 2 offers in 806 is 0.002481, which 4dp flattened to 0.0025 and
-            # left the display a rounding step away from reading 0%.
+            # 6dp: 2 offers in 806 is 0.002481, which 4dp flattens toward 0%.
             'conversion_rate': round(reached_by_stage[key] / total_applications, 6) if total_applications else 0,
         }
         for key in ordered_stage_keys
@@ -470,15 +449,10 @@ def build_application_timeline_analytics(user, year=None):
             }
         )
 
-    # The point where replies effectively stop: 90% of the ones ever received had arrived.
-    # Taken from the actual distribution rather than snapped to a bucket edge, which rounded
-    # 32 days up to 60 and made the cutoff a month more forgiving than the data supports.
+    # p90 of actual reply times: the point where replies effectively stop.
     followup_days = _percentile(days_to_response, 0.9)
 
-    # --- Is the response rate moving? ---
-    # Cohorts are only comparable once both have had the same chance to reply, so the windows
-    # end at today minus the p90. Comparing raw last-30-days against the prior 30 read 20% vs
-    # 29.5% purely because the recent applications had not matured yet.
+    # Windows end at today minus the p90 so both cohorts had equal time to reply.
     response_trend = None
     if followup_days is not None and response_by_applied_date:
         matured_before = today - timedelta(days=followup_days)

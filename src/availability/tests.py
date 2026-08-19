@@ -589,8 +589,7 @@ class UserSettingsNavigationTests(APITestCase):
 
 
 class DrivingDefaultsSettingsTests(APITestCase):
-    """MPG and pump price belong to the person, not to one offer, so they live here and
-    every offer's commute cost reads them."""
+    """MPG and pump price belong to the person, not to one offer, so they live here and."""
 
     def setUp(self):
         self.user = get_user_model().objects.create_user(

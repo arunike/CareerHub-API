@@ -1,9 +1,4 @@
-"""Suggest which application a calendar event belongs to.
-
-Events are usually titled with the company somewhere in them ("Lumafield Recruiter
-Screen", "Interview with CVector"), so the company name is the signal. A company can have
-several applications, so a second pass picks the most plausible one.
-"""
+"""Suggest which application a calendar event belongs to."""
 
 import re
 
@@ -52,12 +47,7 @@ def build_company_index(companies):
 
 
 def pick_application(applications, event_date):
-    """Choose among several applications at the same company.
-
-    An application that actually reached an interview is the likeliest owner of an
-    interview event. Otherwise prefer the one applied to most recently before the event,
-    since that is the cycle the event belongs to.
-    """
+    """Choose among several applications at the same company."""
     if not applications:
         return None
     if len(applications) == 1:

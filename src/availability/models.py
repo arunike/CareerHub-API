@@ -122,9 +122,7 @@ class UserSettings(models.Model):
     notification_preferences = models.JSONField(default=dict)
     global_availability = models.JSONField(default=dict)
     ghosting_threshold_days = models.IntegerField(default=30, help_text="Days of inactivity before marking application as ghosted")
-    # Your car and your local pump price, not a property of any one offer — so they are set
-    # once here and every offer's fuel estimate reads them, with a per-offer override kept on
-    # the commute entry for the cases where a role really does mean a different vehicle.
+    # Per-person defaults; a per-offer override lives on the commute entry.
     default_mpg = models.DecimalField(
         max_digits=6, decimal_places=1, default=28, help_text="Fuel efficiency used for commute cost"
     )

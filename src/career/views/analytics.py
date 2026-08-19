@@ -19,12 +19,7 @@ def _requested_year(request):
 
 
 class ApplicationStatsView(APIView):
-    """Dashboard counts without shipping the applications themselves.
-
-    The Analytics page needed totals, location and age groupings, and one date per
-    application. Fetching the list for that meant ~1 MB of job descriptions and notes per
-    page load; this returns the same figures in a few KB.
-    """
+    """Dashboard counts without shipping the applications themselves."""
 
     permission_classes = [IsAuthenticated]
 

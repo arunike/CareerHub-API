@@ -942,8 +942,7 @@ class AIArtifactAPITests(APITestCase):
 
 
 class OfferLinkedExperienceSerializerTests(APITestCase):
-    """The Past Experience filter on the offers page reads this field, so an offer that
-    became a role must be distinguishable from one that never did."""
+    """The Past Experience filter on the offers page reads this field, so an offer that."""
 
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -3129,12 +3128,7 @@ class FunnelConversionPrecisionTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_rare_stage_keeps_enough_precision_to_avoid_reading_as_zero(self):
-        """A real count must never be reportable as 0%.
-
-        2 offers out of 806 is 0.248%. Rounded to four decimals that became 0.0025, and the
-        display's whole-percent rounding turned it into a flat 0% next to "2 reached" — a
-        funnel that looks like it never produced an offer.
-        """
+        """A real count must never be reportable as 0%."""
         company = Company.objects.create(user=self.user, name='Google')
         applied = timezone.localdate()
         for index in range(806):
@@ -3358,11 +3352,7 @@ class ResponseTrendTests(APITestCase):
             self._app(self.today - timedelta(days=days_ago), index < responded_count, **kwargs)
 
     def test_trend_compares_cohorts_that_have_had_equal_time_to_reply(self):
-        """A fresh batch that has not answered yet must not read as a collapse.
-
-        The windows end at today minus the p90 reply time, so both cohorts have had the same
-        chance. Applications from the last few days are excluded from both.
-        """
+        """A fresh batch that has not answered yet must not read as a collapse."""
         # p90 will be 3 days, since every reply lands on day 3.
         self._seed(40, 20, 10)  # older window: 50%
         self._seed(10, 20, 5)  # recent window: 25%
@@ -3380,13 +3370,7 @@ class ResponseTrendTests(APITestCase):
         self.assertNotIn(40, [trend['recent']['applied'], trend['previous']['applied']])
 
     def test_trend_cohorts_use_date_applied_not_the_synced_timeline_entry(self):
-        """Cohort membership must key off the date the user recorded.
-
-        On synced rows the APPLIED timeline entry drifts from date_applied, and keying the
-        cohorts off it moves applications into the wrong window. Here the recent batch carries
-        an APPLIED entry 40 days earlier than it was really submitted: read from the entry it
-        would land in the older window and merge with it, leaving no recent cohort at all.
-        """
+        """Cohort membership must key off the date the user recorded."""
         # Only the older batch replies, so the p90 that sets the windows comes from rows whose
         # dates agree — the drift under test cannot move the windows themselves.
         self._seed(50, 20, 10)
@@ -3527,11 +3511,7 @@ class FreeFoodPerMealTests(APITestCase):
         self.company = Company.objects.create(user=self.user, name='TikTok')
 
     def test_per_meal_entries_round_trip(self):
-        """The shape the offer form actually sends: one object per meal.
-
-        Each meal carries its own amount and whether the office provides it, so a meal you buy
-        yourself survives the round trip as a cost rather than being flattened away.
-        """
+        """The shape the offer form actually sends: one object per meal."""
         application = Application.objects.create(
             user=self.user, company=self.company, role_title='Engineer', status='OFFER'
         )
@@ -3593,11 +3573,7 @@ class FreeFoodPerMealTests(APITestCase):
 
 
 class ApplicationStatsAPITests(APITestCase):
-    """The dashboard's counts moved from the browser to the server.
-
-    These pin the bucket definitions the frontend used to own, so a change here is a
-    deliberate change to the dashboard rather than a silent one.
-    """
+    """The dashboard's counts moved from the browser to the server."""
 
     def setUp(self):
         self.user = get_user_model().objects.create_user(
@@ -3669,9 +3645,7 @@ class ApplicationStatsAPITests(APITestCase):
         self._application('APPLIED', applied=self.today - timedelta(days=20))
         self._application('APPLIED', applied=self.today - timedelta(days=60))
         self._application('APPLIED', applied=self.today - timedelta(days=200))
-        # Age falls back to created_at, so a row with no applied date is aged from when it
-        # was added rather than dropped into Undated. Undated needs both to be missing,
-        # which auto-set created_at makes unreachable in practice.
+        # Age falls back to created_at when there is no applied date.
         self._application('APPLIED', applied=None)
 
         data = self.client.get('/api/career/application-stats/').json()
@@ -3769,12 +3743,7 @@ class ApplicationListQueryCountTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_list_does_not_scale_queries_with_row_count(self):
-        """The serializer nests the offer, its experiences, and submitted documents.
-
-        Without select_related/prefetch_related each row cost two extra queries, so a real
-        account's 808 applications issued 1623. This pins the count so it cannot regress:
-        ten applications must cost the same number of queries as two.
-        """
+        """The serializer nests the offer, its experiences, and submitted documents."""
         company = Company.objects.create(user=self.user, name='Google')
 
         def make(index):

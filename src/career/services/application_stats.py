@@ -1,12 +1,4 @@
-"""Dashboard aggregates for the applications list.
-
-The Analytics page used to download every application in full — 963 KB for 808 rows,
-mostly job descriptions and notes it never read — purely to count statuses and group
-locations in the browser. These are the same counts, computed from six small columns.
-
-The bucket definitions deliberately mirror what the frontend used to do, so moving the
-work here does not change a single number on the dashboard.
-"""
+"""Dashboard aggregates for the applications list."""
 
 from collections import defaultdict
 from datetime import date, datetime
@@ -22,9 +14,7 @@ OFFER_STATUSES = {'OFFER', 'ACCEPTED', 'OFFER_REJECTED'}
 
 AGE_BUCKETS = ('Last 7 days', '8-30 days', '31-90 days', '90+ days', 'Undated')
 
-# Fields that are worth filling in because something on the dashboard depends on them. A
-# breakdown by level cannot exist when level is blank on every row, and reporting the empty
-# breakdown is less useful than saying why it is empty.
+# Fields the dashboard depends on; an all-blank one is reported as unavailable.
 COMPLETENESS_FIELDS = (
     ('level', 'Level', 'compare response rates by seniority'),
     ('office_location', 'Office location', 'group locations precisely instead of by free text'),
@@ -74,9 +64,7 @@ def build_application_stats(user, year=None):
     if year:
         queryset = queryset.filter(date_applied__year=year)
 
-    # The year picker has to list every year that has applications, so it is deliberately
-    # read from the unfiltered set — otherwise selecting a year would leave it as the only
-    # option and there would be no way back.
+    # Read from the unfiltered set so picking a year does not remove every other option.
     years = sorted(
         {
             applied.year

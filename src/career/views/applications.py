@@ -65,9 +65,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
         )
         queryset = (
             Application.objects.filter(user=self.request.user)
-            # ApplicationSerializer nests the offer and lists submitted documents, and the
-            # offer nests its experiences. Without these three, a list of 808 applications
-            # issued 1623 queries — two per row — instead of a handful.
+            # Without these, a list of 808 applications issued 1623 queries.
             .select_related('company', 'offer')
             .prefetch_related('submitted_documents', 'offer__experiences')
             .annotate(reached_interview_annotation=reached_interview)
