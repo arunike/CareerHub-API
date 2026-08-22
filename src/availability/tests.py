@@ -305,7 +305,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )
@@ -328,16 +328,16 @@ class PublicBookingEnhancementTests(APITestCase):
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
                 'notes': 'Bring role details.',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         booking = PublicBooking.objects.get()
-        self.assertEqual(booking.intake_answers['company'], 'Acme')
+        self.assertEqual(booking.intake_answers['company'], 'Google')
         self.assertTrue(booking.event.is_locked)
-        self.assertIn('Acme', booking.event.notes)
+        self.assertIn('Google', booking.event.notes)
         self.assertIn('reschedule_url', response.data['booking'])
         self.assertTrue(
             response.data['booking']['reschedule_url'].startswith('https://careerhub-frontend.vercel.app/book/')
@@ -371,7 +371,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )
@@ -405,7 +405,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )
@@ -446,7 +446,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )
@@ -479,7 +479,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )
@@ -522,7 +522,7 @@ class PublicBookingEnhancementTests(APITestCase):
                 'start_time': '09:00:00',
                 'end_time': '09:30:00',
                 'timezone': 'America/Los_Angeles',
-                'intake_answers': {'company': 'Acme'},
+                'intake_answers': {'company': 'Google'},
             },
             format='json',
         )

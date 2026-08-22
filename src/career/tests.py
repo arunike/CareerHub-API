@@ -141,8 +141,8 @@ class CareerRelationshipNetworkTests(APITestCase):
         self.assertEqual(experience.career_record, self.application.career_record)
 
     def test_indirect_custom_relationship_does_not_create_self_edge(self):
-        direct = Contact.objects.create(user=self.user, name='Casey Lin')
-        indirect = Contact.objects.create(user=self.user, name='Morgan Reed')
+        direct = Contact.objects.create(user=self.user, name='John Smith')
+        indirect = Contact.objects.create(user=self.user, name='Alex Kim')
         ContactRelationship.objects.create(
             user=self.user,
             source_contact=None,
@@ -204,7 +204,7 @@ class ApplicationTimelineEntryModelTests(APITestCase):
             email="timeline-entry-user@example.com",
             password="StrongPassw0rd!",
         )
-        self.company = Company.objects.create(user=self.user, name='Acme')
+        self.company = Company.objects.create(user=self.user, name='Google')
         self.application = Application.objects.create(
             user=self.user,
             company=self.company,
@@ -309,7 +309,7 @@ class ApplicationTimelineEntryAPITests(APITestCase):
             password='StrongPassw0rd!',
         )
         self.client.force_authenticate(self.user)
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Google')
         self.application = Application.objects.create(
             user=self.user,
             company=company,
@@ -404,7 +404,7 @@ class OfferStatusApplicationAPITests(APITestCase):
         response = self.client.post(
             '/api/career/applications/',
             {
-                'company_name': 'Acme',
+                'company_name': 'Google',
                 'role_title': 'Backend Engineer',
                 'status': 'OFFER',
                 'salary_range': '120000 - 150000',
@@ -421,7 +421,7 @@ class OfferStatusApplicationAPITests(APITestCase):
         self.assertEqual(offers_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(offers_response.data), 1)
         self.assertEqual(offers_response.data[0]['application'], application.id)
-        self.assertEqual(offers_response.data[0]['application_details']['company'], 'Acme')
+        self.assertEqual(offers_response.data[0]['application_details']['company'], 'Google')
 
     def test_accepting_offer_marks_application_accepted(self):
         company = Company.objects.create(user=self.user, name='Accepted Co')
@@ -665,7 +665,7 @@ class AIArtifactAPITests(APITestCase):
             {
                 'artifact_type': 'JD_REPORT',
                 'client_id': 'local-report-1',
-                'title': 'Backend Engineer @ Acme',
+                'title': 'Backend Engineer @ Google',
                 'summary': 'Strong backend match',
                 'payload': {
                     'score': 86,
@@ -685,7 +685,7 @@ class AIArtifactAPITests(APITestCase):
             {
                 'artifact_type': 'JD_REPORT',
                 'client_id': 'local-report-1',
-                'title': 'Backend Engineer @ Acme v2',
+                'title': 'Backend Engineer @ Google v2',
                 'summary': 'Updated',
                 'payload': {'score': 91},
             },
@@ -708,11 +708,11 @@ class AIArtifactAPITests(APITestCase):
             format='json',
         )
 
-        list_response = self.client.get('/api/career/ai-artifacts/', {'search': 'acme'})
+        list_response = self.client.get('/api/career/ai-artifacts/', {'search': 'google'})
 
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 1)
-        self.assertEqual(list_response.data[0]['title'], 'Backend Engineer @ Acme v2')
+        self.assertEqual(list_response.data[0]['title'], 'Backend Engineer @ Google v2')
         self.assertEqual(list_response.data[0]['payload']['score'], 91)
 
     def test_locked_artifacts_are_preserved_from_delete_actions(self):
@@ -753,14 +753,14 @@ class AIArtifactAPITests(APITestCase):
         experience = Experience.objects.create(
             user=self.user,
             title='Software Engineer',
-            company='Acme',
+            company='Google',
             start_date='2025-01-01',
             is_current=True,
         )
         other_experience = Experience.objects.create(
             user=self.other_user,
             title='Staff Engineer',
-            company='OtherCo',
+            company='Netflix',
             start_date='2024-01-01',
             is_current=True,
         )
@@ -770,7 +770,7 @@ class AIArtifactAPITests(APITestCase):
             {
                 'artifact_type': 'PROMOTION_REVIEW',
                 'client_id': 'promotion-review-1',
-                'title': 'Promotion Review - Acme',
+                'title': 'Promotion Review - Google',
                 'summary': 'Ready to start the conversation',
                 'source_experience': experience.id,
                 'payload': {
@@ -799,14 +799,14 @@ class AIArtifactAPITests(APITestCase):
         self.assertEqual(rejected.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_application_prep_workspace_collects_linked_materials_and_evidence(self):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Google')
         application = Application.objects.create(
             user=self.user,
             company=company,
             role_title='Backend Engineer',
             notes='Ask about platform ownership.',
         )
-        other_company = Company.objects.create(user=self.other_user, name='OtherCo')
+        other_company = Company.objects.create(user=self.other_user, name='Netflix')
         other_application = Application.objects.create(
             user=self.other_user,
             company=other_company,
@@ -815,7 +815,7 @@ class AIArtifactAPITests(APITestCase):
         resume = Document.objects.create(
             user=self.user,
             application=application,
-            title='Acme Resume',
+            title='Google Resume',
             file='https://example.com/resume.pdf',
             document_type='RESUME',
         )
@@ -848,7 +848,7 @@ class AIArtifactAPITests(APITestCase):
             user=self.user,
             artifact_type=AIArtifact.TYPE_JD_REPORT,
             client_id='jd-1',
-            title='Acme JD Match',
+            title='Google JD Match',
             summary='Good fit',
             source_application=application,
             payload={
@@ -863,8 +863,8 @@ class AIArtifactAPITests(APITestCase):
             user=self.user,
             artifact_type=AIArtifact.TYPE_COVER_LETTER,
             client_id='letter-1',
-            title='Acme Cover Letter',
-            payload={'applicationId': application.id, 'coverLetter': 'Dear Acme...'},
+            title='Google Cover Letter',
+            payload={'applicationId': application.id, 'coverLetter': 'Dear Google...'},
             saved_at=timezone.now(),
         )
         AIArtifact.objects.create(
@@ -889,8 +889,8 @@ class AIArtifactAPITests(APITestCase):
             [entry['stage'] for entry in response.data['timeline']],
             ['APPLIED', 'ROUND_1', 'ROUND_2', 'ROUND_3'],
         )
-        self.assertEqual(response.data['jd_reports'][0]['title'], 'Acme JD Match')
-        self.assertEqual(response.data['cover_letters'][0]['title'], 'Acme Cover Letter')
+        self.assertEqual(response.data['jd_reports'][0]['title'], 'Google JD Match')
+        self.assertEqual(response.data['cover_letters'][0]['title'], 'Google Cover Letter')
         self.assertEqual(response.data['latest_jd_report']['payload']['score'], 84)
         self.assertEqual(response.data['evidence']['best_experiences'][0]['title'], 'Platform Engineer')
         self.assertNotIn('Hidden JD', json.dumps(response.data))
@@ -905,7 +905,7 @@ class AIArtifactAPITests(APITestCase):
                 'summary': 'Letter summary',
                 'payload': {
                     'applicationId': 123,
-                    'companyName': 'Acme',
+                    'companyName': 'Google',
                     'roleTitle': 'Backend Engineer',
                     'coverLetter': 'Dear team...',
                 },
@@ -1029,7 +1029,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
             password="StrongPassw0rd!",
         )
         self.client.force_authenticate(self.user)
-        company = Company.objects.create(user=self.user, name="Acme")
+        company = Company.objects.create(user=self.user, name="Google")
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -1054,7 +1054,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
             pto_days=20,
             holiday_days=11,
         )
-        other_company = Company.objects.create(user=self.other_user, name="OtherCo")
+        other_company = Company.objects.create(user=self.other_user, name="Netflix")
         other_application = Application.objects.create(
             user=self.other_user,
             company=other_company,
@@ -1075,7 +1075,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
         payload = {
             "offer": self.offer.id,
             "title": "Decision before onsite counter",
-            "notes": "Leaning Acme because adjusted value and team score are strong.",
+            "notes": "Leaning Google because adjusted value and team score are strong.",
             "decision_score": 87,
             "rank": 1,
             "total_comp": "307000.00",
@@ -1097,7 +1097,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
                 "equity": 60000,
                 "sign_on": 30000,
                 "benefits_value": 12000,
-                "company": "Acme",
+                "company": "Google",
                 "role": "Backend Engineer",
             },
             "adjustment_snapshot": {
@@ -1116,7 +1116,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["company_name"], "Acme")
+        self.assertEqual(response.data["company_name"], "Google")
         self.assertEqual(response.data["role_title"], "Backend Engineer")
 
         forbidden = self.client.post(
@@ -1186,7 +1186,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
         payload = json.loads(export_response.content.decode("utf-8"))
         snapshots = payload["career"]["offer_decision_snapshots"]
         self.assertEqual(len(snapshots), 1)
-        self.assertEqual(snapshots[0]["offer_company"], "Acme")
+        self.assertEqual(snapshots[0]["offer_company"], "Google")
         self.assertEqual(snapshots[0]["decision_score"], 87)
 
         backup_file = SimpleUploadedFile(
@@ -1302,7 +1302,7 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
         self.assertEqual(response.data['average_days_to_offer'], 10)
 
     def test_stale_in_stage_uses_settings_threshold(self):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Google')
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -1362,7 +1362,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             config=type('Config', (), {'user': self.user})(),
             payload={
                 '_user': self.user,
-                'company_name': 'Acme',
+                'company_name': 'Netflix',
                 'role_title': 'Software Engineer',
                 'status': '2nd round (technical interview)',
             },
@@ -1381,7 +1381,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             config=type('Config', (), {'user': self.user})(),
             payload={
                 '_user': self.user,
-                'company_name': 'Acme',
+                'company_name': 'Netflix',
                 'role_title': 'Backend Engineer',
                 'status': '10th round (bar raiser)',
             },
@@ -1417,7 +1417,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             config=type('Config', (), {'user': self.user})(),
             payload={
                 '_user': self.user,
-                'company_name': 'Acme',
+                'company_name': 'Netflix',
                 'role_title': 'Platform Engineer',
                 'status': '7th round',
             },
@@ -1443,7 +1443,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
             config=type('Config', (), {'user': self.user})(),
             payload={
                 '_user': self.user,
-                'company_name': 'Acme',
+                'company_name': 'Netflix',
                 'role_title': 'Product Engineer',
                 'status': 'Final Round',
             },
@@ -1468,7 +1468,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
                 config=config,
                 payload={
                     '_user': self.user,
-                    'company_name': 'Acme',
+                    'company_name': 'Netflix',
                     'role_title': 'Backend Engineer',
                     'status': '2nd Round',
                 },
@@ -1483,7 +1483,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
                 config=config,
                 payload={
                     '_user': self.user,
-                    'company_name': 'Acme',
+                    'company_name': 'Netflix',
                     'role_title': 'Backend Engineer',
                     'status': '4th Round',
                 },
@@ -1500,7 +1500,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_skipped_existing_sync_repairs_missing_timeline_dates_from_status_change_run(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Netflix')
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -1522,7 +1522,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         GoogleSheetSyncRow.objects.create(
             config=config,
-            external_key='acme-backend',
+            external_key='netflix-backend',
             row_number=2,
             row_hash='old',
             local_object_type='career.Application',
@@ -1530,7 +1530,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status'],
-            ['acme-backend', 'Acme', 'Backend Engineer', '4th Round'],
+            ['netflix-backend', 'Netflix', 'Backend Engineer', '4th Round'],
         ]
 
         with patch(
@@ -1559,7 +1559,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_forced_resync_repairs_missing_timeline_dates_when_fields_do_not_change(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Netflix')
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -1594,7 +1594,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         GoogleSheetSyncRow.objects.create(
             config=config,
-            external_key='acme-backend',
+            external_key='netflix-backend',
             row_number=2,
             row_hash='old',
             local_object_type='career.Application',
@@ -1602,7 +1602,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status'],
-            ['acme-backend', 'Acme', 'Backend Engineer', '4th Round'],
+            ['netflix-backend', 'Netflix', 'Backend Engineer', '4th Round'],
         ]
 
         with patch(
@@ -1622,7 +1622,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_timeline_repair_accepts_from_to_status_history(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Netflix')
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -1657,7 +1657,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         GoogleSheetSyncRow.objects.create(
             config=config,
-            external_key='acme-backend',
+            external_key='netflix-backend',
             row_number=2,
             row_hash='old',
             local_object_type='career.Application',
@@ -1665,7 +1665,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status'],
-            ['acme-backend', 'Acme', 'Backend Engineer', '4th Round'],
+            ['netflix-backend', 'Netflix', 'Backend Engineer', '4th Round'],
         ]
 
         result = sync_google_sheet(config, force=True)
@@ -1681,7 +1681,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_round_status_drop_hides_later_round_and_preserves_manual_notes(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Netflix')
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -1717,7 +1717,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         GoogleSheetSyncRow.objects.create(
             config=config,
-            external_key='acme-backend',
+            external_key='netflix-backend',
             row_number=2,
             row_hash='old',
             local_object_type='career.Application',
@@ -1725,7 +1725,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status'],
-            ['acme-backend', 'Acme', 'Backend Engineer', '3rd Round (2 Tech Interview - System Design + Coding)'],
+            ['netflix-backend', 'Netflix', 'Backend Engineer', '3rd Round (2 Tech Interview - System Design + Coding)'],
         ]
 
         with patch(
@@ -1991,7 +1991,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_import_review_detects_new_status_changes_and_possible_duplicates(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Acme')
+        company = Company.objects.create(user=self.user, name='Netflix')
         application = Application.objects.create(
             user=self.user,
             company=company,
@@ -2017,7 +2017,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         )
         GoogleSheetSyncRow.objects.create(
             config=config,
-            external_key='acme-backend',
+            external_key='netflix-backend',
             row_number=2,
             row_hash='old',
             local_object_type='career.Application',
@@ -2026,7 +2026,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
 
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['acme-backend', 'Acme', 'Backend Engineer', 'Offer', '100000 - 120000', 'Remote'],
+            ['netflix-backend', 'Netflix', 'Backend Engineer', 'Offer', '100000 - 120000', 'Remote'],
             ['', 'Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
             ['', 'Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
         ]
@@ -2156,7 +2156,7 @@ class GoogleSheetApplicationStatusSyncTests(APITestCase):
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
             ['plaid-ny', 'Plaid', 'Software Engineer', '1st Round', '148800 - 223200', 'New York, NY'],
-            ['', 'Acme', 'Backend Engineer', '10th round (bar raiser)', '120000 - 140000', 'Remote'],
+            ['', 'Netflix', 'Backend Engineer', '10th round (bar raiser)', '120000 - 140000', 'Remote'],
             ['', 'Plaid', 'Software Engineer', '1st Round', '148800 - 223200', 'New York, NY'],
         ]
 
@@ -2514,12 +2514,12 @@ class JobBoardImportTests(APITestCase):
             """
             <html>
               <head>
-                <title>Software Engineer | Careers at Acme</title>
+                <title>Software Engineer | Careers at Google</title>
                 <script type="application/ld+json">
                 {
                   "@type": "JobPosting",
                   "title": "Software Engineer",
-                  "hiringOrganization": {"name": "Acme"},
+                  "hiringOrganization": {"name": "Google"},
                   "employmentType": "FULL_TIME",
                   "jobLocation": {"address": {"addressLocality": "Remote"}},
                   "baseSalary": {
@@ -2532,17 +2532,17 @@ class JobBoardImportTests(APITestCase):
               <body><h1>Software Engineer</h1><p>Location: Remote</p></body>
             </html>
             """,
-            "https://careers.acme.com/jobs/software-engineer",
+            "https://careers.google.com/jobs/software-engineer",
         )
 
         response = self.client.post(
             self.url,
-            {"url": "https://careers.acme.com/jobs/software-engineer"},
+            {"url": "https://careers.google.com/jobs/software-engineer"},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["company"], "Acme")
+        self.assertEqual(response.data["company"], "Google")
         self.assertEqual(response.data["role_title"], "Software Engineer")
         self.assertEqual(response.data["employment_type"], "full_time")
         self.assertEqual(response.data["salary_range"], "$150k - $180k year")
@@ -2566,14 +2566,14 @@ class JobBoardImportTests(APITestCase):
         mock_fetch_html.return_value = (
             """
             <html>
-              <head><title>Careers | Acme</title></head>
+              <head><title>Careers | Google</title></head>
               <body>
-                <nav>About Acme Products Teams</nav>
+                <nav>About Google Products Teams</nav>
                 <main>Senior Backend Engineer Location: New York Build APIs for our payments platform.</main>
               </body>
             </html>
             """,
-            "https://www.acme.com/careers/backend-engineer",
+            "https://www.google.com/careers/backend-engineer",
         )
         mock_relay_ai_provider_chat_completion.return_value = {
             "choices": [
@@ -2581,7 +2581,7 @@ class JobBoardImportTests(APITestCase):
                     "message": {
                         "content": json.dumps(
                             {
-                                "company": "Acme",
+                                "company": "Google",
                                 "role_title": "Senior Backend Engineer",
                                 "location": "New York",
                                 "employment_type": "contract",
@@ -2596,12 +2596,12 @@ class JobBoardImportTests(APITestCase):
 
         response = self.client.post(
             self.url,
-            {"url": "https://www.acme.com/careers/backend-engineer"},
+            {"url": "https://www.google.com/careers/backend-engineer"},
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["company"], "Acme")
+        self.assertEqual(response.data["company"], "Google")
         self.assertEqual(response.data["role_title"], "Senior Backend Engineer")
         self.assertEqual(response.data["location"], "New York")
         self.assertEqual(response.data["employment_type"], "contract")
@@ -2627,17 +2627,17 @@ class JobBoardImportTests(APITestCase):
         mock_fetch_html.return_value = (
             """
             <html>
-              <head><title>Software Engineer | Careers at Acme</title></head>
+              <head><title>Software Engineer | Careers at Google</title></head>
               <body><h1>Software Engineer</h1><p>Location: Remote</p></body>
             </html>
             """,
-            "https://careers.acme.com/jobs/software-engineer",
+            "https://careers.google.com/jobs/software-engineer",
         )
         mock_relay_ai_provider_chat_completion.side_effect = ValueError("Provider returned malformed JSON.")
 
         response = self.client.post(
             self.url,
-            {"url": "https://careers.acme.com/jobs/software-engineer"},
+            {"url": "https://careers.google.com/jobs/software-engineer"},
             format="json",
         )
 
@@ -3172,7 +3172,7 @@ class TimelineAnalyticsInsightTests(APITestCase):
         application = Application.objects.create(
             user=self.user,
             company=company,
-            role_title='Engineer',
+            role_title='Software Engineer',
             status=status,
             date_applied=applied,
             level=level,
@@ -3204,7 +3204,7 @@ class TimelineAnalyticsInsightTests(APITestCase):
 
     def test_days_to_offer_falls_back_to_the_record_when_no_timeline_entry_exists(self):
         applied = self.today - timedelta(days=10)
-        application = self._app('Acme', 'OFFER', applied, entries=[('APPLIED', applied)])
+        application = self._app('Netflix', 'OFFER', applied, entries=[('APPLIED', applied)])
         Offer.objects.create(application=application, base_salary=Decimal('100000'))
 
         data = self._analytics()
@@ -3328,7 +3328,7 @@ class ResponseTrendTests(APITestCase):
         application = Application.objects.create(
             user=self.user,
             company=self.company,
-            role_title='Engineer',
+            role_title='Software Engineer',
             status='SCREEN' if responded else 'APPLIED',
             date_applied=applied,
         )
@@ -3409,7 +3409,7 @@ class InterviewLinkTests(APITestCase):
         application = Application.objects.create(
             user=self.user,
             company=company,
-            role_title='Engineer',
+            role_title='Software Engineer',
             status='OFFER',
             date_applied=self.today,
         )
@@ -3462,7 +3462,7 @@ class FieldCompletenessTests(APITestCase):
             Application.objects.create(
                 user=self.user,
                 company=company,
-                role_title='Engineer',
+                role_title='Software Engineer',
                 status='APPLIED',
                 date_applied=timezone.localdate(),
                 # Level filled on one row only; salary_range on three.
@@ -3484,7 +3484,7 @@ class FieldCompletenessTests(APITestCase):
         Application.objects.create(
             user=self.user,
             company=company,
-            role_title='Engineer',
+            role_title='Software Engineer',
             status='APPLIED',
             date_applied=timezone.localdate(),
             level='L4',
@@ -3508,12 +3508,12 @@ class FreeFoodPerMealTests(APITestCase):
             password="StrongPassw0rd!",
         )
         self.client.force_authenticate(self.user)
-        self.company = Company.objects.create(user=self.user, name='TikTok')
+        self.company = Company.objects.create(user=self.user, name='Google')
 
     def test_per_meal_entries_round_trip(self):
         """The shape the offer form actually sends: one object per meal."""
         application = Application.objects.create(
-            user=self.user, company=self.company, role_title='Engineer', status='OFFER'
+            user=self.user, company=self.company, role_title='Software Engineer', status='OFFER'
         )
         entries = [
             {'meal': 'BREAKFAST', 'value': 8, 'provided': False},
@@ -3536,7 +3536,7 @@ class FreeFoodPerMealTests(APITestCase):
 
     def test_legacy_string_list_shape_is_still_accepted(self):
         application = Application.objects.create(
-            user=self.user, company=self.company, role_title='Engineer', status='OFFER'
+            user=self.user, company=self.company, role_title='Software Engineer', status='OFFER'
         )
         response = self.client.patch(
             f'/api/career/applications/{application.id}/',
@@ -3550,7 +3550,7 @@ class FreeFoodPerMealTests(APITestCase):
 
     def test_defaults_leave_offers_without_free_food_untouched(self):
         application = Application.objects.create(
-            user=self.user, company=self.company, role_title='Engineer', status='APPLIED'
+            user=self.user, company=self.company, role_title='Software Engineer', status='APPLIED'
         )
         self.assertEqual(application.free_food_meals, [])
         self.assertIsNone(application.free_food_value_per_meal)
@@ -3562,7 +3562,7 @@ class FreeFoodPerMealTests(APITestCase):
         application = Application.objects.create(
             user=self.user,
             company=self.company,
-            role_title='Engineer',
+            role_title='Software Engineer',
             status='OFFER',
             free_food_perk_value=Decimal('3000'),
             free_food_perk_frequency='YEARLY',
@@ -3710,11 +3710,11 @@ class ApplicationStatsAPITests(APITestCase):
             email="other-stats-user@example.com",
             password="StrongPassw0rd!",
         )
-        other_company = Company.objects.create(user=other, name='Acme')
+        other_company = Company.objects.create(user=other, name='Netflix')
         Application.objects.create(
             user=other,
             company=other_company,
-            role_title='Engineer',
+            role_title='Software Engineer',
             status='OFFER',
             date_applied=self.today,
         )

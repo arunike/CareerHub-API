@@ -180,7 +180,7 @@ class OfferViewSet(viewsets.ModelViewSet):
             "    \"items\": [\"string\"]\n"
             "  },\n"
             "  \"path_comparison\": {\n"
-            "    \"scenario_a_label\": \"Label for Option A (e.g. Stay at TikTok / Accept Lumen Offer)\",\n"
+            "    \"scenario_a_label\": \"Label for Option A (e.g. Stay in Current Role / Accept New Offer)\",\n"
             "    \"scenario_a_outcome\": \"Short, high-impact outcome analysis of Option A. Highlight key positive/negative metrics with markdown bolding.\",\n"
             "    \"scenario_b_label\": \"Label for Option B (e.g. Start Job Hunting)\",\n"
             "    \"scenario_b_outcome\": \"Short, high-impact outcome analysis of Option B. Highlight key positive/negative metrics with markdown bolding.\"\n"

@@ -175,6 +175,9 @@ class Offer(models.Model):
     equity_vesting_percent = models.DecimalField(max_digits=5, decimal_places=2, default=25, help_text="Annual vesting percent used for annualized equity")
     equity_vesting_schedule = models.JSONField(default=list, blank=True, help_text="Four-year equity vesting percentages, e.g. [20, 20, 30, 30]")
     equity_liquidity = models.CharField(max_length=20, choices=EQUITY_LIQUIDITY_CHOICES, default='LIQUID')
+    equity_cliff_months = models.PositiveSmallIntegerField(default=12, db_default=12, help_text="Months before the first equity vests")
+    equity_vests_per_year = models.PositiveSmallIntegerField(default=4, db_default=4, help_text="Vest occasions per year, e.g. 2 for twice a year")
+    equity_vesting_years = models.PositiveSmallIntegerField(default=4, db_default=4, help_text="Years over which the initial grant vests")
     annual_refresh_value = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         help_text="Optional annual equity refresh grant value. 0 disables refresh modelling.",
@@ -876,3 +879,119 @@ class Experience(models.Model):
 
     def __str__(self):
         return f"{self.title} at {self.company}"
+
+
+class TaxProfile(models.Model):
+    FILING_STATUS_CHOICES = [
+        ('SINGLE', 'Single'),
+        ('MARRIED_FILING_JOINTLY', 'Married Filing Jointly'),
+        ('MARRIED_FILING_SEPARATELY', 'Married Filing Separately'),
+        ('HEAD_OF_HOUSEHOLD', 'Head of Household'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tax_profiles')
+    tax_year = models.PositiveIntegerField()
+    filing_status = models.CharField(max_length=30, choices=FILING_STATUS_CHOICES, default='SINGLE')
+    state = models.CharField(max_length=2, blank=True, default='', help_text="Two-letter residence state. Blank derives it from the offer location.")
+    locality = models.CharField(max_length=50, blank=True, default='', help_text="Local wage tax jurisdiction, e.g. NYC")
+    w4_dependents_credit = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="W-4 Step 3 annual credit amount")
+    w4_other_income = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="W-4 Step 4a")
+    w4_deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="W-4 Step 4b")
+    w4_extra_withholding_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="W-4 Step 4c")
+    state_flat_rate_override = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Effective state rate percent, used when the state is not modelled")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'tax_year')
+        ordering = ['-tax_year']
+
+    def __str__(self):
+        return f"Tax profile {self.tax_year} for {self.user_id}"
+
+
+class IncomeYear(models.Model):
+    """Employee elections for a tax year. Pay, premiums and match come from the offer."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='income_years')
+    tax_year = models.PositiveIntegerField()
+    source_key = models.CharField(max_length=64, default='', help_text="Which role these elections belong to, e.g. experience-10 or offer-3")
+    offer = models.ForeignKey('Offer', null=True, blank=True, on_delete=models.SET_NULL, related_name='income_years')
+    experience = models.ForeignKey('Experience', null=True, blank=True, on_delete=models.SET_NULL, related_name='income_years')
+
+    first_pay_date = models.DateField(null=True, blank=True, help_text="Anchors pay periods to real dates so vests land in the right one")
+    salary_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    paychecks_per_year_override = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    pretax_401k_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    roth_401k_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    hsa_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fsa_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    post_tax_deductions_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Null means fall back to the linked offer's premium for that line.
+    medical_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    dental_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    vision_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    dependent_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    custom_deductions = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment}] where treatment is SECTION_125, PRETAX_INCOME_ONLY or POST_TAX")
+    period_deductions = models.JSONField(default=list, blank=True, help_text="[{periodIndex, medical, dental, vision, dependent, pretax401kPercent, roth401kPercent, customAmounts}] overrides for a single paycheck")
+    exclude_allowances_from_deferral_base = models.BooleanField(default=False, help_text="Compute 401(k) deferrals and the match on base pay, excluding allowances")
+    match_tiers = models.JSONField(default=list, blank=True, help_text="[{id, matchPercent, uptoPercent}] employer 401(k) match bands, e.g. 100% to 3% then 50% to 5%")
+    match_non_elective_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0, help_text="Employer contribution paid regardless of deferral, e.g. a safe-harbor 3%")
+    match_annual_cap = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Dollar ceiling on the employer's yearly contribution. 0 means none.")
+    allowances = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment, timesPer, unit}] allowances; unit is PAYCHECK, MONTH or YEAR")
+    retirement_starting_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="401(k) balance at the start of the tax year")
+    retirement_current_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Current 401(k) balance, used to derive investment gains")
+    hsa_family_coverage = models.BooleanField(default=False)
+    age_50_plus = models.BooleanField(default=False, help_text="Enables the 401(k) catch-up limit")
+
+    include_bonus = models.BooleanField(default=False, help_text="Off by default: a bonus only lands once its payout schedule is set")
+    bonus_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Annual bonus. Null falls back to the offer's target bonus.")
+    bonus_payouts = models.JSONField(default=list, blank=True, help_text="[{id, periodIndex, payDate, percent}] shares of the bonus. payDate means paid off-cycle.")
+    bonus_multiplier_percent = models.DecimalField(max_digits=6, decimal_places=2, default=100, help_text="Company performance multiplier applied to the target bonus")
+    bonus_extras = models.JSONField(default=list, blank=True, help_text="[{id, label, amount}] discretionary bonuses stacked on top of the target")
+    bonus_prorated = models.BooleanField(default=True, help_text="Scale the target bonus by the share of the performance year the role covers")
+    bonus_performance_year = models.PositiveIntegerField(null=True, blank=True, help_text="Year the bonus was earned. Null means the year before it is paid.")
+    include_vest_events = models.BooleanField(default=False, help_text="Off by default: vest events are only generated once the vesting terms are confirmed")
+    total_grant_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    vests_per_year_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    cliff_months_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    vesting_years_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    first_vest_date = models.DateField(null=True, blank=True, help_text="Grant or first vest date. Defaults to the role start date.")
+    income_events = models.JSONField(default=list, blank=True, help_text="[{id, kind, periodIndex, amount, label}] where kind is bonus, vest or other")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'tax_year', 'source_key')
+        ordering = ['-tax_year']
+
+    def __str__(self):
+        return f"Income year {self.tax_year} for {self.user_id}"
+
+
+class PaycheckActual(models.Model):
+    """A real paycheck, recorded to measure how far the model drifts from reality."""
+
+    income_year = models.ForeignKey(IncomeYear, on_delete=models.CASCADE, related_name='actuals')
+    period_index = models.PositiveSmallIntegerField(help_text="1-based pay period")
+    pay_date = models.DateField(null=True, blank=True)
+    actual_gross = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    actual_federal_tax = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    actual_state_tax = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    actual_social_security = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    actual_medicare = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    actual_net = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    note = models.TextField(blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('income_year', 'period_index')
+        ordering = ['period_index']
+
+    def __str__(self):
+        return f"Paycheck {self.period_index} of {self.income_year_id}"

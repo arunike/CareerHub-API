@@ -17,10 +17,10 @@ class AutoGhostStaleApplicationsTests(TestCase):
             email='ghosting-user@example.com',
             password='StrongPassw0rd!',
         )
-        self.company = Company.objects.create(user=self.user, name='Acme')
+        self.company = Company.objects.create(user=self.user, name='Google')
         UserSettings.objects.create(user=self.user, ghosting_threshold_days=30)
 
-    def create_application(self, *, status='APPLIED', days_old=30, role_title='Engineer'):
+    def create_application(self, *, status='APPLIED', days_old=30, role_title='Software Engineer'):
         return Application.objects.create(
             user=self.user,
             company=self.company,

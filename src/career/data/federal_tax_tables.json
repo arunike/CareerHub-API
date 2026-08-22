@@ -1,0 +1,2270 @@
+{
+  "2013": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 12750.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 48600.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 125450.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 203150.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 398350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 425000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 17850.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 72500.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 146400.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 223050.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 398350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 450000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 8925.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 36250.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 73200.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 111525.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 199175.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 225000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 8925.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 36250.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 87850.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 183250.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 398350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 400000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ]
+    },
+    "exemptionPhaseOutRate": 0.02,
+    "exemptionPhaseOutStart": {
+      "HEAD_OF_HOUSEHOLD": 275000.0,
+      "MARRIED_FILING_JOINTLY": 300000.0,
+      "MARRIED_FILING_SEPARATELY": 150000.0,
+      "SINGLE": 250000.0
+    },
+    "exemptionPhaseOutStep": {
+      "HEAD_OF_HOUSEHOLD": 2500.0,
+      "MARRIED_FILING_JOINTLY": 2500.0,
+      "MARRIED_FILING_SEPARATELY": 1250.0,
+      "SINGLE": 2500.0
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 113700.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "personalExemption": 3900.0,
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2013)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 8950.0,
+      "MARRIED_FILING_JOINTLY": 12200.0,
+      "MARRIED_FILING_SEPARATELY": 6100.0,
+      "SINGLE": 6100.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2013
+  },
+  "2014": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 12950.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 49400.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 127550.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 206600.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 405100.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 432200.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 18150.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 73800.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 148850.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 226850.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 405100.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 457600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9075.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 36900.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 74425.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 113425.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 202550.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 228800.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9075.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 36900.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 89350.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 186350.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 405100.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 406750.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ]
+    },
+    "exemptionPhaseOutRate": 0.02,
+    "exemptionPhaseOutStart": {
+      "HEAD_OF_HOUSEHOLD": 279650.0,
+      "MARRIED_FILING_JOINTLY": 305050.0,
+      "MARRIED_FILING_SEPARATELY": 152525.0,
+      "SINGLE": 254200.0
+    },
+    "exemptionPhaseOutStep": {
+      "HEAD_OF_HOUSEHOLD": 2500.0,
+      "MARRIED_FILING_JOINTLY": 2500.0,
+      "MARRIED_FILING_SEPARATELY": 1250.0,
+      "SINGLE": 2500.0
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 117000.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "personalExemption": 3950.0,
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2014)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 9100.0,
+      "MARRIED_FILING_JOINTLY": 12400.0,
+      "MARRIED_FILING_SEPARATELY": 6200.0,
+      "SINGLE": 6200.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2014
+  },
+  "2015": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 13150.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 50200.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 129600.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 209850.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 411500.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 439000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 18450.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 74900.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 151200.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 230450.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 411500.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 464850.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9225.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 37450.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 75600.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 115225.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 205750.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 232425.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9225.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 37450.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 90750.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 189300.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 411500.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 413200.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ]
+    },
+    "exemptionPhaseOutRate": 0.02,
+    "exemptionPhaseOutStart": {
+      "HEAD_OF_HOUSEHOLD": 284040.0,
+      "MARRIED_FILING_JOINTLY": 309900.0,
+      "MARRIED_FILING_SEPARATELY": 154950.0,
+      "SINGLE": 258250.0
+    },
+    "exemptionPhaseOutStep": {
+      "HEAD_OF_HOUSEHOLD": 2500.0,
+      "MARRIED_FILING_JOINTLY": 2500.0,
+      "MARRIED_FILING_SEPARATELY": 1250.0,
+      "SINGLE": 2500.0
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 118500.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "personalExemption": 4000.0,
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2015)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 9250.0,
+      "MARRIED_FILING_JOINTLY": 12600.0,
+      "MARRIED_FILING_SEPARATELY": 6300.0,
+      "SINGLE": 6300.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2015
+  },
+  "2016": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 13250.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 50400.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 130150.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 210800.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 413350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 441000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 18550.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 75300.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 151900.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 231450.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 413350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 466950.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9275.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 37650.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 75950.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 115725.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 206675.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 233475.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9275.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 37650.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 91150.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 190150.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 413350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 415050.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ]
+    },
+    "exemptionPhaseOutRate": 0.02,
+    "exemptionPhaseOutStart": {
+      "HEAD_OF_HOUSEHOLD": 285350.0,
+      "MARRIED_FILING_JOINTLY": 311300.0,
+      "MARRIED_FILING_SEPARATELY": 155650.0,
+      "SINGLE": 259400.0
+    },
+    "exemptionPhaseOutStep": {
+      "HEAD_OF_HOUSEHOLD": 2500.0,
+      "MARRIED_FILING_JOINTLY": 2500.0,
+      "MARRIED_FILING_SEPARATELY": 1250.0,
+      "SINGLE": 2500.0
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 118500.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "personalExemption": 4050.0,
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2016)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 9300.0,
+      "MARRIED_FILING_JOINTLY": 12600.0,
+      "MARRIED_FILING_SEPARATELY": 6300.0,
+      "SINGLE": 6300.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2016
+  },
+  "2017": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 13350.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 50800.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 131200.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 212500.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 416700.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 444550.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 18650.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 75900.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 153100.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 233350.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 416700.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 470700.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9325.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 37950.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 76550.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 116675.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 208350.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 235350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9325.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 37950.0,
+          "rate": 0.15
+        },
+        {
+          "cap": 91900.0,
+          "rate": 0.25
+        },
+        {
+          "cap": 191650.0,
+          "rate": 0.28
+        },
+        {
+          "cap": 416700.0,
+          "rate": 0.33
+        },
+        {
+          "cap": 418400.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.396
+        }
+      ]
+    },
+    "exemptionPhaseOutRate": 0.02,
+    "exemptionPhaseOutStart": {
+      "HEAD_OF_HOUSEHOLD": 287650.0,
+      "MARRIED_FILING_JOINTLY": 313800.0,
+      "MARRIED_FILING_SEPARATELY": 156900.0,
+      "SINGLE": 261500.0
+    },
+    "exemptionPhaseOutStep": {
+      "HEAD_OF_HOUSEHOLD": 2500.0,
+      "MARRIED_FILING_JOINTLY": 2500.0,
+      "MARRIED_FILING_SEPARATELY": 1250.0,
+      "SINGLE": 2500.0
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 127200.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "personalExemption": 4050.0,
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2017)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 9350.0,
+      "MARRIED_FILING_JOINTLY": 12700.0,
+      "MARRIED_FILING_SEPARATELY": 6350.0,
+      "SINGLE": 6350.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2017
+  },
+  "2018": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 13600.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 51800.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 82500.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 157500.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 200000.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 500000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 19050.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 77400.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 165000.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 315000.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 400000.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 600000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9525.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 38700.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 82500.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 157500.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 200000.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 300000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9525.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 38700.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 82500.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 157500.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 200000.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 500000.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 128400.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2018)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 18000.0,
+      "MARRIED_FILING_JOINTLY": 24000.0,
+      "MARRIED_FILING_SEPARATELY": 12000.0,
+      "SINGLE": 12000.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2018
+  },
+  "2019": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 13850.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 52850.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 84200.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 160700.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 204100.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 510300.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 19400.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 78950.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 168400.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 321450.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 408200.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 612350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9700.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 39475.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 84200.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 160725.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 204100.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 306175.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9700.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 39475.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 84200.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 160725.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 204100.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 510300.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 132900.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2019)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 18350.0,
+      "MARRIED_FILING_JOINTLY": 24400.0,
+      "MARRIED_FILING_SEPARATELY": 12200.0,
+      "SINGLE": 12200.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2019
+  },
+  "2020": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 14100.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 53700.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 85500.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 163300.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 207350.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 518400.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 19750.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 80250.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 171050.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 326600.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 414700.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 622050.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9875.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 40125.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 85525.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 163300.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 207350.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 311025.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9875.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 40125.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 85525.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 163300.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 207350.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 518400.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 137700.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2020)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 18650.0,
+      "MARRIED_FILING_JOINTLY": 24800.0,
+      "MARRIED_FILING_SEPARATELY": 12400.0,
+      "SINGLE": 12400.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2020
+  },
+  "2021": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 14200.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 54200.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 86350.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 164900.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 209400.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 523600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 19900.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 81050.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 172750.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 329850.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 418850.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 628300.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 9950.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 40525.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 86375.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 164925.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 209425.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 314150.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 9950.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 40525.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 86375.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 164925.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 209425.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 523600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 142800.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2021)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 18800.0,
+      "MARRIED_FILING_JOINTLY": 25100.0,
+      "MARRIED_FILING_SEPARATELY": 12550.0,
+      "SINGLE": 12550.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2021
+  },
+  "2022": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 14650.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 55900.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 89050.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 170050.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 215950.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 539900.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 20550.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 83550.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 178150.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 340100.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 431900.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 647850.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 10275.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 41775.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 89075.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 170050.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 215950.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 323925.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 10275.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 41775.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 89075.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 170050.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 215950.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 539900.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 147000.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2022)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 19400.0,
+      "MARRIED_FILING_JOINTLY": 25900.0,
+      "MARRIED_FILING_SEPARATELY": 12950.0,
+      "SINGLE": 12950.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2022
+  },
+  "2023": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 15700.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 59850.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 95350.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 182100.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 231250.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 578100.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 22000.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 89450.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 190750.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 364200.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 462500.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 693750.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 11000.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 44725.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 95375.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 182100.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 231250.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 578125.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 11000.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 44725.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 95375.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 182100.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 231250.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 578125.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 160200.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2023)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 20800.0,
+      "MARRIED_FILING_JOINTLY": 27700.0,
+      "MARRIED_FILING_SEPARATELY": 13850.0,
+      "SINGLE": 13850.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2023
+  },
+  "2024": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 16550.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 63100.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 100500.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 191950.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 243700.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 609350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 23200.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 94300.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 201050.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 383900.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 487450.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 731200.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 11600.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 47150.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 100525.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 191950.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 243725.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 365600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 11600.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 47150.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 100525.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 191950.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 243725.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 609350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 168600.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2024)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 21900.0,
+      "MARRIED_FILING_JOINTLY": 29200.0,
+      "MARRIED_FILING_SEPARATELY": 14600.0,
+      "SINGLE": 14600.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2024
+  },
+  "2025": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 17000.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 64850.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 103350.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 197300.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 250500.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 626350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 23850.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 96950.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 206700.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 394600.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 501050.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 751600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 11925.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 48475.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 103350.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 197300.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 250525.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 375800.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 11925.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 48475.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 103350.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 197300.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 250525.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 626350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 176100.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2025)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 23625.0,
+      "MARRIED_FILING_JOINTLY": 31500.0,
+      "MARRIED_FILING_SEPARATELY": 15750.0,
+      "SINGLE": 15750.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2025
+  },
+  "2026": {
+    "brackets": {
+      "HEAD_OF_HOUSEHOLD": [
+        {
+          "cap": 17700.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 67450.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 105700.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 201750.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 256200.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 640600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_JOINTLY": [
+        {
+          "cap": 24800.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 100800.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 211400.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 403550.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 512450.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 768700.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "MARRIED_FILING_SEPARATELY": [
+        {
+          "cap": 12400.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 50400.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 105700.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 201775.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 256225.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 384350.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ],
+      "SINGLE": [
+        {
+          "cap": 12400.0,
+          "rate": 0.1
+        },
+        {
+          "cap": 50400.0,
+          "rate": 0.12
+        },
+        {
+          "cap": 105700.0,
+          "rate": 0.22
+        },
+        {
+          "cap": 201775.0,
+          "rate": 0.24
+        },
+        {
+          "cap": 256225.0,
+          "rate": 0.32
+        },
+        {
+          "cap": 640600.0,
+          "rate": 0.35
+        },
+        {
+          "cap": null,
+          "rate": 0.37
+        }
+      ]
+    },
+    "jurisdiction": "federal",
+    "payrollTaxes": [
+      {
+        "appliesAbove": null,
+        "label": "Social Security",
+        "rate": 0.062,
+        "wageBase": 184500.0
+      },
+      {
+        "appliesAbove": null,
+        "label": "Medicare",
+        "rate": 0.0145,
+        "wageBase": null
+      },
+      {
+        "appliesAbove": 200000,
+        "label": "Additional Medicare",
+        "rate": 0.009,
+        "wageBase": null
+      }
+    ],
+    "source": "PSLmodels Tax-Calculator policy_current_law.json (2026)",
+    "standardDeduction": {
+      "HEAD_OF_HOUSEHOLD": 24150.0,
+      "MARRIED_FILING_JOINTLY": 32200.0,
+      "MARRIED_FILING_SEPARATELY": 16100.0,
+      "SINGLE": 16100.0
+    },
+    "supplementalHighRate": 0.37,
+    "supplementalHighThreshold": 1000000,
+    "supplementalRate": 0.22,
+    "tier": "full",
+    "year": 2026
+  }
+}

@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 MARITAL_STATUS_OPTIONS = [
     {'code': 'SINGLE', 'label': 'Single'},
     {'code': 'MARRIED_FILING_JOINTLY', 'label': 'Married Filing Jointly'},
@@ -72,6 +75,25 @@ STATE_COL_BASE = {
     'WY': 97,
     'DC': 152,
 }
+
+# Federal tax tables served to the income page. The frontend bundles 2022-2026; anything
+# added here extends or replaces a bundled year without a frontend release. There is no
+# machine-readable IRS feed, so a year is added once its revenue procedure is published.
+# Shape mirrors the frontend JurisdictionTable: {year, jurisdiction, tier, standardDeduction,
+# brackets, supplementalRate, supplementalHighRate, supplementalHighThreshold, payrollTaxes}.
+def _load_generated_tax_tables() -> dict:
+    """Written by the sync_tax_tables management command; absent until it has run."""
+    path = Path(__file__).resolve().parent.parent / 'data' / 'federal_tax_tables.json'
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+FEDERAL_TAX_TABLES: dict[str, dict] = _load_generated_tax_tables()
+
+# Shape mirrors AnnualLimits: {year, elective401k, catchUp401k, hsaSelf, hsaFamily, fsa}.
+FEDERAL_ANNUAL_LIMITS: dict[str, dict] = {}
 
 STATE_TAX_RATE = {
     'AK': 0,
@@ -188,5 +210,7 @@ def build_reference_data_payload():
         'city_cost_of_living': CITY_COST_OF_LIVING,
         'state_col_base': STATE_COL_BASE,
         'state_tax_rate': STATE_TAX_RATE,
+        'federal_tax_tables': FEDERAL_TAX_TABLES,
+        'federal_annual_limits': FEDERAL_ANNUAL_LIMITS,
         'state_name_to_abbr': STATE_NAME_TO_ABBR,
     }
