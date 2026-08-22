@@ -160,6 +160,11 @@ class UserSettings(models.Model):
         blank=True,
         help_text="Ordered list of sidebar route keys; keys absent from the list keep their built-in order",
     )
+    nav_item_labels = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Custom sidebar names keyed by route, e.g. {'/tasks': 'To Do'}; absent keys keep their built-in name",
+    )
     is_locked = models.BooleanField(default=False, help_text="Locked settings cannot be edited until unlocked")
     ai_provider_adapter = models.CharField(
         max_length=32,

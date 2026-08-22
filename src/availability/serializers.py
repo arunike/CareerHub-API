@@ -122,6 +122,7 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'offer_adjustment_settings',
             'mobile_toolbar_items',
             'nav_item_order',
+            'nav_item_labels',
             'is_locked',
             'ai_provider_adapter', 'ai_provider_endpoint', 'ai_provider_model', 'ai_provider_api_key',
             'ai_provider_api_key_configured', 'ai_provider_api_key_masked',
@@ -145,6 +146,17 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             fields['default_event_category'].queryset = EventCategory.objects.none()
         return fields
 
+    NAV_LABEL_MAX_LENGTH = 40
+    NAV_LABEL_ROUTE_KEYS = (MOBILE_TOOLBAR_ROUTE_KEYS - {'__smart__'}) | {
+        '/income',
+        '/contacts',
+        '/settings',
+        'intelligence',
+        'grp-1',
+        'grp-2',
+        'grp-3',
+    }
+
     def validate_mobile_toolbar_items(self, value):
         if not isinstance(value, list):
             raise serializers.ValidationError('Mobile toolbar items must be a list.')
@@ -155,6 +167,26 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         if len(value) != len(set(value)):
             raise serializers.ValidationError('Mobile toolbar items cannot contain duplicates.')
         return value
+
+    def validate_nav_item_labels(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Navigation names must be an object.')
+
+        cleaned = {}
+        for key, label in value.items():
+            if not isinstance(key, str) or key not in self.NAV_LABEL_ROUTE_KEYS:
+                raise serializers.ValidationError('One or more navigation keys are invalid.')
+            if not isinstance(label, str):
+                raise serializers.ValidationError('Navigation names must be text.')
+            trimmed = label.strip()
+            if len(trimmed) > self.NAV_LABEL_MAX_LENGTH:
+                raise serializers.ValidationError(
+                    f'Keep navigation names to {self.NAV_LABEL_MAX_LENGTH} characters or fewer.'
+                )
+            # An empty name means "use the built-in one", so it is dropped rather than stored.
+            if trimmed:
+                cleaned[key] = trimmed
+        return cleaned
 
     def get_ai_provider_api_key_configured(self, obj):
         return obj.has_ai_provider_api_key()
