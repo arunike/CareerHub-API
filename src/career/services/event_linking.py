@@ -1,6 +1,7 @@
 """Suggest which application a calendar event belongs to."""
 
 import re
+from datetime import timedelta
 
 INTERVIEW_STATUSES = {'ROUND_1', 'ROUND_2', 'ROUND_3', 'ROUND_4', 'FINAL_ROUND', 'ONSITE'}
 DECIDED_STATUSES = {'ACCEPTED', 'OFFER', 'OFFER_REJECTED'}
@@ -46,8 +47,25 @@ def build_company_index(companies):
     )
 
 
+# An application logged a fortnight after the event still plausibly belongs to it; data
+# entry lags reality. Beyond that the event belongs to an earlier cycle that was never
+# recorded, and linking it would attach an old interview to an unrelated application.
+APPLIED_AFTER_GRACE_DAYS = 14
+
+
+def eligible_applications(applications, event_date):
+    """Drop applications submitted so long after the event that they cannot be its cause."""
+    if event_date is None:
+        return list(applications)
+    cutoff = event_date + timedelta(days=APPLIED_AFTER_GRACE_DAYS)
+    return [
+        app for app in applications if app.date_applied is None or app.date_applied <= cutoff
+    ]
+
+
 def pick_application(applications, event_date):
     """Choose among several applications at the same company."""
+    applications = eligible_applications(applications, event_date)
     if not applications:
         return None
     if len(applications) == 1:

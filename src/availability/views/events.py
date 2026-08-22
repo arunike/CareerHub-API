@@ -28,6 +28,7 @@ class EventViewSet(viewsets.ModelViewSet):
         from career.models import Application, Company
         from career.services.event_linking import (
             build_company_index,
+            eligible_applications,
             match_company,
             pick_application,
         )
@@ -52,8 +53,8 @@ class EventViewSet(viewsets.ModelViewSet):
             return Response({'suggestion': None})
 
         company_id, company_name = hit
-        candidates = list(
-            Application.objects.filter(user=request.user, company_id=company_id)
+        candidates = eligible_applications(
+            Application.objects.filter(user=request.user, company_id=company_id), event_date
         )
         application = pick_application(candidates, event_date)
         if application is None:
@@ -76,6 +77,7 @@ class EventViewSet(viewsets.ModelViewSet):
         from career.services.event_linking import (
             build_company_index,
             confidence_for,
+            eligible_applications,
             match_company,
             pick_application,
         )
@@ -98,7 +100,7 @@ class EventViewSet(viewsets.ModelViewSet):
             if not hit:
                 continue
             company_id, company_name = hit
-            candidates = by_company.get(company_id, [])
+            candidates = eligible_applications(by_company.get(company_id, []), event.date)
             application = pick_application(candidates, event.date)
             if application is None:
                 continue
