@@ -62,95 +62,9 @@ from ..serializers import (
     UserSettingsSerializer,
 )
 from ..throttling import AIProviderRelayThrottle
+from .export_payloads import _json_response, _model_payload, _zip_json_response
 
 logger = logging.getLogger(__name__)
-
-
-def _json_response(payload, filename):
-    content = json.dumps(payload, indent=2, cls=DjangoJSONEncoder).encode('utf-8')
-    response = HttpResponse(content, content_type='application/json')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
-
-
-def _zip_json_response(payload, filename):
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        zip_file.writestr('careerhub-account-export.json', json.dumps(payload, indent=2, cls=DjangoJSONEncoder))
-    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    return response
-
-
-def _model_payload(instance, exclude=()):
-    data = model_to_dict(instance, exclude=list(exclude))
-    data.pop('user', None)
-    data.pop('id', None)
-    return data
-
-
-class ImportViewSet(viewsets.ViewSet):
-    def create(self, request):
-        from ..utils import parse_import_file
-
-        file_obj = request.FILES.get('file')
-        if not file_obj:
-            return Response({'error': 'No file uploaded'}, status=400)
-
-        filename = file_obj.name.lower()
-        file_type = 'json' if filename.endswith('.json') else 'ics' if filename.endswith('.ics') else None
-        if not file_type:
-            return Response({'error': 'Unsupported file type. Use .json or .ics'}, status=400)
-
-        items = parse_import_file(file_obj, file_type)
-        created_count = 0
-        skipped_count = 0
-        for item in items:
-            try:
-                if item['classification'] == 'holiday':
-                    CustomHoliday.objects.create(
-                        user=request.user,
-                        date=item['date'],
-                        description=item['summary'],
-                        is_recurring=True,
-                    )
-                else:
-                    Event.objects.create(
-                        user=request.user,
-                        name=item['summary'],
-                        date=item['date'],
-                        start_time=item['start_time'],
-                        end_time=item['end_time'],
-                        timezone=DEFAULT_TIMEZONE,
-                    )
-                created_count += 1
-            except Exception:
-                skipped_count += 1
-
-        if skipped_count:
-            logger.warning(
-                'Availability import skipped %s items for user_id=%s',
-                skipped_count,
-                request.user.id,
-            )
-
-        return Response(
-            {
-                'message': f'Successfully imported {created_count} items',
-                'skipped_count': skipped_count,
-            }
-        )
-
-
-class EventCategoryViewSet(viewsets.ModelViewSet):
-    queryset = EventCategory.objects.all()
-    serializer_class = EventCategorySerializer
-
-    def get_queryset(self):
-        return EventCategory.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
 
 
 class UserSettingsViewSet(viewsets.ModelViewSet):
@@ -644,22 +558,3 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
         return Response(payload)
 
 
-class ConflictAlertViewSet(viewsets.ModelViewSet):
-    queryset = ConflictAlert.objects.all()
-    serializer_class = ConflictAlertSerializer
-
-    def get_queryset(self):
-        return ConflictAlert.objects.filter(event1__user=self.request.user)
-
-    @action(detail=False, methods=['get'])
-    def unresolved(self, request):
-        conflicts = self.get_queryset().filter(resolved=False)
-        serializer = self.get_serializer(conflicts, many=True)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'])
-    def resolve(self, request, pk=None):
-        conflict = self.get_object()
-        conflict.resolved = True
-        conflict.save()
-        return Response({'message': 'Conflict resolved'})

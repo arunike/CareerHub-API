@@ -13,15 +13,13 @@ from career.services.google_sheets import DEFAULT_APPLICATION_STAGES
 
 # Reaching any of these means an offer was made, whatever happened after.
 OFFER_STATUSES = {'OFFER', 'ACCEPTED', 'OFFER_REJECTED'}
-# A settled application is not "stale in stage"; it is finished. ACCEPTED was missing,
-# so an offer accepted two years ago was reported as 740 days stuck in a stage.
+# Settled, not stale: ACCEPTED was missing and read as 740 days stuck in a stage.
 TERMINAL_STATUSES = OFFER_STATUSES | {'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
 NON_INTERVIEW_STATUSES = {'APPLIED', 'OFFER', 'REJECTED', 'GHOSTED'}
 # Reaching one of these is not the company replying to you. Everything else is.
 NON_RESPONSE_STATUSES = {'APPLIED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
 
-# How long after applying a reply arrived. The last bucket is open-ended because the point
-# is to find where replies stop, not to chart the tail.
+# Last bucket is open-ended: the point is where replies stop, not the tail.
 RESPONSE_BUCKETS = (
     ('0-7 days', 0, 7),
     ('8-14 days', 8, 14),
@@ -29,8 +27,7 @@ RESPONSE_BUCKETS = (
     ('31-60 days', 31, 60),
     ('60+ days', 61, None),
 )
-# A stage median built from one or two transitions is an anecdote, not a typical duration,
-# so it is reported with its sample size and only used as a comparison above this.
+# Below this a stage median is an anecdote, so it ships with its sample size.
 MIN_DURATION_SAMPLE = 3
 
 # The trend compares two windows of this many days each.
@@ -159,8 +156,7 @@ def _interview_link_stats(user, year=None):
 
 
 def build_application_timeline_analytics(user, year=None):
-    # Offers from two years ago drag an all-time rate towards zero, so the whole report is
-    # scoped the same way the rest of the app scopes by year: on when you applied.
+    # Scoped on when you applied, like the rest of the app; all-time drags rates to zero.
     queryset = Application.objects.filter(user=user)
     if year:
         queryset = queryset.filter(date_applied__year=year)
@@ -217,17 +213,14 @@ def build_application_timeline_analytics(user, year=None):
     days_to_response = []
     # Keyed on date_applied, not the APPLIED timeline entry, which drifts on synced rows.
     response_by_applied_date = []
-    # Response rate, not offer rate: with a handful of offers every offer-rate breakdown is
-    # noise, while a reply is common enough for the segments to mean something.
+    # Response rate, not offer rate: offers are too few for a breakdown to mean anything.
     response_by_source = defaultdict(lambda: {'total': 0, 'responded': 0})
     response_by_location = defaultdict(lambda: {'total': 0, 'responded': 0})
     response_by_level = defaultdict(lambda: {'total': 0, 'responded': 0})
-    # Days spent in a stage before moving on, per stage, so "stalled" can mean something
-    # different for a phone screen than for an onsite.
+    # Per stage, so "stalled" can differ between a phone screen and an onsite.
     durations_by_stage = defaultdict(list)
     open_without_response = []
 
-    # Identify non-negative funnel stage keys in their defined order
     funnel_stage_keys = [
         s.get('key')
         for s in stages
@@ -242,7 +235,7 @@ def build_application_timeline_analytics(user, year=None):
         if application.date_applied or application.created_at:
             reached_stages.add('APPLIED')
 
-        # Backfill preceding stages in the positive funnel progression
+        # Backfill the stages a reached stage implies
         reached_indices = [
             i for i, key in enumerate(funnel_stage_keys)
             if key in reached_stages
@@ -270,8 +263,7 @@ def build_application_timeline_analytics(user, year=None):
             if days is not None:
                 time_to_interview_days.append(days)
 
-        # A reply is any movement past applied. Status alone misses an application that was
-        # interviewed and then rejected, so the timeline counts too.
+        # Status alone misses an interviewed-then-rejected application, so the timeline counts.
         response_dates = [
             _entry_date(entry) for entry in entries if entry.stage not in NON_RESPONSE_STATUSES
         ]
@@ -284,8 +276,7 @@ def build_application_timeline_analytics(user, year=None):
             if days is not None:
                 days_to_response.append(days)
         elif application.status not in TERMINAL_STATUSES:
-            # Still open and still silent: how long it has been waiting decides whether it is
-            # merely slow or already past the point where replies stop arriving.
+            # Still open and silent: the wait decides slow versus past the point of replies.
             waiting = _days_between(applied_date, today)
             if waiting is not None:
                 open_without_response.append(waiting)
@@ -300,8 +291,7 @@ def build_application_timeline_analytics(user, year=None):
             if has_responded:
                 counter[key]['responded'] += 1
 
-        # Time each stage took before the next one, walked in the order the stages are
-        # configured so a skipped stage does not read as an instant transition.
+        # Walked in configured stage order, so a skipped stage is not an instant transition.
         dated_progress = [
             (index, _entry_date(entry_by_stage[key]))
             for index, key in enumerate(funnel_stage_keys)
@@ -374,8 +364,7 @@ def build_application_timeline_analytics(user, year=None):
         if reached_by_stage[key] or current_by_stage[key]
     ]
 
-    # Terminal outcomes are results, not pipeline progress, so they are reported
-    # separately from stage_conversion rather than appearing as funnel steps.
+    # Terminal outcomes are results, not funnel steps.
     TERMINAL_STAGE_KEYS = ('OFFER', 'ACCEPTED', 'REJECTED', 'GHOSTED', 'OFFER_REJECTED')
     outcomes = [
         {

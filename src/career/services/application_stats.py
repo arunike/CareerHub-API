@@ -8,8 +8,7 @@ from django.utils import timezone
 
 INACTIVE_STATUSES = {'APPLIED', 'REJECTED', 'GHOSTED', 'ACCEPTED', 'REMOVED_FROM_SHEET'}
 RESPONDED_EXCLUDE_STATUSES = {'APPLIED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
-# An offer counts once it has been made, whatever was done with it: accepting one moves the
-# status to ACCEPTED, which would otherwise drop the offer rate to zero.
+# An offer counts once made: accepting moves the status and would zero the offer rate.
 OFFER_STATUSES = {'OFFER', 'ACCEPTED', 'OFFER_REJECTED'}
 
 AGE_BUCKETS = ('Last 7 days', '8-30 days', '31-90 days', '90+ days', 'Undated')
@@ -75,8 +74,6 @@ def build_application_stats(user, year=None):
         reverse=True,
     )
 
-    # Blank counts for the fields the dashboard depends on. One aggregate query, not one per
-    # field, so this costs nothing next to the rest.
     total_for_fields = queryset.count()
     blank_counts = (
         queryset.aggregate(
@@ -101,7 +98,6 @@ def build_application_stats(user, year=None):
     ]
     field_completeness.sort(key=lambda row: -row['missing'])
 
-    # One query, six short columns. Everything below is arithmetic over that.
     rows = queryset.values_list(
         'status', 'current_round', 'date_applied', 'created_at', 'office_location', 'location'
     )
@@ -116,8 +112,6 @@ def build_application_stats(user, year=None):
     recent_30d = 0
     location_counts = defaultdict(int)
     age_counts = dict.fromkeys(AGE_BUCKETS, 0)
-    # Date histogram for the activity chart: one entry per day that has applications, so the
-    # chart can bucket by day, week or month without the rows themselves.
     daily = defaultdict(int)
 
     for status, current_round, date_applied, created_at, office_location, location in rows:
@@ -130,8 +124,7 @@ def build_application_stats(user, year=None):
             active_interviews += 1
         if status not in RESPONDED_EXCLUDE_STATUSES:
             responded += 1
-        # A rejection only counts as having interviewed if a round was actually reached;
-        # anything else past the applied/ghosted/removed set did by definition.
+        # A rejection counts as interviewed only if a round was actually reached.
         if (status not in RESPONDED_EXCLUDE_STATUSES and status != 'REJECTED') or (
             status == 'REJECTED' and _application_round(status, current_round) > 0
         ):
@@ -155,8 +148,7 @@ def build_application_stats(user, year=None):
                 age_counts['31-90 days'] += 1
             else:
                 age_counts['90+ days'] += 1
-            # The browser compared against a wall-clock instant, so a date a full 30 days
-            # old already fell outside the window. Kept the same to hold the number steady.
+            # Matches the browser's old wall-clock comparison, to hold the number steady.
             if age_days < 30:
                 recent_30d += 1
 
@@ -177,7 +169,7 @@ def build_application_stats(user, year=None):
         'application_age_breakdown': [
             {'name': name, 'count': age_counts[name]} for name in AGE_BUCKETS if age_counts[name]
         ],
-        # {'2026-08-12': 5, ...} — a few hundred entries at most, versus the whole list.
+        # {'2026-08-12': 5, ...}
         'daily_applied': dict(sorted(daily.items())),
         'years': years,
         'field_completeness': field_completeness,

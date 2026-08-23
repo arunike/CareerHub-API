@@ -76,11 +76,8 @@ STATE_COL_BASE = {
     'DC': 152,
 }
 
-# Federal tax tables served to the income page. The frontend bundles 2022-2026; anything
-# added here extends or replaces a bundled year without a frontend release. There is no
-# machine-readable IRS feed, so a year is added once its revenue procedure is published.
-# Shape mirrors the frontend JurisdictionTable: {year, jurisdiction, tier, standardDeduction,
-# brackets, supplementalRate, supplementalHighRate, supplementalHighThreshold, payrollTaxes}.
+# Extends or replaces the frontend's bundled 2022-2026 tables without a frontend release.
+# Shape mirrors the frontend JurisdictionTable.
 def _load_generated_tax_tables() -> dict:
     """Written by the sync_tax_tables management command; absent until it has run."""
     path = Path(__file__).resolve().parent.parent / 'data' / 'federal_tax_tables.json'

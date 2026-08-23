@@ -9,8 +9,7 @@ DECIDED_STATUSES = {'ACCEPTED', 'OFFER', 'OFFER_REJECTED'}
 MIN_COMPANY_NAME = 3
 
 
-# "Google Meet" / "Microsoft Teams" name the meeting tool, not the employer. Without this
-# guard "Wisk Google Meet Interview" links to Google.
+# Meeting tools, not employers: without this "Wisk Google Meet Interview" links to Google.
 PLATFORM_SUFFIXES = ('meet', 'teams', 'meets', 'hangout', 'hangouts')
 
 
@@ -47,9 +46,7 @@ def build_company_index(companies):
     )
 
 
-# An application logged a fortnight after the event still plausibly belongs to it; data
-# entry lags reality. Beyond that the event belongs to an earlier cycle that was never
-# recorded, and linking it would attach an old interview to an unrelated application.
+# Data entry lags reality, but beyond this the event belongs to an earlier, unrecorded cycle.
 APPLIED_AFTER_GRACE_DAYS = 14
 
 

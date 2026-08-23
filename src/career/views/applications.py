@@ -248,8 +248,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
     def options(self, request):
         queryset = Application.objects.filter(user=request.user).select_related('company', 'offer')
 
-        # Resolving specific ids: a value already saved on a record may sit on any page, so
-        # the picker asks for it directly rather than paging until it appears.
+        # A saved value may sit on any page, so the picker asks for its ids directly.
         raw_ids = (request.query_params.get('ids') or '').strip()
         if raw_ids:
             wanted = [int(part) for part in raw_ids.split(',') if part.strip().isdigit()]
