@@ -398,20 +398,26 @@ api/
 │   ├── availability/         # Availability calendar & events module
 │   │   ├── models.py         # Event, CustomHoliday, UserSettings, ShareLink, PublicBooking
 │   │   ├── serializers.py    # DRF serializers
-│   │   ├── views/            # API ViewSets (CRUD + export endpoints)
+│   │   ├── tests/            # Per-domain test modules (availability, events, booking, settings, AI provider, auth, holidays)
+│   │   ├── views/            # API ViewSets, one module per surface (share links, imports, categories, conflicts, user settings);
+│   │   │                     # booking.py keeps the endpoints plus the slot validation the tests patch, with the rest in booking_{slots,intake,ics,notifications,validation}.py
 │   │   ├── throttling.py     # Redis rate-limit throttle classes
 │   │   ├── tasks.py          # HTTP-triggered maintenance helpers
-│   │   ├── ai_provider.py    # Encryption helpers and authenticated provider relay
+│   │   ├── ai_provider.py    # Provider relay; key encryption in provider_secrets.py, JSON repair in json_healing.py, exceptions in ai_provider_errors.py
+│   │   ├── tests/            # Per-domain test modules (availability, events, booking, settings, AI provider, auth, holidays)
 │   │   ├── signals.py        # Cache invalidation signals
 │   │   ├── migrations/       # Database migrations
 │   │   └── utils.py          # Utilities (holiday fetching, export helpers)
 │   │
 │   ├── career/               # Job applications, offers & AI tools module
-│   │   ├── models.py         # Applications, offers, experiences, canonical contacts, career records, and relationship models
-│   │   ├── serializers.py    # DRF serializers with auto company creation and export payloads
+│   │   ├── models/           # Models by domain (applications, offers, contacts, documents, sheet sync, AI artifacts, experiences, income); `__init__.py` imports all of them, so `from .models import X` and app_label resolution are unchanged
+│   │   ├── serializers/      # DRF serializers by domain; `__init__.py` re-exports every name, so `from .serializers import X` is unchanged
+│   │   ├── tests/            # Per-domain test modules; sheet sync is split again by concern (stages, timeline repair, identity, review, archiving)
 │   │   ├── views/            # API ViewSets (package)
 │   │   ├── skills_extractor.py
 │   │   ├── services/         # Business logic (career records, reference data, rent, weekly review, Google Sheets, storage)
+│   │   │                     # google_sheets.py keeps the sync orchestration and the names the tests patch; the rest lives in
+│   │   │                     # google_sheet_{constants,stages,history,fetching,rows,timeline,writeback,upsert,missing_rows}.py
 │   │   ├── tasks.py          # Maintenance helper: auto_ghost_stale_applications
 │   │   ├── migrations/       # Database migrations
 │   │   └── urls.py           # URL routing
