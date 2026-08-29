@@ -31,13 +31,6 @@ class AIArtifact(models.Model):
         blank=True,
         related_name='ai_artifacts',
     )
-    source_offer = models.ForeignKey(
-        'career.Offer',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='ai_artifacts',
-    )
     source_experience = models.ForeignKey(
         'Experience',
         on_delete=models.SET_NULL,

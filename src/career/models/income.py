@@ -6,36 +6,6 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
-class TaxProfile(models.Model):
-    FILING_STATUS_CHOICES = [
-        ('SINGLE', 'Single'),
-        ('MARRIED_FILING_JOINTLY', 'Married Filing Jointly'),
-        ('MARRIED_FILING_SEPARATELY', 'Married Filing Separately'),
-        ('HEAD_OF_HOUSEHOLD', 'Head of Household'),
-    ]
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tax_profiles')
-    tax_year = models.PositiveIntegerField()
-    filing_status = models.CharField(max_length=30, choices=FILING_STATUS_CHOICES, default='SINGLE')
-    state = models.CharField(max_length=2, blank=True, default='', help_text="Two-letter residence state. Blank derives it from the offer location.")
-    locality = models.CharField(max_length=50, blank=True, default='', help_text="Local wage tax jurisdiction, e.g. NYC")
-    w4_dependents_credit = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="W-4 Step 3 annual credit amount")
-    w4_other_income = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="W-4 Step 4a")
-    w4_deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="W-4 Step 4b")
-    w4_extra_withholding_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="W-4 Step 4c")
-    state_flat_rate_override = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Effective state rate percent, used when the state is not modelled")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ('user', 'tax_year')
-        ordering = ['-tax_year']
-
-    def __str__(self):
-        return f"Tax profile {self.tax_year} for {self.user_id}"
-
-
 class IncomeYear(models.Model):
     """Employee elections for a tax year. Pay, premiums and match come from the offer."""
 
@@ -65,7 +35,7 @@ class IncomeYear(models.Model):
     match_tiers = models.JSONField(default=list, blank=True, help_text="[{id, matchPercent, uptoPercent}] employer 401(k) match bands, e.g. 100% to 3% then 50% to 5%")
     match_non_elective_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0, help_text="Employer contribution paid regardless of deferral, e.g. a safe-harbor 3%")
     match_annual_cap = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Dollar ceiling on the employer's yearly contribution. 0 means none.")
-    allowances = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment, timesPer, unit}] allowances; unit is PAYCHECK, MONTH or YEAR")
+    allowances = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment, timesPer, unit, payOn, payPeriodIndex}] allowances; unit is PAYCHECK, MONTH, YEAR or ONCE; payPeriodIndex names the paycheck a ONCE allowance lands on")
     retirement_starting_balance = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="401(k) balance at the start of the tax year")
     retirement_current_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Current 401(k) balance, used to derive investment gains")
     hsa_family_coverage = models.BooleanField(default=False)
@@ -103,11 +73,8 @@ class PaycheckActual(models.Model):
     income_year = models.ForeignKey(IncomeYear, on_delete=models.CASCADE, related_name='actuals')
     period_index = models.PositiveSmallIntegerField(help_text="1-based pay period")
     pay_date = models.DateField(null=True, blank=True)
+    # Only gross and take-home are recorded; the per-line tax columns held no production rows.
     actual_gross = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    actual_federal_tax = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    actual_state_tax = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    actual_social_security = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    actual_medicare = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     actual_net = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     note = models.TextField(blank=True, default='')
 

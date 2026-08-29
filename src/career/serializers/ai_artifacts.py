@@ -15,7 +15,6 @@ class AIArtifactSerializer(serializers.ModelSerializer):
             'summary',
             'payload',
             'source_application',
-            'source_offer',
             'source_experience',
             'is_locked',
             'saved_at',
@@ -29,11 +28,9 @@ class AIArtifactSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and getattr(request, 'user', None) and request.user.is_authenticated:
             fields['source_application'].queryset = Application.objects.filter(user=request.user)
-            fields['source_offer'].queryset = Offer.objects.filter(application__user=request.user)
             fields['source_experience'].queryset = Experience.objects.filter(user=request.user)
         else:
             fields['source_application'].queryset = Application.objects.none()
-            fields['source_offer'].queryset = Offer.objects.none()
             fields['source_experience'].queryset = Experience.objects.none()
         return fields
 

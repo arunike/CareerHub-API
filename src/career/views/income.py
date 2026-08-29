@@ -1,20 +1,7 @@
 from rest_framework import viewsets
 
-from ..models import IncomeYear, PaycheckActual, TaxProfile
-from ..serializers import IncomeYearSerializer, PaycheckActualSerializer, TaxProfileSerializer
-
-
-class TaxProfileViewSet(viewsets.ModelViewSet):
-    queryset = TaxProfile.objects.all()
-    serializer_class = TaxProfileSerializer
-
-    def get_queryset(self):
-        if not self.request.user or not self.request.user.is_authenticated:
-            return TaxProfile.objects.none()
-        return TaxProfile.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+from ..models import IncomeYear, PaycheckActual
+from ..serializers import IncomeYearSerializer, PaycheckActualSerializer
 
 
 class IncomeYearViewSet(viewsets.ModelViewSet):

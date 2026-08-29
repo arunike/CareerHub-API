@@ -39,5 +39,4 @@ from .experiences import (  # noqa: F401
 from .income import (  # noqa: F401
     IncomeYear,
     PaycheckActual,
-    TaxProfile,
 )

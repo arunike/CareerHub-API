@@ -41,5 +41,4 @@ from .experiences import (  # noqa: F401
 from .income import (  # noqa: F401
     IncomeYearSerializer,
     PaycheckActualSerializer,
-    TaxProfileSerializer,
 )

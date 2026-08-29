@@ -1,0 +1,117 @@
+from django.db import migrations, models
+
+# Column name -> the JSON literal an existing row should start with.
+NEW_COLUMNS = {
+    "custom_analytics_widgets": "[]",
+    "analytics_widget_order": "{}",
+    "analytics_widgets_enabled": "{}",
+    "contact_network_positions": "{}",
+}
+
+
+def add_analytics_and_network_columns_if_missing(apps, schema_editor):
+    UserSettings = apps.get_model("availability", "UserSettings")
+    table_name = UserSettings._meta.db_table
+
+    with schema_editor.connection.cursor() as cursor:
+        existing_columns = {
+            column.name
+            for column in schema_editor.connection.introspection.get_table_description(
+                cursor, table_name
+            )
+        }
+
+    quote_name = schema_editor.connection.ops.quote_name
+    quoted_table = quote_name(table_name)
+    column_type = "jsonb" if schema_editor.connection.vendor == "postgresql" else "text"
+
+    missing = {
+        name: empty for name, empty in NEW_COLUMNS.items() if name not in existing_columns
+    }
+    if not missing:
+        return
+
+    # Every ALTER first, then the backfills: an UPDATE leaves pending trigger events, and the
+    # next ALTER TABLE in the same transaction is refused because of them.
+    with schema_editor.connection.cursor() as cursor:
+        for column_name in missing:
+            quoted_column = quote_name(column_name)
+            # No column default: the hosted Postgres rejects the DROP DEFAULT that Django's own
+            # AddField emits straight after ADD COLUMN ... DEFAULT.
+            cursor.execute(f"ALTER TABLE {quoted_table} ADD COLUMN {quoted_column} {column_type}")
+
+    with schema_editor.connection.cursor() as cursor:
+        for column_name, empty_value in missing.items():
+            quoted_column = quote_name(column_name)
+            cursor.execute(
+                f"UPDATE {quoted_table} SET {quoted_column} = %s WHERE {quoted_column} IS NULL",
+                [empty_value],
+            )
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("availability", "0012_usersettings_nav_item_labels"),
+    ]
+
+    operations = [
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    add_analytics_and_network_columns_if_missing,
+                    migrations.RunPython.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name="usersettings",
+                    name="custom_analytics_widgets",
+                    field=models.JSONField(
+                        blank=True,
+                        default=list,
+                        help_text=(
+                            "User-authored analytics widgets [{id, name, query, widgetType, "
+                            "icon, color, createdAt, queryType, visualConfig}]"
+                        ),
+                    ),
+                ),
+                migrations.AddField(
+                    model_name="usersettings",
+                    name="analytics_widget_order",
+                    field=models.JSONField(
+                        blank=True,
+                        default=dict,
+                        help_text=(
+                            "Widget order per dashboard, e.g. {'jobHunt': [...], "
+                            "'availability': [...]}"
+                        ),
+                    ),
+                ),
+                migrations.AddField(
+                    model_name="usersettings",
+                    name="analytics_widgets_enabled",
+                    field=models.JSONField(
+                        blank=True,
+                        default=dict,
+                        help_text=(
+                            "Which widgets are shown per dashboard, e.g. "
+                            "{'jobHunt': {'funnel': true}}"
+                        ),
+                    ),
+                ),
+                migrations.AddField(
+                    model_name="usersettings",
+                    name="contact_network_positions",
+                    field=models.JSONField(
+                        blank=True,
+                        default=dict,
+                        help_text=(
+                            "Hand-dragged contact graph layout: {'nodes': {id: {x, y}}, "
+                            "'labels': {id: {x, y}}}"
+                        ),
+                    ),
+                ),
+            ],
+        ),
+    ]

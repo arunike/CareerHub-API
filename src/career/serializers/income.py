@@ -1,7 +1,7 @@
 
 from rest_framework import serializers
 
-from ..models import TaxProfile, IncomeYear, PaycheckActual
+from ..models import IncomeYear, PaycheckActual
 
 
 class PaycheckActualSerializer(serializers.ModelSerializer):
@@ -9,27 +9,21 @@ class PaycheckActualSerializer(serializers.ModelSerializer):
         model = PaycheckActual
         fields = [
             'id', 'income_year', 'period_index', 'pay_date',
-            'actual_gross', 'actual_federal_tax', 'actual_state_tax',
-            'actual_social_security', 'actual_medicare', 'actual_net', 'note',
+            'actual_gross', 'actual_net', 'note',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class TaxProfileSerializer(serializers.ModelSerializer):
+class NestedPaycheckActualSerializer(serializers.ModelSerializer):
     class Meta:
-        model = TaxProfile
-        fields = [
-            'id', 'tax_year', 'filing_status', 'state', 'locality',
-            'w4_dependents_credit', 'w4_other_income', 'w4_deductions',
-            'w4_extra_withholding_per_period', 'state_flat_rate_override',
-            'created_at', 'updated_at',
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        model = PaycheckActual
+        fields = ['period_index', 'pay_date', 'actual_gross', 'actual_net', 'note']
 
 
 class IncomeYearSerializer(serializers.ModelSerializer):
-    actuals = PaycheckActualSerializer(many=True, read_only=True)
+    # Writable: recorded paychecks used to live only in the browser, so a phone showed none of them.
+    actuals = NestedPaycheckActualSerializer(many=True, required=False)
 
     class Meta:
         model = IncomeYear
@@ -50,7 +44,43 @@ class IncomeYearSerializer(serializers.ModelSerializer):
             'cliff_months_override', 'vesting_years_override', 'first_vest_date',
             'income_events', 'actuals', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'actuals', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    # The client always sends the whole set, and clearing every field drops the row, so a
+    # missing period_index means deleted rather than untouched.
+    @staticmethod
+    def _replace_actuals(income_year, rows):
+        kept = []
+        for row in rows:
+            period_index = row.pop('period_index')
+            PaycheckActual.objects.update_or_create(
+                income_year=income_year, period_index=period_index, defaults=row
+            )
+            kept.append(period_index)
+        income_year.actuals.exclude(period_index__in=kept).delete()
+
+    def create(self, validated_data):
+        rows = validated_data.pop('actuals', None)
+        income_year = super().create(validated_data)
+        if rows is not None:
+            self._replace_actuals(income_year, rows)
+        return income_year
+
+    def update(self, instance, validated_data):
+        rows = validated_data.pop('actuals', None)
+        income_year = super().update(instance, validated_data)
+        if rows is not None:
+            self._replace_actuals(income_year, rows)
+        return income_year
+
+    def validate_actuals(self, value):
+        seen = set()
+        for row in value:
+            period_index = row.get('period_index')
+            if period_index in seen:
+                raise serializers.ValidationError('One recorded paycheck per pay period.')
+            seen.add(period_index)
+        return value
 
     def validate_bonus_extras(self, value):
         if not isinstance(value, list):
@@ -116,8 +146,18 @@ class IncomeYearSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Allowance treatment must be TAXABLE or TAX_FREE.')
             if item.get('payOn') not in {'FIRST', 'LAST'}:
                 raise serializers.ValidationError('Allowance payOn must be FIRST or LAST.')
-            if item.get('unit') not in {'PAYCHECK', 'MONTH', 'YEAR'}:
-                raise serializers.ValidationError('Allowance unit must be PAYCHECK, MONTH or YEAR.')
+            if item.get('unit') not in {'PAYCHECK', 'MONTH', 'YEAR', 'ONCE'}:
+                raise serializers.ValidationError(
+                    'Allowance unit must be PAYCHECK, MONTH, YEAR or ONCE.'
+                )
+            pay_period_index = item.get('payPeriodIndex')
+            if pay_period_index is not None:
+                try:
+                    int(pay_period_index)
+                except (TypeError, ValueError):
+                    raise serializers.ValidationError(
+                        'Allowance payPeriodIndex must be a whole number.'
+                    )
             try:
                 float(item.get('timesPer', 1))
             except (TypeError, ValueError):

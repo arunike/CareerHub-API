@@ -24,7 +24,6 @@ from .views import (
     GoogleOAuthCallbackView,
     GoogleOAuthViewSet,
     GoogleSheetSyncConfigViewSet,
-    TaxProfileViewSet,
     IncomeYearViewSet,
     PaycheckActualViewSet,
 )
@@ -46,7 +45,6 @@ router.register(r'experiences', ExperienceViewSet)
 router.register(r'application-timeline', ApplicationTimelineEntryViewSet, basename='application-timeline')
 router.register(r'google-oauth', GoogleOAuthViewSet, basename='google-oauth')
 router.register(r'google-sheet-syncs', GoogleSheetSyncConfigViewSet, basename='google-sheet-sync')
-router.register(r'tax-profiles', TaxProfileViewSet, basename='tax-profile')
 router.register(r'income-years', IncomeYearViewSet, basename='income-year')
 router.register(r'paycheck-actuals', PaycheckActualViewSet, basename='paycheck-actual')
 

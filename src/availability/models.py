@@ -165,6 +165,26 @@ class UserSettings(models.Model):
         blank=True,
         help_text="Custom sidebar names keyed by route, e.g. {'/tasks': 'To Do'}; absent keys keep their built-in name",
     )
+    custom_analytics_widgets = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="User-authored analytics widgets [{id, name, query, widgetType, icon, color, createdAt, queryType, visualConfig}]",
+    )
+    analytics_widget_order = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Widget order per dashboard, e.g. {'jobHunt': [...], 'availability': [...]}",
+    )
+    analytics_widgets_enabled = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Which widgets are shown per dashboard, e.g. {'jobHunt': {'funnel': true}}",
+    )
+    contact_network_positions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Hand-dragged contact graph layout: {'nodes': {id: {x, y}}, 'labels': {id: {x, y}}}",
+    )
     is_locked = models.BooleanField(default=False, help_text="Locked settings cannot be edited until unlocked")
     ai_provider_adapter = models.CharField(
         max_length=32,
