@@ -5,6 +5,7 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 ![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![DRF](https://img.shields.io/badge/DRF-red?style=for-the-badge&logo=django&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white) ![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
 ## 📋 Table of Contents
+
 - [Overview](#-overview)
 - [Features](#-features)
 - [Tech Stack](#-tech-stack)
@@ -17,9 +18,11 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 - [Author](#-author)
 
 ## 🌟 Overview
+
 The **Backend** is a Django REST Framework-powered API that provides all the data management, business logic, and endpoints for the CareerHub platform. It handles job application tracking, offer management, availability calendars, interview event scheduling, and the secure data APIs consumed by the frontend's AI tools.
 
 **Key Capabilities:**
+
 - 🔗 **RESTful API**: Full CRUD operations for Applications, Offers, Events, Holidays, Documents, Tasks, Experience, and Settings
 - 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
 - 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and provider adapters relay requests server-side
@@ -37,6 +40,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ## ✨ Features
 
 ### 🏢 Application Management
+
 - **CRUD API**: Full create, read, update, delete operations for job applications
 - **Status Tracking**: Default pipeline stages use the shared blue-to-purple palette for Applied, rounds 1–4, Final Round, Onsite, Offer, Rejected, Ghosted, and Removed without overwriting saved per-user stage settings
 - **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
@@ -53,6 +57,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Delete All**: Bulk delete endpoint respects lock status
 
 ### 💎 Offer Management
+
 - **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
 - **`Application.job_description`**: the full posting text. Postings are routinely taken down while you are still interviewing, so the link alone is not a record. The URL importer already extracted this text but the frontend was folding it into `notes`; it now has its own column and is exposed by `ApplicationSerializer`
 - **`Application.has_reached_interview`** (read-only): true once the timeline shows a stage past screening. Annotated with a single `Exists` subquery on the list endpoint rather than a query per row, and falls back to a direct check for single objects. Drives whether the Debriefs tab appears
@@ -78,7 +83,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Days-to-offer provenance**: `average_days_to_offer` measures from the timeline's OFFER/ACCEPTED entry, falling back to the Offer row's `created_at` only when no entry exists. It previously always used `created_at` — when the offer was typed into CareerHub — so backfilling two 2024 offers in 2026 reported 545- and 513-day waits and inflated the average roughly sevenfold
 - **Funnel rate precision**: `stage_conversion.conversion_rate` is rounded to 6 decimals, not 4. At the bottom of a large funnel the meaningful digits sit past the fourth — 2 offers in 806 is 0.002481, which 4dp flattened to 0.0025 and left the client a rounding step away from displaying a real count as 0%. Pinned by `FunnelConversionPrecisionTests`
 - **Application timeline analytics**: `GET /career/application-timeline-analytics/` is the single source for funnel data. Alongside the existing `stage_conversion` (per-stage `reached_count` / `current_count` from the timeline), it now also returns `total_applications`, `outcomes`, `response_rate`, `ghost_rate`, and `biggest_drop`
-- **`unlocked_count` on paginated lists**: applications, documents, and events return how many rows across the *whole* filtered set are unlocked, not just the current page. A "Delete All" control needs this — `count` alone cannot tell it whether anything is deletable. Provided by the shared `availability.pagination.ConditionalPageNumberPagination`, which replaced three byte-identical copies
+- **`unlocked_count` on paginated lists**: applications, documents, and events return how many rows across the _whole_ filtered set are unlocked, not just the current page. A "Delete All" control needs this — `count` alone cannot tell it whether anything is deletable. Provided by the shared `availability.pagination.ConditionalPageNumberPagination`, which replaced three byte-identical copies
 - **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
 - **Document filtering**: `GET /career/documents/?application=<id>` restricts documents to one application, used by the offer modal's attachment list
 - **Offer validation**: `refresh_starts_year` must be 1-4 and `annual_refresh_value` cannot be negative, enforced in `OfferSerializer` because the DB column carries no CHECK constraint
@@ -111,12 +116,14 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **AI Artifact Library**: generated JD reports, cover letters, negotiation results, and promotion reviews are persisted as authenticated `AIArtifact` records so they sync across browsers/devices, keep lock/delete semantics, and participate in account export/restore
 
 #### Skill Extraction (NLP, background)
+
 - Extracts fallback skills from Experience descriptions using a lightweight keyword + acronym matcher
 - Runs automatically on `Experience` create/update
 - Remains the default when no AI provider key is configured or provider refinement fails
 - Implemented in `career/skills_extractor.py`
 
 ### 📄 Document Management
+
 - **Upload & CRUD**: Store resumes, cover letters, portfolios, and other docs
 - **Versioning**: `version_number` + `is_current`; upload new versions while keeping version history
 - **Hosted private storage**: when `DOCUMENT_BLOB_READ_WRITE_TOKEN` is configured, documents are stored as private Vercel Blob assets and opened through an authenticated download endpoint
@@ -125,6 +132,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Export**: Export documents in csv/json/xlsx formats
 
 ### 👤 Experience
+
 - Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
 - **Application → Experience lifecycle**: every application and experience belongs to a shared `CareerRecord`; linking an offer to Experience reuses the application's record and atomically marks the application `ACCEPTED` while leaving it visible in Applications
 - Skills are auto-extracted from descriptions and can be AI-refined after save when a provider key is configured
@@ -140,6 +148,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Offer decision history backup**: account exports include offer decision snapshots; restore can recreate snapshots and their linked offers from exported point-in-time offer data when needed
 
 ### 📅 Availability & Events
+
 - **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
 - **Unified Calendar Operations**: Standard Events and Holidays endpoints support create/edit flows from the Availability, Events, and Holiday Manager calendars
 - **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Inauspicious Days") via the `tab` field
@@ -148,6 +157,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
 
 ### ⚙️ Settings
+
 - **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category used by new event forms, and notification preferences
 - **Mobile Toolbar Preferences** (`mobile_toolbar_items` JSONField): Persist an ordered, validated set of up to four mobile navigation slots per user, including one optional `__smart__` slot; empty values retain the default Home, Applications, Offers, and Insights toolbar
 - **Event date range validation**: `EventSerializer.validate` rejects an `end_date` earlier than `date`, falling back to the stored value so a PATCH that moves only one side is still checked. Covered by `EventEndDateValidationTests`
@@ -163,7 +173,31 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
 - **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, preferred daily sync time/timezone, row hashes, last run status, import results, and last-run change history
 
+### 💵 Income & Recorded Paychecks
+
+- **`IncomeYear`** holds one role's pay plan for one tax year (`tax_year` + `source_key`): salary and paycheck-count overrides, 401(k)/HSA/FSA elections, premium overrides, custom deductions, per-period overrides, match tiers, allowances, bonus and vesting settings, and `income_events`.
+- **`PaycheckActual`** is one real paycheck recorded against that year — gross, federal/state/FICA, take-home, an optional note, and a `pay_date` that overrides the schedule when payday moves. `unique_together (income_year, period_index)`; off-cycle bonus payments are numbered from 1000 by the client.
+- **Recorded paychecks round-trip through `IncomeYear`**, not through separate requests: `actuals` is a writable nested collection on `IncomeYearSerializer`, so the page's single Save writes the plan and the recorded figures in one atomic request. It used to sit in `read_only_fields`, which meant DRF discarded it without an error and the values only ever existed in the browser that typed them — a second device saw an empty column. The client owns the whole set, so a save replaces it: rows that arrive are upserted, rows that do not are deleted, and omitting the key entirely (a `PATCH` of unrelated fields) leaves them untouched.
+- `/api/career/paycheck-actuals/` remains for per-row access; the app does not use it for saving.
+- **`TaxProfile` is gone, and so is `AIArtifact.source_offer`** (migration `0034`). A sweep of all 338 model fields across 24 models found exactly these unused end to end: the `tax-profiles` route, viewset and serializer existed, and `getTaxProfiles` / `createTaxProfile` / `updateTaxProfile` were exported from `careerMisc.ts`, but **nothing ever called them** — the table held 0 rows in production. `source_offer` was declared in the artifact wire type and set on 0 of 2 rows. Nothing else in the schema is unreferenced: the only other candidate, `GoogleOAuthCredential.connected_at`, is an `auto_now_add` stamp — `created_at` under a different name.
+  - The W4 figures the Income page collects (extra withholding, dependents credit, other income, deductions) are **still localStorage-only**: `TaxProfile` had columns for them, but `toPayload` in `useIncomeYear.ts` never sent them and no code path read them back. Dropping the table did not lose anything, because nothing was ever written — but that is the same class of bug as the recorded-paycheck one above, and giving W4 a home in `IncomeYear` is outstanding work.
+- **`PaycheckActual` keeps only the figures people record.** `actual_federal_tax`, `actual_state_tax`, `actual_social_security` and `actual_medicare` were dropped in `0033` after an audit found **0 of 42 production rows** holding a value in any of them — the modal that wrote them was never used. `actual_gross` (24 of 42) and `actual_net` (42 of 42) stayed and are now edited directly in the ledger. Row count and surviving values were re-checked after the migration: 42 rows, 24 gross, 42 net, 24 notes, all intact.
+- **Every user-supplied URL the server fetches goes through `config/outbound.py`.** A company logo, a stored document and the AI provider relay all fetch an address the user chose, and each called `urlopen` on it directly — so a saved logo of `http://169.254.169.254/latest/meta-data/` would have had the server fetch the cloud metadata endpoint and hand the bytes back in an export. `validate_outbound_url` allows only http/https on ports 80/443, resolves the host and refuses any answer that is not a public address, and **re-checks every redirect hop**, since a public URL that 302s to a private one is the obvious way round a one-time check. `open_outbound_url` wraps `urlopen` with it. The AI relay maps the refusal to `AIProviderConfigurationError` so the user sees why. Residual risk: a DNS rebind between the resolve and the connect is not covered — closing that needs connecting to the resolved IP with an explicit Host header.
+- **`GET /api/career/google-sheet-syncs/` used to 500 on any saved config.** `serializers/google_sheets.py` carried `from .services...` inside a function; `serializers` is a package, so it resolved to `career.serializers.services` and raised `ModuleNotFoundError` at call time — the module imported fine and only the request failed. It is `..services` now. Two guards were added: `career/tests/test_endpoint_smoke.py` walks the router and asserts no list endpoint 5xxs, and a targeted test creates a config first, because the broken import sat in a per-row field and an empty list serialised perfectly well.
+- **`hidden_income_roles` and `hidden_income_years` on `UserSettings`** (migration `availability/0014`) hold the Income pickers' visibility choices, so they follow the account rather than the browser. Both are plain JSON lists the client owns outright. The migration follows the shape `0013` established: add each column bare with no default (the hosted Postgres rejects the `DROP DEFAULT` Django's `AddField` emits), then backfill `[]` — every `ALTER` before any `UPDATE`, since an `UPDATE` leaves pending trigger events that make the next `ALTER` fail.
+- **`deferral_base` replaced `exclude_allowances_from_deferral_base`** (migrations `0035` and `0036`). The boolean could only carve allowances out of the 401(k) base; the enum — `ALL`, `NO_ALLOWANCES`, `SALARY_ONLY` — can also exclude the bonus, which is the commoner plan rule. `0035` adds the column and backfills it from the boolean (`true → NO_ALLOWANCES`, `false → ALL`); `0036` drops the old column in a **separate** migration, because an `ALTER` after an `UPDATE` in one transaction is refused for pending trigger events. Production held 3 rows, one of them with the flag set, and read back as `{NO_ALLOWANCES: 1, ALL: 2}` afterwards.
+  - `0035` also drops the old column's `NOT NULL`. It had no database default and the new code never writes it, so between the two migrations every `IncomeYear` insert would otherwise fail.
+- **`allowances` accepts a `ONCE` unit.** `validate_allowances` rejects any unit outside `PAYCHECK`, `MONTH`, `YEAR` and `ONCE`, so a one-time allowance was a 400 until the set was widened — the frontend can add a shape the API silently refuses, and the only symptom is a failed save. A `ONCE` row may carry `payPeriodIndex`, the paycheck it lands on; it is validated as a whole number when present and may be null, which means "fall back to `payOn`". Everything else about the field is unchanged, and the migration that came with it (`0032`) only rewrites `help_text`, so it emits no SQL.
+
+
+### 📊 Account-Backed Layout
+
+- `UserSettings` also stores what used to live only in the browser, so a second device sees it: **`custom_analytics_widgets`** (the AI widgets you authored), **`analytics_widget_order`** and **`analytics_widgets_enabled`** (keyed by dashboard — `jobHunt`, `availability`), and **`contact_network_positions`** (the hand-dragged contact graph, `{nodes, labels}`).
+- All four are `JSONField`s saved through the existing `PUT /api/user-settings/current/`, which is `partial=True`, so a scoped save cannot wipe a neighbouring field.
+- The migration adds them without a column default (`SeparateDatabaseAndState` + `RunPython`): the hosted Postgres rejects the `DROP DEFAULT` Django emits after `ADD COLUMN ... DEFAULT`, and every `ALTER` has to run before any backfill `UPDATE` or the next `ALTER` hits pending trigger events.
+
 ### 🔐 Authentication & Security
+
 - **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
 - **Account Management**: Supports updating user `first_name` and `last_name` via `PATCH /api/auth/me/`.
 - **Password Security**: `/api/auth/password-change/` handles secure password updates with old-password verification. Passwords are never stored in plain text; they are encrypted using industry-standard hashing algorithms.
@@ -192,28 +226,34 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 ## 🛠 Tech Stack
 
 ### Core Framework
+
 - **Django 5.x** - Python web framework
 - **Django REST Framework** - Toolkit for building RESTful APIs
 - **PostgreSQL** - Primary production database via `DATABASE_URL`
 - **SQLite** - Local fallback when `DATABASE_URL` is unset
 
 ### AI / NLP
+
 - **User-provided AI provider** - Encrypted backend relay with Claude, Gemini, OpenAI, OpenRouter, and custom adapters for JD matching, cover letters, job URL import, negotiation advice, and analytics widget fallback
 - **Lightweight keyword/acronym extractor** - Skill extraction from free-text experience descriptions without heavyweight runtime NLP dependencies
 
 ### Distributed Systems
+
 - **django-redis** - Optional Redis cache backend for shared caching/throttling
 
 ### Data Processing
+
 - **Pandas** - CSV/XLSX parsing and data manipulation
 - **openpyxl** - Excel file handling
 - **Google API Client** - Optional private Google Sheets reads through service account credentials
 
 ### Utilities
+
 - **django-cors-headers** - CORS middleware for frontend integration
 - **holidays** - Federal holiday detection library
 
 ### Infrastructure
+
 - **Docker + Docker Compose** - Containerised local development only
 
 ## 🚀 Getting Started
@@ -254,28 +294,33 @@ API: `http://localhost:8000/api`
 ### Option B — Local (venv)
 
 #### Prerequisites
+
 - Python 3.11+
 - PostgreSQL running locally if you set `DATABASE_URL` (otherwise the app falls back to SQLite)
 
 #### Installation
 
 1. **Navigate to backend directory**
+
    ```bash
    cd api
    ```
 
 2. **Activate virtual environment and install dependencies**
+
    ```bash
    python -m venv venv && source venv/bin/activate
    pip install -r requirements.docker.txt
    ```
 
 3. **Create your local env file**
+
    ```bash
    cp .env.development.example .env.development
    ```
 
 4. **Choose a database**
+
    ```bash
    # Edit .env.development for local PostgreSQL
    DATABASE_URL=postgresql://careerhub:careerhub@localhost:5432/careerhub
@@ -284,6 +329,7 @@ API: `http://localhost:8000/api`
    ```
 
 5. **Run Migrations**
+
    ```bash
    python manage.py migrate
    ```
@@ -292,7 +338,6 @@ API: `http://localhost:8000/api`
    ```bash
    python manage.py runserver 0.0.0.0:8000
    ```
-
 
 ## 🐳 Docker
 
@@ -325,17 +370,17 @@ CareerHub now uses explicit environment files instead of a single mixed `.env`:
 
 Key production flags:
 
-| Variable | Production Value |
-|---|---|
-| `SESSION_COOKIE_SECURE` | `True` |
-| `CSRF_COOKIE_SECURE` | `True` |
-| `SECURE_SSL_REDIRECT` | `True` |
-| `SECURE_HSTS_SECONDS` | `31536000` |
-| `SECURE_HSTS_INCLUDE_SUBDOMAINS` | `True` |
-| `AI_PROVIDER_ALLOWED_HOSTS` | `api.anthropic.com,generativelanguage.googleapis.com,api.openai.com,openrouter.ai` if you enforce an AI relay allowlist |
-| `GOOGLE_OAUTH_CLIENT_ID` | Google Cloud OAuth web client ID for private Google Sheets access |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Google Cloud OAuth web client secret |
-| `GOOGLE_OAUTH_SUCCESS_REDIRECT_URL` | Frontend Settings URL to use if OAuth callback cannot use stored state redirect |
+| Variable                            | Production Value                                                                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_COOKIE_SECURE`             | `True`                                                                                                                  |
+| `CSRF_COOKIE_SECURE`                | `True`                                                                                                                  |
+| `SECURE_SSL_REDIRECT`               | `True`                                                                                                                  |
+| `SECURE_HSTS_SECONDS`               | `31536000`                                                                                                              |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS`    | `True`                                                                                                                  |
+| `AI_PROVIDER_ALLOWED_HOSTS`         | `api.anthropic.com,generativelanguage.googleapis.com,api.openai.com,openrouter.ai` if you enforce an AI relay allowlist |
+| `GOOGLE_OAUTH_CLIENT_ID`            | Google Cloud OAuth web client ID for private Google Sheets access                                                       |
+| `GOOGLE_OAUTH_CLIENT_SECRET`        | Google Cloud OAuth web client secret                                                                                    |
+| `GOOGLE_OAUTH_SUCCESS_REDIRECT_URL` | Frontend Settings URL to use if OAuth callback cannot use stored state redirect                                         |
 
 ### Vercel Deployment Shape
 
@@ -345,6 +390,7 @@ CareerHub now deploys cleanly to Vercel as two separate projects:
 2. `frontend/` — Vite SPA on Vercel static hosting
 
 Backend notes:
+
 - `api/vercel.json` routes all requests to the Django WSGI entrypoint at `api/wsgi.py`
 - set `DATABASE_URL` to an external PostgreSQL database
 - set `BLOB_READ_WRITE_TOKEN` if you want Experience logos to use public Vercel Blob storage
@@ -363,16 +409,18 @@ Backend notes:
   - `CSRF_COOKIE_DOMAIN=.example.com`
 
 Frontend notes:
+
 - set `VITE_API_BASE_URL` to your own backend origin plus `/api`, for example `https://your-api-project.vercel.app/api`
 - optionally set `VITE_MEDIA_BASE_URL` if uploaded files are served from a different origin
 
 ### 🤖 Configuring AI for the Current App
+
 Current AI features are configured in the frontend, with the provider key stored encrypted on the backend:
+
 1. Open the app and go to `Settings` → `AI Provider`.
 2. Choose Claude, Gemini, OpenAI, OpenRouter, or Custom providers, then enter the endpoint, model, and your own API key.
 3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
-
 
 ### Migration Workflow
 
@@ -385,9 +433,11 @@ python manage.py check
 ```
 
 ### Optional: Django Admin
+
 ```bash
 python manage.py createsuperuser
 ```
+
 Access at `http://localhost:8000/admin`.
 
 ## 📁 Project Structure
@@ -448,6 +498,7 @@ api/
 Base prefix: `/api/career/`
 
 #### Applications
+
 - `GET /api/career/applications/` — List all applications
 - `GET /api/career/applications/company-list/` — List distinct companies used by the authenticated user's applications for shared selectors
 - `POST /api/career/applications/` — Create a new application
@@ -467,6 +518,7 @@ Base prefix: `/api/career/`
 - `GET /api/career/application-timeline-analytics/` — Return timeline-driven application analytics, including time-to-interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
 
 #### Offers
+
 - `GET /api/career/offers/` — List all offers
 - `POST /api/career/offers/` — Create a new offer
 - `GET /api/career/offers/{id}/` — Retrieve offer details
@@ -476,6 +528,7 @@ Base prefix: `/api/career/`
 Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) and `equity_buyback_value`. Existing offers default to `LIQUID` for backward-compatible calculations.
 
 #### Experience
+
 - `GET /api/career/experiences/` — List all experience entries
 - `POST /api/career/experiences/` — Create experience (auto-extracts skills)
 - `PUT /api/career/experiences/{id}/` — Update experience
@@ -488,6 +541,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `DELETE /api/career/experiences/{id}/remove-logo/` — Remove company logo
 
 #### Contacts and Relationships
+
 - `GET /api/career/applications/options/` — Lightweight application options for pickers; supports `search`, `page`, `page_size` (default 50, max 200), and `ids` for resolving specific applications regardless of paging
 - `GET /api/career/contacts/` — List canonical contacts; filter by `application`, `experience`, `context`, `relationship`, `direct`, or `search`
 - `POST /api/career/contacts/` — Create or reuse a contact and optionally attach Application/Experience context plus a direct relationship
@@ -498,6 +552,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `PATCH|DELETE /api/career/contact-relationships/{id}/` — Update or delete one relationship edge
 
 #### Documents
+
 - `GET /api/career/documents/` — List current document versions
 - `GET /api/career/documents/?include_versions=true` — List all versions
 - `POST /api/career/documents/` — Upload a document
@@ -508,17 +563,20 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `DELETE /api/career/documents/delete_all/` — Delete all unlocked document chains
 
 #### Tasks
+
 - `GET /api/career/tasks/` — List tasks
 - `POST /api/career/tasks/` — Create task, including smart reminders parsed by the frontend into normal task due dates
 - `PATCH /api/career/tasks/{id}/` — Update task
 - `POST /api/career/tasks/reorder/` — Reorder tasks
 
 #### Helpers
+
 - `GET /api/career/reference-data/` — Tax/COL/marital-status reference payload
 - `GET /api/career/rent-estimate/?city=San+Jose,+CA,+United+States` — Rent estimate (HUD/fallback)
 - `GET /api/career/weekly-review/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` — Weekly summary
 
 #### Google Sheets Sync
+
 - `GET /api/career/google-oauth/status/` — Check whether Google OAuth is configured and connected
 - `POST /api/career/google-oauth/connect/` — Create a Google OAuth consent URL for read-only Sheets access and Drive metadata access for spreadsheet selection
 - `GET /api/career/google-oauth/callback/` — OAuth callback registered with Google Cloud
@@ -536,6 +594,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 ### Availability Endpoints
 
 #### Events
+
 - `GET /api/events/` — List all events
 - `POST /api/events/` — Create a new event (triggers conflict detection)
 - `GET /api/events/{id}/` — Retrieve event details
@@ -545,6 +604,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `DELETE /api/events/delete_all/` — Delete all events
 
 #### Holidays
+
 - `GET /api/holidays/` — List all custom holidays (includes `tab` field)
 - `POST /api/holidays/` — Create a custom holiday (supports `tab` assignment + grouped multi-day collections)
 - `PUT /api/holidays/{id}/` — Update holiday (full replace)
@@ -553,6 +613,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `GET /api/holidays/export/?fmt=csv` — Export holidays
 
 #### Event Categories
+
 - `GET /api/categories/` — List all event categories
 - `POST /api/categories/` — Create a category
 - `PUT /api/categories/{id}/` — Update category (name, color, icon, is_locked)
@@ -560,6 +621,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `DELETE /api/categories/{id}/` — Delete category
 
 #### Availability / Booking
+
 - `GET /api/availability/generate/?start_date=YYYY-MM-DD&timezone=Asia/Tokyo&weeks=2` — Generate availability text rows for a user-defined week range; accepts IANA timezone names
 - `POST /api/overrides/` — Override a specific date's availability text
 - `GET /api/share-links/current/` — Get active booking share link
@@ -573,6 +635,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `POST /api/booking/{uuid}/manage/{booking_uuid}/cancel/` — Public: cancel a booking before the configured cutoff with an optional reason
 
 #### Settings
+
 - `GET /api/security/dashboard/` — Authenticated security posture summary for Settings, including environment flags, auth throttles, Google sync health, and Vercel WAF setup hints
 - `GET /api/user-settings/current/` — Retrieve user settings (singleton)
 - `PUT /api/user-settings/current/` — Update all settings fields including `availability_weeks`, `employment_types`, `holiday_tabs`, `work_time_ranges`, `mobile_toolbar_items`, and AI provider fields
@@ -582,10 +645,12 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `POST /api/user-settings/ai-provider/chat-completions/` — Relay an authenticated AI request through the user's selected Claude, Gemini, OpenAI, OpenRouter, or custom adapter using the encrypted provider key
 
 #### Internal Maintenance
+
 - `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
 - `GET /api/internal/cron/google-sheet-syncs/` — Secured Google Sheets cron hook kept for future Pro/custom-worker scheduling; Hobby deploys use the single daily cron in `vercel.json`
 
 #### Authentication
+
 - `POST /api/auth/login/` — Email/password login, returns `user`, `access`, and `refresh`
 - `POST /api/auth/refresh/` — Exchange a refresh token for a rotated access/refresh pair; the previous refresh token is invalidated
 - `POST /api/auth/logout/` — Logout companion endpoint; if a refresh token is supplied it is blacklisted server-side
