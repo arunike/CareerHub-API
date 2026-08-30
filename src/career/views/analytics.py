@@ -19,8 +19,6 @@ def _requested_year(request):
 
 
 class ApplicationStatsView(APIView):
-    """Dashboard counts without shipping the applications themselves."""
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

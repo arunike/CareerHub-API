@@ -11,8 +11,6 @@ MAX_REDIRECTS = 5
 
 
 class OutboundURLError(URLError):
-    """A user-supplied URL that must not be fetched."""
-
     def __init__(self, reason):
         super().__init__(reason)
 
@@ -30,13 +28,11 @@ def _address_is_public(address):
         ip = ipaddress.ip_address(address)
     except ValueError:
         return False
-    # is_global is false for loopback, link-local (169.254.169.254), private ranges,
-    # multicast, reserved and unspecified addresses.
+    # is_global is false for loopback, link-local (169.254.169.254), private, reserved and unspecified.
     return ip.is_global and not ip.is_multicast
 
 
 def validate_outbound_url(url, *, allow_http=True):
-    """Return the URL when it is safe to fetch, else raise OutboundURLError."""
     if not url or not isinstance(url, str):
         raise OutboundURLError("No URL supplied.")
 
@@ -66,8 +62,7 @@ def validate_outbound_url(url, *, allow_http=True):
 
 
 class _ValidatingRedirectHandler(HTTPRedirectHandler):
-    """Re-validates every hop: the first URL being public says nothing about where it points."""
-
+    """Each hop is re-checked: the first URL says nothing about where it points."""
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         validate_outbound_url(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
@@ -77,7 +72,6 @@ _opener = build_opener(_ValidatingRedirectHandler())
 
 
 def open_outbound_url(url, *, timeout, data=None, headers=None, method=None, allow_http=True):
-    """urlopen for a user-supplied URL, with the address checked before and after redirects."""
     validate_outbound_url(url, allow_http=allow_http)
     request = Request(url, data=data, headers=headers or {}, method=method)
     return _opener.open(request, timeout=timeout)

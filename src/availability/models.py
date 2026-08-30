@@ -71,8 +71,7 @@ class Event(models.Model):
     recurrence_rule = models.JSONField(null=True, blank=True)
     parent_event = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='instances')
 
-    # One day of a multi-day span edited on its own. The override is a normal event row that
-    # the calendar renders in place of its parent on override_date.
+    # A normal event row the calendar renders in place of its parent on override_date.
     span_parent = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,

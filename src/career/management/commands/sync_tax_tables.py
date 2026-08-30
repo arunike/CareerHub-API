@@ -44,7 +44,7 @@ def _param(policy, name):
 
 
 def _latest_at(values, year, mars=None):
-    """Parameter values are sparse: a year's value holds until it is changed."""
+    """Sparse: a year's value holds until it is changed."""
     candidates = [
         entry
         for entry in values
@@ -56,12 +56,7 @@ def _latest_at(values, year, mars=None):
 
 
 def declared_years(policy):
-    """Years the source states outright.
-
-    Values are sparse, so forward-filling would happily invent a year: asking for 2027
-    returns 2026's figures, which are not indexed yet. Only years the year-varying
-    parameters actually declare are emitted, so an unpublished year stays unpublished.
-    """
+    """Stated years only; forward-filling would invent 2027 out of 2026's figures."""
     sets = [
         {entry['year'] for entry in policy[param]['value']}
         for param in ['STD', *BRACKET_PARAMS]
@@ -100,8 +95,7 @@ def build_tables(policy, years):
         if any(value is None for value in deduction.values()):
             continue
 
-        # Pre-2018 personal exemption, with its phase-out, so those years are modelled
-        # rather than approximated.
+        # Pre-2018 personal exemption, with its phase-out.
         exemption = _latest_at(_param(policy, 'II_em'), year) or 0
         phase_out_start = {
             status: _latest_at(_param(policy, 'II_em_ps'), year, mars)

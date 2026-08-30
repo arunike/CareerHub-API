@@ -4,7 +4,6 @@ from .management.commands.sync_tax_tables import build_tables, declared_years, d
 
 
 def _policy(years, exemption=None):
-    """A minimal stand-in for the source's sparse, year-indexed shape."""
     mars = ['single', 'mjoint', 'mseparate', 'headhh']
     policy = {
         'STD': {'value': [

@@ -24,7 +24,6 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='suggest-link')
     def suggest_link(self, request):
-        """Suggest an application for a title being typed into the event form."""
         from career.models import Application, Company
         from career.services.event_linking import (
             build_company_index,
@@ -72,7 +71,6 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='link-suggestions')
     def link_suggestions(self, request):
-        """Unlinked events paired with the application they most likely belong to."""
         from career.models import Application, Company
         from career.services.event_linking import (
             build_company_index,
@@ -124,7 +122,6 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='apply-links')
     def apply_links(self, request):
-        """Attach several events to applications in one go."""
         from career.models import Application
 
         pairs = request.data.get('links') or []

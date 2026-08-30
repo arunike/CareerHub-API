@@ -1,1 +1,0 @@
-"""CareerHub Django config package."""

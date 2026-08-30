@@ -25,7 +25,6 @@ def _company_pattern(name):
 
 
 def match_company(title, companies):
-    """Return the (id, name) of the longest company name appearing in the title."""
     low = (title or '').lower()
     if not low:
         return None
@@ -37,7 +36,7 @@ def match_company(title, companies):
 
 
 def build_company_index(companies):
-    """Longest name first so "Sony Interactive" wins over "Sony"."""
+    """Longest name first, so "Sony Interactive" wins over "Sony"."""
     return sorted(
         ((cid, name) for cid, name in companies if name and len(name.strip()) >= MIN_COMPANY_NAME),
         key=lambda row: -len(row[1]),
@@ -49,7 +48,7 @@ APPLIED_AFTER_GRACE_DAYS = 14
 
 
 def eligible_applications(applications, event_date):
-    """Drop applications submitted so long after the event that they cannot be its cause."""
+    """An application submitted long after the event cannot be its cause."""
     if event_date is None:
         return list(applications)
     cutoff = event_date + timedelta(days=APPLIED_AFTER_GRACE_DAYS)
@@ -59,7 +58,6 @@ def eligible_applications(applications, event_date):
 
 
 def pick_application(applications, event_date):
-    """Choose among several applications at the same company."""
     applications = eligible_applications(applications, event_date)
     if not applications:
         return None
@@ -83,7 +81,6 @@ def pick_application(applications, event_date):
 
 
 def confidence_for(company_name, candidate_count):
-    """How much a suggestion should be trusted, for ordering the review list."""
     if candidate_count == 1:
         return 'high'
     if len(company_name) >= 6:

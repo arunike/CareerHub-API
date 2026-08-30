@@ -1,5 +1,4 @@
-# Split by domain. Django needs every model imported here for app_label resolution, and this
-# keeps `from .models import X` working everywhere.
+# Django needs every model imported here for app_label resolution.
 from .applications import (  # noqa: F401
     Application,
     ApplicationContact,

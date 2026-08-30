@@ -319,7 +319,6 @@ def export_data(queryset, serializer_class, export_format='csv', filename='expor
     elif export_format == 'xlsx' or export_format == 'excel':
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
-        # Write to buffer
         with io.BytesIO() as buffer:
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Sheet1')

@@ -6,7 +6,7 @@ from config.outbound import OutboundURLError, validate_outbound_url
 
 
 def _resolves_to(address):
-    """Pin DNS so the test does not depend on the network."""
+    """Pinned so the test does not depend on the network."""
     return patch(
         'config.outbound.socket.getaddrinfo',
         return_value=[(2, 1, 6, '', (address, 0))],

@@ -6,7 +6,7 @@ from ..models import GoogleSheetSyncConfig
 
 
 def _list_paths():
-    """Every GET-able collection route with no URL arguments."""
+    """GET-able collection routes only; anything taking a URL argument is skipped."""
     paths = set()
 
     def walk(patterns, prefix=''):
@@ -54,9 +54,7 @@ class ListEndpointSmokeTests(APITestCase):
 
 
 class GoogleSheetSyncListTests(APITestCase):
-    """A row has to exist: the broken import sat in a per-row SerializerMethodField, so an
-    empty list serialised fine and the endpoint only failed once there was data."""
-
+    """Needs a row: the broken import sat in a per-row field, so an empty list passed."""
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username='sheet-list@example.com',

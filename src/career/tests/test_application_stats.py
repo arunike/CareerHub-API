@@ -13,8 +13,6 @@ from ..services.timeline_analytics import build_application_timeline_analytics
 
 
 class ApplicationStatsAPITests(APITestCase):
-    """The dashboard's counts moved from the browser to the server."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="application-stats-user@example.com",
@@ -93,8 +91,7 @@ class ApplicationStatsAPITests(APITestCase):
             {row['name']: row['count'] for row in data['application_age_breakdown']},
             {'Last 7 days': 2, '8-30 days': 1, '31-90 days': 1, '90+ days': 1},
         )
-        # Today, 20 days ago, and the created-today fallback. The 60- and 200-day rows are
-        # out, and an application dated a full 30 days ago would be out too.
+        # Today, 20 days ago, and the created-today fallback; 30 days old is already outside.
         self.assertEqual(data['recent_applications_30d'], 3)
 
     def test_thirty_day_window_excludes_the_boundary_day(self):
@@ -102,8 +99,7 @@ class ApplicationStatsAPITests(APITestCase):
         self._application('APPLIED', applied=self.today - timedelta(days=30))
 
         data = self.client.get('/api/career/application-stats/').json()
-        # The browser compared a wall-clock instant against midnight, so a date exactly 30
-        # days old already fell outside the window. Held here so the tile does not shift.
+        # A date exactly 30 days old falls outside the window.
         self.assertEqual(data['recent_applications_30d'], 1)
 
     def test_daily_histogram_replaces_the_application_list(self):

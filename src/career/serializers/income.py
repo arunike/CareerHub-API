@@ -46,10 +46,9 @@ class IncomeYearSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-    # The client always sends the whole set, and clearing every field drops the row, so a
-    # missing period_index means deleted rather than untouched.
     @staticmethod
     def _replace_actuals(income_year, rows):
+        """A missing period_index means deleted: the client always sends the whole set."""
         kept = []
         for row in rows:
             period_index = row.pop('period_index')

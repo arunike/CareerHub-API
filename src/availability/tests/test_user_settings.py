@@ -71,8 +71,6 @@ class UserSettingsNavigationTests(APITestCase):
 
 
 class AccountBackedLayoutSettingsTests(APITestCase):
-    """Widgets and hand-arranged layouts used to live only in localStorage, invisible on a phone."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username='chriswong',
@@ -174,8 +172,6 @@ class AccountBackedLayoutSettingsTests(APITestCase):
 
 
 class DrivingDefaultsSettingsTests(APITestCase):
-    """MPG and pump price belong to the person, not to one offer, so they live here and."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username='chriswong',

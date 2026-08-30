@@ -56,7 +56,6 @@ def generate_recurring_instances(parent_event, start_date, end_date):
     for occurrence_date in rule:
         occ_date = occurrence_date.date()
         
-        # Skip if excluded
         if occ_date in excluded_dates:
             continue
             
@@ -97,7 +96,6 @@ def delete_recurring_series(parent_event):
     # Delete all instances
     count = Event.objects.filter(parent_event=parent_event).delete()[0]
     
-    # Delete parent
     parent_event.delete()
     
     return count + 1

@@ -13,7 +13,7 @@ from availability.models import UserSettings
 
 
 def _header(call, name):
-    """Header lookup that does not care about casing, unlike Request.headers did."""
+    """Case-insensitive, unlike the Request.headers this replaced."""
     headers = call.kwargs['headers']
     for key, value in headers.items():
         if key.lower() == name.lower():

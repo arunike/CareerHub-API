@@ -8,8 +8,6 @@ from ..models import IncomeYear, PaycheckActual
 
 
 class IncomeYearActualsAPITests(APITestCase):
-    """Recorded paychecks used to live only in localStorage, so a second device showed none."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="income-user@example.com",
@@ -109,8 +107,6 @@ class IncomeYearActualsAPITests(APITestCase):
 
 
 class IncomeYearAllowanceAPITests(APITestCase):
-    """A one-time allowance was rejected by validation until ONCE joined the unit set."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="allowance-user@example.com",
@@ -170,8 +166,6 @@ class IncomeYearAllowanceAPITests(APITestCase):
 
 
 class IncomeYearDeferralBaseAPITests(APITestCase):
-    """The boolean this replaced could only carve out allowances, never the bonus."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="deferral-user@example.com",

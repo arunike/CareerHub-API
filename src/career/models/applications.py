@@ -25,8 +25,6 @@ class Company(models.Model):
 
 
 class Application(models.Model):
-
-
     RTO_CHOICES = [
         ('REMOTE', 'Remote'),
         ('HYBRID', 'Hybrid'),
@@ -76,8 +74,7 @@ class Application(models.Model):
     rto_days_per_week = models.PositiveSmallIntegerField(default=0)
     commute_cost_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     commute_cost_frequency = models.CharField(max_length=10, choices=VALUE_FREQUENCY_CHOICES, default='MONTHLY')
-    # [{mode, minutes_each_way, cost_value, cost_frequency, cost_mode, miles_each_way,
-    #   distance_basis, mpg, gas_price_per_gallon, parking_tolls_per_day, is_primary}].
+    # [{mode, minutes_each_way, cost_value, cost_frequency, cost_mode, miles_each_way, distance_basis, mpg, gas_price_per_gallon, parking_tolls_per_day, is_primary}]
     commute_options = models.JSONField(default=list, blank=True, help_text="Per-mode commute entries used for time and cost comparison")
     # Legacy flat figure, kept so offers saved before the per-meal fields keep their value.
     free_food_perk_value = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -227,8 +224,6 @@ def application_timeline_stage_order(stage, configured_stages=None):
 
 
 class ApplicationTimelineEntry(models.Model):
-
-
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='application_timeline_entries')
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name='timeline_entries')
     stage = models.CharField(max_length=50)

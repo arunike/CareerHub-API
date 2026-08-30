@@ -164,8 +164,6 @@ class FunnelConversionPrecisionTests(APITestCase):
 
 
 class TimelineAnalyticsInsightTests(APITestCase):
-    """The four additions: real offer dates, reply timing, response-rate segments, stage durations."""
-
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="timeline-insight@example.com",
@@ -241,8 +239,7 @@ class TimelineAnalyticsInsightTests(APITestCase):
         shares = [row['cumulative_share'] for row in data['response_time_buckets']]
         self.assertEqual(shares, sorted(shares))
         self.assertEqual(shares[-1], 1)
-        # p90 of [2, 5, 20, 45] by nearest rank is 45; the cutoff follows the distribution
-        # rather than snapping up to a bucket edge.
+        # p90 of [2, 5, 20, 45] by nearest rank is 45, not a bucket edge.
         self.assertEqual(data['p90_days_to_response'], 45)
         self.assertEqual(data['suggested_followup_days'], 45)
         # The silent one has waited 70 days, past that cutoff.
@@ -276,8 +273,7 @@ class TimelineAnalyticsInsightTests(APITestCase):
         self.assertEqual(data['median_days_to_response'], 3)
 
     def test_stage_durations_and_per_stage_staleness_context(self):
-        # Three applications that each took 10 days to move from 1st to 2nd round, so the
-        # stage has enough history to call 10 days typical.
+        # Three applications each took 10 days from 1st to 2nd round.
         for index in range(3):
             applied = self.today - timedelta(days=120)
             self._app(

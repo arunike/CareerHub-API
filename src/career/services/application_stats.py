@@ -26,7 +26,7 @@ def _rate(part, whole):
 
 
 def _application_round(status, current_round):
-    """Interview round reached, from a ROUND_n status or the stored round."""
+    """From a ROUND_n status, else the stored round."""
     if status and status.startswith('ROUND_'):
         suffix = status[len('ROUND_') :]
         if suffix.isdigit():
@@ -35,7 +35,7 @@ def _application_round(status, current_round):
 
 
 def _group_location(office_location, location):
-    """City-level label, matching how the dashboard has always grouped locations."""
+    """City level, which is how the dashboard has always grouped locations."""
     raw = (office_location or location or '').strip()
     if not raw:
         raw = 'Unknown'

@@ -7,8 +7,6 @@ from django.db import models
 
 
 class IncomeYear(models.Model):
-    """Employee elections for a tax year. Pay, premiums and match come from the offer."""
-
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='income_years')
     tax_year = models.PositiveIntegerField()
     source_key = models.CharField(max_length=64, default='', help_text="Which role these elections belong to, e.g. experience-10 or offer-3")
@@ -31,8 +29,6 @@ class IncomeYear(models.Model):
     dependent_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     custom_deductions = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment}] where treatment is SECTION_125, PRETAX_INCOME_ONLY or POST_TAX")
     period_deductions = models.JSONField(default=list, blank=True, help_text="[{periodIndex, medical, dental, vision, dependent, pretax401kPercent, roth401kPercent, customAmounts}] overrides for a single paycheck")
-    # Which pay the plan defers and matches on. Replaced a boolean that could only carve out
-    # allowances, leaving no way to say a plan excludes the bonus — the commonest carve-out.
     deferral_base = models.CharField(max_length=20, null=True, blank=True, default='ALL', help_text="Pay the 401(k) defers and matches on: ALL, NO_ALLOWANCES or SALARY_ONLY")
     match_tiers = models.JSONField(default=list, blank=True, help_text="[{id, matchPercent, uptoPercent}] employer 401(k) match bands, e.g. 100% to 3% then 50% to 5%")
     match_non_elective_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0, help_text="Employer contribution paid regardless of deferral, e.g. a safe-harbor 3%")
@@ -70,8 +66,6 @@ class IncomeYear(models.Model):
 
 
 class PaycheckActual(models.Model):
-    """A real paycheck, recorded to measure how far the model drifts from reality."""
-
     income_year = models.ForeignKey(IncomeYear, on_delete=models.CASCADE, related_name='actuals')
     period_index = models.PositiveSmallIntegerField(help_text="1-based pay period")
     pay_date = models.DateField(null=True, blank=True)

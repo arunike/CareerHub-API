@@ -51,8 +51,8 @@ class ResponseTrendTests(APITestCase):
             self._app(self.today - timedelta(days=days_ago), index < responded_count, **kwargs)
 
     def test_trend_compares_cohorts_that_have_had_equal_time_to_reply(self):
-        """A fresh batch that has not answered yet must not read as a collapse."""
         # p90 will be 3 days, since every reply lands on day 3.
+        """A fresh batch that has not answered yet must not read as a collapse."""
         self._seed(40, 20, 10)  # older window: 50%
         self._seed(10, 20, 5)  # recent window: 25%
         self._seed(1, 40, 0)  # applied yesterday, no chance to reply yet
@@ -69,9 +69,8 @@ class ResponseTrendTests(APITestCase):
         self.assertNotIn(40, [trend['recent']['applied'], trend['previous']['applied']])
 
     def test_trend_cohorts_use_date_applied_not_the_synced_timeline_entry(self):
-        """Cohort membership must key off the date the user recorded."""
-        # Only the older batch replies, so the p90 that sets the windows comes from rows whose
-        # dates agree — the drift under test cannot move the windows themselves.
+        # Only the older batch replies, so the drift under test cannot move the windows itself.
+        """Cohorts key off the date the user recorded, not the synced entry."""
         self._seed(50, 20, 10)
         self._seed(10, 20, 0, applied_entry=self.today - timedelta(days=50))
 

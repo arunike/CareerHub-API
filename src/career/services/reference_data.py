@@ -76,10 +76,8 @@ STATE_COL_BASE = {
     'DC': 152,
 }
 
-# Extends or replaces the frontend's bundled 2022-2026 tables without a frontend release.
-# Shape mirrors the frontend JurisdictionTable.
 def _load_generated_tax_tables() -> dict:
-    """Written by the sync_tax_tables management command; absent until it has run."""
+    """Written by sync_tax_tables; absent until it has run, and shaped like the frontend JurisdictionTable."""
     path = Path(__file__).resolve().parent.parent / 'data' / 'federal_tax_tables.json'
     try:
         return json.loads(path.read_text())

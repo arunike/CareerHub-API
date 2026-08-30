@@ -13,8 +13,7 @@ from ..services.offers import calculate_realizable_equity
 
 
 class OfferLinkedExperienceSerializerTests(APITestCase):
-    """The Past Experience filter on the offers page reads this field, so an offer that."""
-
+    """The offers page Past Experience filter reads this field."""
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="linked-exp@example.com",
@@ -59,7 +58,6 @@ class OfferLinkedExperienceSerializerTests(APITestCase):
         self.assertFalse(linked['is_current'])
 
     def test_most_recent_experience_wins(self):
-        """An internship and the return offer it became can share one offer."""
         offer = self._offer("Software Engineer")
         Experience.objects.create(
             user=self.user, offer=offer, title="Intern", company="Google",
@@ -280,8 +278,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
 
 
 class FreeFoodPerMealTests(APITestCase):
-    """Free meals are valued per meal over office days, not as a flat yearly guess."""
-
+    """Valued per meal over office days, not as a flat yearly guess."""
     def setUp(self):
         self.user = get_user_model().objects.create_user(
             username="free-food@example.com",
@@ -292,7 +289,7 @@ class FreeFoodPerMealTests(APITestCase):
         self.company = Company.objects.create(user=self.user, name='Google')
 
     def test_per_meal_entries_round_trip(self):
-        """The shape the offer form actually sends: one object per meal."""
+        """One object per meal, which is what the offer form sends."""
         application = Application.objects.create(
             user=self.user, company=self.company, role_title='Software Engineer', status='OFFER'
         )

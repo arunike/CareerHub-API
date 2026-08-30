@@ -102,8 +102,7 @@ def _request_json(*, endpoint: str, request_payload: dict, headers: dict[str, st
             method="POST",
         ) as response:
             raw_body = response.read().decode("utf-8")
-    # Before URLError, which it subclasses. The endpoint is the user's own provider setting, so
-    # a relay that will POST to 169.254.169.254 is an SSRF with a nicer name.
+    # Before URLError, which it subclasses.
     except OutboundURLError as exc:
         raise AIProviderConfigurationError(
             f"Provider URL is not allowed: {exc.reason}"

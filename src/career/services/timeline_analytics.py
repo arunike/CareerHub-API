@@ -37,7 +37,7 @@ MIN_TREND_COHORT = 15
 
 
 def _percentile(values, fraction):
-    """Nearest-rank percentile."""
+    """Nearest-rank."""
     if not values:
         return None
     ordered = sorted(values)
@@ -46,7 +46,7 @@ def _percentile(values, fraction):
 
 
 def _rate_rows(counter):
-    """Segment rows with the sample size kept alongside the rate."""
+    """Sample size travels with the rate, so a 1-of-1 cannot read as 100%."""
     rows = [
         {
             'name': name,
@@ -125,7 +125,6 @@ def _source_by_application_id(user):
 
 
 def _interview_link_stats(user, year=None):
-    """How much of the calendar is connected to the pipeline."""
     from availability.models import Event
 
     events = Event.objects.filter(user=user)

@@ -276,8 +276,7 @@ def heal_all_flat_arrays(text: str) -> str:
     n = len(text)
     while i < n:
         if text[i] == '[':
-            # Check if this [ is a valid JSON array start
-            # (i.e. preceded by :, [, ,, or { or start of text)
+            # A valid array start is preceded by :, [, , or { or the start of the text.
             p = i - 1
             while p >= 0 and text[p].isspace():
                 p -= 1

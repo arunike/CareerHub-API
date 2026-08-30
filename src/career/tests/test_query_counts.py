@@ -21,7 +21,7 @@ class ApplicationListQueryCountTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_list_does_not_scale_queries_with_row_count(self):
-        """The serializer nests the offer, its experiences, and submitted documents."""
+        """The serializer nests the offer, its experiences and submitted documents."""
         company = Company.objects.create(user=self.user, name='Google')
 
         def make(index):
