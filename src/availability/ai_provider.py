@@ -1,10 +1,9 @@
 import base64
 import hashlib
-import ipaddress
 import json
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse
-from urllib.request import Request, urlopen
+from config.outbound import OutboundURLError, open_outbound_url
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
@@ -88,12 +87,6 @@ def _extract_provider_error_message(payload: object) -> str:
 
 def _request_json(*, endpoint: str, request_payload: dict, headers: dict[str, str]) -> dict:
     request_body = json.dumps(request_payload).encode("utf-8")
-    request = Request(
-        endpoint,
-        data=request_body,
-        headers=headers,
-        method="POST",
-    )
 
     try:
         configured_timeout = getattr(settings, "AI_PROVIDER_REQUEST_TIMEOUT_SECONDS", 45)
@@ -101,8 +94,20 @@ def _request_json(*, endpoint: str, request_payload: dict, headers: dict[str, st
             max(float(configured_timeout), 1),
             AI_PROVIDER_REQUEST_TIMEOUT_CEILING_SECONDS,
         )
-        with urlopen(request, timeout=timeout_val) as response:
+        with open_outbound_url(
+            endpoint,
+            timeout=timeout_val,
+            data=request_body,
+            headers=headers,
+            method="POST",
+        ) as response:
             raw_body = response.read().decode("utf-8")
+    # Before URLError, which it subclasses. The endpoint is the user's own provider setting, so
+    # a relay that will POST to 169.254.169.254 is an SSRF with a nicer name.
+    except OutboundURLError as exc:
+        raise AIProviderConfigurationError(
+            f"Provider URL is not allowed: {exc.reason}"
+        ) from exc
     except HTTPError as exc:
         raw_error = exc.read().decode("utf-8", errors="replace")
         try:

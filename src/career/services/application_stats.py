@@ -1,5 +1,3 @@
-"""Dashboard aggregates for the applications list."""
-
 from collections import defaultdict
 from datetime import date, datetime
 

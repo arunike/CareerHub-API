@@ -46,7 +46,7 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
         ]
 
     def get_share_with_email(self, obj):
-        from .services.google_sheets import get_service_account_email
+        from ..services.google_sheets import get_service_account_email
 
         return get_service_account_email()
 
@@ -77,7 +77,7 @@ class GoogleSheetSyncConfigSerializer(serializers.ModelSerializer):
         return cleaned
 
     def validate(self, attrs):
-        from .services.google_sheets import parse_google_sheet_url
+        from ..services.google_sheets import parse_google_sheet_url
 
         sheet_url = attrs.get('sheet_url') or getattr(self.instance, 'sheet_url', '')
         spreadsheet_id, gid = parse_google_sheet_url(sheet_url)

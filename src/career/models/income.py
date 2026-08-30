@@ -31,7 +31,9 @@ class IncomeYear(models.Model):
     dependent_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     custom_deductions = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment}] where treatment is SECTION_125, PRETAX_INCOME_ONLY or POST_TAX")
     period_deductions = models.JSONField(default=list, blank=True, help_text="[{periodIndex, medical, dental, vision, dependent, pretax401kPercent, roth401kPercent, customAmounts}] overrides for a single paycheck")
-    exclude_allowances_from_deferral_base = models.BooleanField(default=False, help_text="Compute 401(k) deferrals and the match on base pay, excluding allowances")
+    # Which pay the plan defers and matches on. Replaced a boolean that could only carve out
+    # allowances, leaving no way to say a plan excludes the bonus — the commonest carve-out.
+    deferral_base = models.CharField(max_length=20, null=True, blank=True, default='ALL', help_text="Pay the 401(k) defers and matches on: ALL, NO_ALLOWANCES or SALARY_ONLY")
     match_tiers = models.JSONField(default=list, blank=True, help_text="[{id, matchPercent, uptoPercent}] employer 401(k) match bands, e.g. 100% to 3% then 50% to 5%")
     match_non_elective_percent = models.DecimalField(max_digits=6, decimal_places=3, default=0, help_text="Employer contribution paid regardless of deferral, e.g. a safe-harbor 3%")
     match_annual_cap = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Dollar ceiling on the employer's yearly contribution. 0 means none.")

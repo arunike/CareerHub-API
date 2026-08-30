@@ -3,8 +3,8 @@ import os
 import posixpath
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
+from config.outbound import open_outbound_url
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.utils.crypto import get_random_string
@@ -62,8 +62,9 @@ def read_logo_bytes(value):
         return None
 
     if normalized.startswith(("http://", "https://")):
+        # A stored URL is user input, so it is checked before the server will fetch it.
         try:
-            with urlopen(normalized, timeout=10) as response:
+            with open_outbound_url(normalized, timeout=10) as response:
                 return response.read()
         except Exception:
             return None

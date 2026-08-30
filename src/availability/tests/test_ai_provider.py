@@ -12,6 +12,16 @@ from rest_framework.test import APITestCase
 from availability.models import UserSettings
 
 
+def _header(call, name):
+    """Header lookup that does not care about casing, unlike Request.headers did."""
+    headers = call.kwargs['headers']
+    for key, value in headers.items():
+        if key.lower() == name.lower():
+            return value
+    raise KeyError(f'{name} not in {sorted(headers)}')
+
+
+
 def available_9_to_10(dates, timezone_code, user=None):
     return {
         item.strftime('%Y-%m-%d'): {
@@ -83,7 +93,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertIn('ai_provider_endpoint', response.data)
 
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_uses_stored_secret(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -114,7 +124,7 @@ class AIProviderSettingsTests(APITestCase):
         )
         self.assertTrue(mock_urlopen.called)
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_gemini_native(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'gemini'
@@ -154,14 +164,14 @@ class AIProviderSettingsTests(APITestCase):
             response.data['choices'][0]['message']['content'],
             'Hello from Gemini native',
         )
-        request = mock_urlopen.call_args[0][0]
+        call = mock_urlopen.call_args
         self.assertEqual(
-            request.full_url,
+            call[0][0],
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
         )
-        self.assertEqual(request.headers['X-goog-api-key'], 'google-key-1234')
+        self.assertEqual(_header(call, 'X-goog-api-key'), 'google-key-1234')
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_claude_messages(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'claude'
@@ -198,12 +208,12 @@ class AIProviderSettingsTests(APITestCase):
             response.data['choices'][0]['message']['content'],
             'Hello from Claude',
         )
-        request = mock_urlopen.call_args[0][0]
-        self.assertEqual(request.full_url, 'https://api.anthropic.com/v1/messages')
-        self.assertEqual(request.headers['X-api-key'], 'claude-key-1234')
-        self.assertEqual(request.headers['Anthropic-version'], '2023-06-01')
+        call = mock_urlopen.call_args
+        self.assertEqual(call[0][0], 'https://api.anthropic.com/v1/messages')
+        self.assertEqual(_header(call, 'X-api-key'), 'claude-key-1234')
+        self.assertEqual(_header(call, 'Anthropic-version'), '2023-06-01')
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_openrouter(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openrouter'
@@ -229,12 +239,12 @@ class AIProviderSettingsTests(APITestCase):
             response.data['choices'][0]['message']['content'],
             'Hello from OpenRouter',
         )
-        request = mock_urlopen.call_args[0][0]
-        self.assertEqual(request.full_url, 'https://openrouter.ai/api/v1/chat/completions')
-        self.assertEqual(request.headers['Authorization'], 'Bearer openrouter-key-1234')
-        self.assertEqual(request.headers['X-openrouter-title'], 'CareerHub')
+        call = mock_urlopen.call_args
+        self.assertEqual(call[0][0], 'https://openrouter.ai/api/v1/chat/completions')
+        self.assertEqual(_header(call, 'Authorization'), 'Bearer openrouter-key-1234')
+        self.assertEqual(_header(call, 'X-openrouter-title'), 'CareerHub')
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_custom_openai_compatible_endpoint(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'custom'
@@ -260,10 +270,10 @@ class AIProviderSettingsTests(APITestCase):
             response.data['choices'][0]['message']['content'],
             'Hello from Mistral',
         )
-        request = mock_urlopen.call_args[0][0]
-        self.assertEqual(request.full_url, 'https://api.mistral.ai/v1/chat/completions')
-        self.assertEqual(request.headers['Authorization'], 'Bearer mistral-key-1234')
-        request_payload = json.loads(request.data.decode('utf-8'))
+        call = mock_urlopen.call_args
+        self.assertEqual(call[0][0], 'https://api.mistral.ai/v1/chat/completions')
+        self.assertEqual(_header(call, 'Authorization'), 'Bearer mistral-key-1234')
+        request_payload = json.loads(call.kwargs['data'].decode('utf-8'))
         self.assertEqual(request_payload['model'], 'mistral-medium-latest')
         self.assertEqual(request_payload['messages'], [{'role': 'user', 'content': 'Say hello'}])
         self.assertEqual(request_payload['temperature'], 0.4)
@@ -278,7 +288,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('AI provider is not configured', response.data['detail'])
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     @override_settings(AI_PROVIDER_REQUEST_TIMEOUT_SECONDS=60)
     def test_ai_provider_relay_keeps_timeout_below_platform_deadline(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
@@ -303,7 +313,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(mock_urlopen.call_args.kwargs['timeout'], 55)
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_handles_timeout(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -323,7 +333,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
         self.assertIn('AI provider request timed out', response.data['detail'])
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_heals_invalid_json_with_newlines(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -353,7 +363,7 @@ class AIProviderSettingsTests(APITestCase):
         parsed = json.loads(content)
         self.assertEqual(parsed['how_to_strengthen'], '**Critical gap**. Start with:\n        1. Mentorship')
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_heals_invalid_json_with_array_colons(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -394,7 +404,7 @@ class AIProviderSettingsTests(APITestCase):
             ]
         )
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_heals_smart_quotes_and_trailing_bold_quotes(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -438,7 +448,7 @@ class AIProviderSettingsTests(APITestCase):
             ]
         )
 
-    @patch('availability.ai_provider.urlopen')
+    @patch('availability.ai_provider.open_outbound_url')
     def test_ai_provider_relay_surfaces_nested_provider_error_details(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'gemini'

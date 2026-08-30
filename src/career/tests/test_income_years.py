@@ -167,3 +167,37 @@ class IncomeYearAllowanceAPITests(APITestCase):
     def test_a_non_numeric_pay_period_index_is_rejected(self):
         response = self._create([self._once(payPeriodIndex='seventh')])
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class IncomeYearDeferralBaseAPITests(APITestCase):
+    """The boolean this replaced could only carve out allowances, never the bonus."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="deferral-user@example.com",
+            email="deferral-user@example.com",
+            password="StrongPassw0rd!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def _create(self, **extra):
+        payload = {'tax_year': 2026, 'source_key': 'experience-1'}
+        payload.update(extra)
+        return self.client.post('/api/career/income-years/', payload, format='json')
+
+    def test_defaults_to_all_pay(self):
+        self.assertEqual(self._create().status_code, status.HTTP_201_CREATED)
+        self.assertEqual(IncomeYear.objects.get(user=self.user).deferral_base, 'ALL')
+
+    def test_each_base_round_trips(self):
+        for base in ('ALL', 'NO_ALLOWANCES', 'SALARY_ONLY'):
+            IncomeYear.objects.filter(user=self.user).delete()
+            self.assertEqual(
+                self._create(deferral_base=base).status_code, status.HTTP_201_CREATED, base
+            )
+            listed = self.client.get('/api/career/income-years/')
+            self.assertEqual(listed.data[0]['deferral_base'], base)
+
+    def test_an_unknown_base_is_rejected(self):
+        response = self._create(deferral_base='BASE_PAY')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

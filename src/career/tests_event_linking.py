@@ -1,5 +1,3 @@
-"""The rule that decides which application a calendar event belongs to."""
-
 from datetime import date, timedelta
 
 from django.test import SimpleTestCase

@@ -150,6 +150,8 @@ class UserSettings(models.Model):
     )
     application_stages = models.JSONField(default=list, blank=True, help_text="Custom application timeline stages [{key, label, shortLabel, tone}]")
     hidden_nav_items = models.JSONField(default=list, blank=True, help_text="List of nav route keys to hide from sidebar")
+    hidden_income_roles = models.JSONField(default=list, blank=True, help_text="Income source keys to leave out of the Income page role picker")
+    hidden_income_years = models.JSONField(default=list, blank=True, help_text="Tax years to leave out of the Income page year picker")
     mobile_toolbar_items = models.JSONField(
         default=list,
         blank=True,

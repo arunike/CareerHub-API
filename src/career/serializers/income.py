@@ -35,7 +35,7 @@ class IncomeYearSerializer(serializers.ModelSerializer):
             'medical_premium_override', 'dental_premium_override', 'vision_premium_override',
             'dependent_premium_override', 'custom_deductions', 'period_deductions',
             'match_tiers', 'match_non_elective_percent', 'match_annual_cap',
-            'exclude_allowances_from_deferral_base', 'allowances',
+            'deferral_base', 'allowances',
             'retirement_starting_balance', 'retirement_current_value',
             'include_bonus', 'bonus_override', 'bonus_payouts',
             'bonus_multiplier_percent', 'bonus_extras', 'bonus_prorated',
@@ -133,6 +133,16 @@ class IncomeYearSerializer(serializers.ModelSerializer):
                 float(item.get('uptoPercent', 0))
             except (TypeError, ValueError):
                 raise serializers.ValidationError('Match tier percents must be numbers.')
+        return value
+
+    def validate_deferral_base(self, value):
+        if value is None:
+            return value
+        allowed = {'ALL', 'NO_ALLOWANCES', 'SALARY_ONLY'}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                'deferral_base must be ALL, NO_ALLOWANCES or SALARY_ONLY.'
+            )
         return value
 
     def validate_allowances(self, value):

@@ -1,5 +1,3 @@
-"""Suggest which application a calendar event belongs to."""
-
 import re
 from datetime import timedelta
 

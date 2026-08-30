@@ -1,5 +1,3 @@
-"""WSGI config for availability_project project."""
-
 import os
 import sys
 from pathlib import Path
