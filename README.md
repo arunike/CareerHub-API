@@ -6,11 +6,11 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 
 ## Response caching
 
-Event and holiday list responses are cached for five minutes, but **only when `REDIS_URL` is set**.
-Without it Django uses `LocMemCache`, which is private to a single serverless instance: the write
-that invalidates it and the read that follows are usually served by different instances, so a newly
-created event would stay invisible until the TTL lapsed. `response_cache_enabled()` in
-`availability/cache.py` gates every cached endpoint on a shared backend being configured.
+Event and holiday list responses are **not cached**. The cache backend is `LocMemCache`, which is
+private to a single serverless instance, so the write that invalidates it and the read that follows
+are usually served by different instances — a newly created event stayed invisible until the TTL
+lapsed. Redis would fix that but costs more than the query it saves, so the dependency was removed
+rather than left half-wired. `cache` is still used for values no other instance invalidates.
 
 ## 📋 Table of Contents
 
