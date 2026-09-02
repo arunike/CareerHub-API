@@ -182,6 +182,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "config.security_headers.SecurityHeadersMiddleware",
 ]
 
 DEFAULT_FRONTEND_ORIGINS = (

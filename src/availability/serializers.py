@@ -90,9 +90,11 @@ class UserSettingsSerializer(serializers.ModelSerializer):
         '/holidays',
         '/applications',
         '/offers',
+        '/income',
         '/documents',
         '/tasks',
         '/experience',
+        '/contacts',
         '/jd-reports',
         '/ai-tools?tab=cover-letters',
         '/ai-tools?tab=negotiation-results',
@@ -152,8 +154,6 @@ class UserSettingsSerializer(serializers.ModelSerializer):
 
     NAV_LABEL_MAX_LENGTH = 40
     NAV_LABEL_ROUTE_KEYS = (MOBILE_TOOLBAR_ROUTE_KEYS - {'__smart__'}) | {
-        '/income',
-        '/contacts',
         '/settings',
         'intelligence',
         'grp-1',
