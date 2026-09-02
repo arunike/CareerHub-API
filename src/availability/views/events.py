@@ -5,10 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from availability.pagination import ConditionalPageNumberPagination
-from django.core.cache import cache
 from django.utils import timezone
 
-from ..cache import get_events_cache_key, invalidate_events_cache
 from ..conflict_detector import check_for_conflicts
 from ..models import Event
 from ..recurrence import delete_recurring_series, generate_recurring_instances, update_recurring_series
@@ -146,30 +144,7 @@ class EventViewSet(viewsets.ModelViewSet):
             event.save(update_fields=['application', 'updated_at'])
             linked += 1
 
-        if linked:
-            invalidate_events_cache(request.user.id)
         return Response({'linked': linked, 'requested': len(pairs)})
-
-    def list(self, request, *args, **kwargs):
-        user_id = request.user.id
-        cache_key = get_events_cache_key(user_id, "list", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
-            
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            response = self.get_paginated_response(serializer.data)
-            cache.set(cache_key, response.data, timeout=300)
-            return response
-            
-        serializer = self.get_serializer(queryset, many=True)
-        response_data = serializer.data
-        cache.set(cache_key, response_data, timeout=300)
-        return Response(response_data)
 
 
     def get_queryset(self):
@@ -201,7 +176,6 @@ class EventViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         response = super().destroy(request, *args, **kwargs)
-        invalidate_events_cache(request.user.id)
         return response
 
     def perform_create(self, serializer):
@@ -219,7 +193,6 @@ class EventViewSet(viewsets.ModelViewSet):
                     }
                 )
         serializer.save(user=self.request.user)
-        invalidate_events_cache(self.request.user.id)
 
     def perform_update(self, serializer):
         data = serializer.validated_data
@@ -244,7 +217,6 @@ class EventViewSet(viewsets.ModelViewSet):
                     }
                 )
         serializer.save()
-        invalidate_events_cache(self.request.user.id)
 
     @action(detail=False, methods=['get'])
     def feed(self, request):
@@ -351,13 +323,6 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def recurring_instances(self, request):
-        user_id = request.user.id
-        cache_key = get_events_cache_key(user_id, "recurring_instances", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
-
         start_str = request.query_params.get('start_date')
         end_str = request.query_params.get('end_date')
         if not start_str or not end_str:
@@ -371,7 +336,6 @@ class EventViewSet(viewsets.ModelViewSet):
         for event in recurring_events:
             all_instances.extend(generate_recurring_instances(event, start_date, end_date))
             
-        cache.set(cache_key, all_instances, timeout=300)
         return Response(all_instances)
 
     @action(detail=True, methods=['post'])
@@ -384,7 +348,6 @@ class EventViewSet(viewsets.ModelViewSet):
         event.is_recurring = True
         event.recurrence_rule = recurrence_rule
         event.save()
-        invalidate_events_cache(request.user.id)
         return Response(self.get_serializer(event).data)
 
     @action(detail=True, methods=['put'])
@@ -394,7 +357,6 @@ class EventViewSet(viewsets.ModelViewSet):
             return Response({'error': 'This is not a recurring event'}, status=status.HTTP_400_BAD_REQUEST)
 
         count = update_recurring_series(event, request.data)
-        invalidate_events_cache(request.user.id)
         return Response({'message': f'Updated {count} events in the series'})
 
     @action(detail=True, methods=['delete'])
@@ -404,7 +366,6 @@ class EventViewSet(viewsets.ModelViewSet):
             return Response({'error': 'This is not a recurring event'}, status=status.HTTP_400_BAD_REQUEST)
 
         count = delete_recurring_series(event)
-        invalidate_events_cache(request.user.id)
         return Response({'message': f'Deleted {count} events in the series'})
 
     @action(detail=True, methods=['post'])
@@ -424,7 +385,6 @@ class EventViewSet(viewsets.ModelViewSet):
         if date_str not in event.recurrence_rule['excluded_dates']:
             event.recurrence_rule['excluded_dates'].append(date_str)
             event.save()
-            invalidate_events_cache(request.user.id)
 
         return Response({'message': f'Deleted instance on {date_str}'})
 
@@ -461,7 +421,6 @@ class EventViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         count, _ = self.get_queryset().filter(is_locked=False).delete()
-        invalidate_events_cache(request.user.id)
         return Response(
             {'message': f'Deleted {count} events. Locked events were preserved.'},
             status=status.HTTP_200_OK,

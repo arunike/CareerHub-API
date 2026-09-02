@@ -348,27 +348,11 @@ GOOGLE_OAUTH_SUCCESS_REDIRECT_URL = os.environ.get("GOOGLE_OAUTH_SUCCESS_REDIREC
 
 # Cache TTL used across the project (in seconds)
 CACHE_TTL = 300  # 5 minutes
-REDIS_URL = (os.environ.get("REDIS_URL") or "").strip()
-
-if IS_TEST or not REDIS_URL:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": f"careerhub-{ENVIRONMENT}-cache",
-            "TIMEOUT": CACHE_TTL,
-        }
+# Per-instance on serverless, so it must never hold anything another instance can invalidate.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": f"careerhub-{ENVIRONMENT}-cache",
+        "TIMEOUT": CACHE_TTL,
     }
-else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": REDIS_URL,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            },
-            "TIMEOUT": CACHE_TTL,
-            "TEST": {
-                "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            },
-        }
-    }
+}

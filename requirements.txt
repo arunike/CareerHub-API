@@ -6,10 +6,6 @@ django-filter==24.1
 djangorestframework-simplejwt==5.5.1
 psycopg[binary]==3.2.1
 
-# Optional shared cache / throttling
-django-redis==6.0.0
-redis==7.3.0
-
 # Utilities
 cryptography>=42,<45
 pytz==2024.1

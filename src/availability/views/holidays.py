@@ -5,12 +5,10 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from django.core.cache import cache
 
 from ..models import CustomHoliday, UserSettings
 from ..serializers import CustomHolidaySerializer
 from ..utils import export_data, get_federal_holidays
-from ..cache import get_holidays_cache_key, invalidate_holidays_cache
 from ..holiday_recurrence import project_recurring_holiday_dates
 
 
@@ -51,27 +49,8 @@ class HolidayViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
-    def list(self, request, *args, **kwargs):
-        user_id = request.user.id
-        cache_key = get_holidays_cache_key(user_id, "list-personal", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
-            
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=300)
-        return response
-
     @action(detail=False, methods=['get'])
     def federal(self, request):
-        user_id = request.user.id
-        cache_key = get_holidays_cache_key(user_id, "federal", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
-            
         year = _get_requested_holiday_year(request)
         holidays_dict = get_federal_holidays(year)
         
@@ -113,7 +92,6 @@ class HolidayViewSet(viewsets.ModelViewSet):
             
         data.sort(key=lambda x: x['date'])
         
-        cache.set(cache_key, data, timeout=300)
         return Response(data)
 
     @action(detail=False, methods=['get'])
@@ -126,7 +104,6 @@ class HolidayViewSet(viewsets.ModelViewSet):
         count, _ = self.get_queryset().exclude(
             holiday_type='federal'
         ).filter(is_locked=False).delete()
-        invalidate_holidays_cache(request.user.id)
         return Response(
             {'message': f'Deleted {count} holidays. Locked holidays were preserved.'},
             status=status.HTTP_200_OK,
