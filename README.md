@@ -4,6 +4,20 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 
 ![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white) ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) ![DRF](https://img.shields.io/badge/DRF-red?style=for-the-badge&logo=django&logoColor=white) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white) ![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
+## Security headers
+
+`config/security_headers.py` adds what Django has no setting for: `Content-Security-Policy:
+default-src 'none'` (the API only returns JSON), `Permissions-Policy`, and the Cross-Origin
+Opener/Resource policies. Django's own settings cover HSTS, SSL redirect, `X-Frame-Options: DENY`,
+nosniff, referrer policy and secure cookies.
+
+## Navigation keys
+
+`UserSettingsSerializer.MOBILE_TOOLBAR_ROUTE_KEYS` is the API's allow-list for
+`mobile_toolbar_items`, and it mirrors the frontend's `NAV_REGISTRY`. A tab present in one and not
+the other fails the settings save with "One or more mobile toolbar items are invalid".
+`availability/tests/test_navigation_keys.py` parses the TS registry and asserts parity both ways.
+
 ## Response caching
 
 Event and holiday list responses are **not cached**. The cache backend is `LocMemCache`, which is
@@ -146,7 +160,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - Skills are auto-extracted from descriptions and can be AI-refined after save when a provider key is configured
 - Experience data is the shared context for all AI features
 - **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; logos are stored as URL-backed assets and use Vercel Blob automatically when `BLOB_READ_WRITE_TOKEN` is configured
-- **Raise History**: each experience can link to an Offer; raise events (date, type, before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field
+- **Raise History**: each experience can link to an Offer; raise events (date, optional `effective_date` for a raise payroll applied late, `type` (one of the suggested reason keys, or whatever the user typed — there is no server-side enum), before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field. The blob passes through `_parse_structured_value` unvalidated, so a new key needs no migration — the client owns the shape
 - **Structured team history**: `team_history` JSON stores named team entries and norms metadata for use in the frontend Team History modal
 - **Internship compensation model**: hourly roles support `hourly_rate`, `hours_per_day`, `working_days_per_week`, `total_hours_worked`, `overtime_hours`, `overtime_rate`, `overtime_multiplier`, and `total_earnings_override`
 - **Multi-phase internship schedules**: `schedule_phases` JSON stores phase-by-phase internship schedule and compensation overrides
