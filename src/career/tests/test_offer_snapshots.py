@@ -45,7 +45,7 @@ class OfferLinkedExperienceSerializerTests(APITestCase):
             offer=offer,
             title="Software Engineer",
             company="Google",
-            start_date=date(2025, 1, 6),
+            start_date=date(2025, 7, 1),
             end_date=date(2026, 8, 14),
             is_current=False,
         )
@@ -53,7 +53,7 @@ class OfferLinkedExperienceSerializerTests(APITestCase):
         linked = response.data[0]['linked_experience']
         self.assertEqual(linked['title'], "Software Engineer")
         self.assertEqual(linked['company'], "Google")
-        self.assertEqual(str(linked['start_date']), '2025-01-06')
+        self.assertEqual(str(linked['start_date']), '2025-07-01')
         self.assertEqual(str(linked['end_date']), '2026-08-14')
         self.assertFalse(linked['is_current'])
 
@@ -65,7 +65,7 @@ class OfferLinkedExperienceSerializerTests(APITestCase):
         )
         Experience.objects.create(
             user=self.user, offer=offer, title="Software Engineer", company="Google",
-            start_date=date(2025, 1, 6), end_date=None, is_current=True,
+            start_date=date(2025, 7, 1), end_date=None, is_current=True,
         )
         response = self.client.get('/api/career/offers/')
         self.assertEqual(response.data[0]['linked_experience']['title'], "Software Engineer")
