@@ -444,6 +444,35 @@ Current AI features are configured in the frontend, with the provider key stored
 3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
+### Stock prices
+
+`Offer.equity_current_price` holds a price per share for a company with no ticker, which is how a
+private buyback is valued; `StockPrice` covers listed symbols, where one quote serves every offer.
+`equity_buyback_value` is retained but no longer read: a buyback realises the annual equity figure
+at the internal price, so keeping a second annual number invited the two to disagree.
+
+
+`StockPrice` holds the latest price per ticker per user, not per offer, so two offers at the same
+company share one number. `source` marks whether it was typed or fetched, which is the seam a
+market-data feed would fill without changing the offer model. `POST` upserts on `(user, symbol)`,
+so re-entering a ticker updates it rather than colliding with the unique constraint.
+
+### Squashed migrations
+
+Each app has exactly one migration, `0001_initial`, generated from the current models: a fresh
+database is built from plain `CreateModel` statements rather than replaying 52 files of raw
+`ADD COLUMN` workarounds. Production already had a `0001_initial` row per app, so it still reads
+as applied and no `django_migrations` surgery was needed. This also unblocked local sqlite: the old
+`0034` used `DROP COLUMN IF EXISTS`, which sqlite rejects, so a from-scratch local migrate was
+impossible and the backend tests could not run at all.
+
+Rows for the 52 replaced migrations remain in `django_migrations` as orphans, alongside 98 that
+were already there from an earlier squash. Django ignores rows with no matching file.
+
+One known drift, unchanged by the squash: ten `availability_usersettings` columns are nullable in
+production but `NOT NULL` in a fresh build, because the raw `ADD COLUMN` statements omitted the
+constraint. No row holds a NULL, so it is cosmetic.
+
 ### Migration Workflow
 
 When you change Django models, always generate and commit migrations.
