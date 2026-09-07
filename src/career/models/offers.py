@@ -34,6 +34,9 @@ class Offer(models.Model):
         help_text="First year a refresh grant is issued. Refreshes vest evenly over four years.",
     )
     equity_buyback_value = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Annual equity value realizable through a company buyback")
+    equity_ticker = models.CharField(max_length=12, blank=True, help_text="Ticker whose latest price reprices this grant, e.g. GOOG")
+    equity_shares = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True, help_text="Total shares in the grant, if known")
+    equity_grant_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, help_text="Price per share when the grant was made")
     sign_on = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Sign On Bonus")
     # Per-year sign-on amounts, e.g. [30000, 20000]. Empty means it is all paid in year 1.
     sign_on_schedule = models.JSONField(default=list, blank=True)
@@ -150,3 +153,36 @@ class InterviewDebrief(models.Model):
 
     def __str__(self):
         return f"{self.application.role_title} - {self.stage}"
+
+
+class StockPrice(models.Model):
+    """Latest known price for a ticker, kept once per user rather than once per offer."""
+
+    SOURCE_MANUAL = 'MANUAL'
+    SOURCE_API = 'API'
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, 'Entered by hand'),
+        (SOURCE_API, 'Fetched from a market data provider'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='stock_prices')
+    symbol = models.CharField(max_length=12, help_text="Ticker, stored uppercase")
+    price = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(0)])
+    as_of = models.DateField(help_text="The date this price is good for")
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
+    note = models.CharField(max_length=200, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['symbol']
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'symbol'], name='unique_stock_price_per_user_symbol'),
+        ]
+
+    def save(self, *args, **kwargs):
+        # One row per ticker per user, so a lowercase entry must not create a second one.
+        self.symbol = (self.symbol or '').strip().upper()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.symbol} @ {self.price} ({self.as_of})"

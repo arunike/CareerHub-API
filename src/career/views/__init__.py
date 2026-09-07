@@ -15,6 +15,7 @@ from .income import IncomeYearViewSet, PaycheckActualViewSet
 from .google_sheets import GoogleSheetSyncConfigViewSet
 from .offers import OfferViewSet
 from .offer_decision_snapshots import OfferDecisionSnapshotViewSet
+from .stock_prices import StockPriceViewSet
 from .reference import ReferenceDataView, RentEstimateView, WeeklyReviewView
 from .tasks import TaskViewSet
 from .timeline import ApplicationTimelineEntryViewSet

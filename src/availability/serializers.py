@@ -85,7 +85,11 @@ class AvailabilitySettingSerializer(serializers.ModelSerializer):
 class UserSettingsSerializer(serializers.ModelSerializer):
     MOBILE_TOOLBAR_ROUTE_KEYS = {
         '__smart__',
+        # Retired: '/' redirects to '/command-center'. Kept so a toolbar saved under the old
+        # key still validates instead of 400ing on the next save.
         '/',
+        '/command-center',
+        '/availability',
         '/events',
         '/holidays',
         '/applications',

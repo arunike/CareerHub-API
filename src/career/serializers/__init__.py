@@ -12,6 +12,7 @@ from .ai_artifacts import (  # noqa: F401
 from .offers import (  # noqa: F401
     OfferDecisionSnapshotSerializer,
     OfferSerializer,
+    StockPriceSerializer,
 )
 from .documents import (  # noqa: F401
     DocumentExportSerializer,

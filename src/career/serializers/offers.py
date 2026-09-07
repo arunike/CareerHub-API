@@ -3,7 +3,7 @@ import datetime
 from django.db import transaction
 from rest_framework import serializers
 
-from ..models import Application, Offer, OfferDecisionSnapshot
+from ..models import Application, Offer, OfferDecisionSnapshot, StockPrice
 from ..services.offers import sync_application_status_for_offer_decision
 
 
@@ -165,3 +165,32 @@ class OfferDecisionSnapshotSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get('request')
         return OfferDecisionSnapshot.objects.create(user=request.user, **validated_data)
+
+
+class StockPriceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockPrice
+        fields = ['id', 'symbol', 'price', 'as_of', 'source', 'note', 'updated_at']
+        read_only_fields = ['id', 'updated_at']
+
+    def validate_symbol(self, value):
+        symbol = (value or '').strip().upper()
+        if not symbol:
+            raise serializers.ValidationError('A ticker is required.')
+        if not symbol.replace('.', '').replace('-', '').isalnum():
+            raise serializers.ValidationError('A ticker may only contain letters, numbers, dots and dashes.')
+        return symbol
+
+    def validate_price(self, value):
+        if value is None or value < 0:
+            raise serializers.ValidationError('A price cannot be negative.')
+        return value
+
+    def create(self, validated_data):
+        # Upsert: re-entering a ticker updates the price rather than failing the unique constraint.
+        user = self.context['request'].user
+        symbol = validated_data.pop('symbol')
+        instance, _ = StockPrice.objects.update_or_create(
+            user=user, symbol=symbol, defaults=validated_data
+        )
+        return instance
