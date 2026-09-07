@@ -29,8 +29,7 @@ class NavigationKeyParityTests(unittest.TestCase):
         self.assertEqual(sorted(registry_keys() - allowed), [])
 
     def test_the_api_accepts_nothing_the_frontend_does_not_offer(self):
-        # __smart__ is a synthetic slot with no sidebar entry, and '/' is a retired route kept
-        # so toolbars saved before Today existed still validate. Nothing else may be extra.
+        # __smart__ is a synthetic slot and '/' a retired route; nothing else may be extra.
         extra = UserSettingsSerializer.MOBILE_TOOLBAR_ROUTE_KEYS - registry_keys()
         self.assertEqual(sorted(extra), ['/', '__smart__'])
 
