@@ -2,7 +2,7 @@ import re
 from datetime import time
 
 from django.conf import settings
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -45,6 +45,7 @@ class Offer(models.Model):
     benefit_items = models.JSONField(default=list, blank=True, help_text="Benefit item breakdown used to derive annual benefits value")
     pto_days = models.IntegerField(default=15)
     is_unlimited_pto = models.BooleanField(default=False, help_text="Offer includes unlimited PTO")
+    unlimited_pto_planning_days = models.PositiveSmallIntegerField(default=20, db_default=20, help_text="Days you would realistically take under an unlimited policy, used for scoring")
     sick_leave_days = models.IntegerField(default=0)
     sick_leave_included_in_unlimited_pto = models.BooleanField(default=True)
     holiday_days = models.IntegerField(default=11)
@@ -187,3 +188,39 @@ class StockPrice(models.Model):
 
     def __str__(self):
         return f"{self.symbol} @ {self.price} ({self.as_of})"
+
+
+class OfferDecisionJournal(models.Model):
+    """Why an offer was taken or turned down, and how that judgement held up later."""
+
+    DECISION_ACCEPTED = 'ACCEPTED'
+    DECISION_DECLINED = 'DECLINED'
+    DECISION_CHOICES = [
+        (DECISION_ACCEPTED, 'Accepted'),
+        (DECISION_DECLINED, 'Declined'),
+    ]
+
+    offer = models.OneToOneField('career.Offer', on_delete=models.CASCADE, related_name='decision_journal')
+    decision = models.CharField(max_length=10, choices=DECISION_CHOICES)
+    decided_on = models.DateField(help_text="When the call was made")
+    # A declined offer has no start, so its reviews count from the decision instead.
+    started_on = models.DateField(null=True, blank=True)
+    reasons = models.TextField(blank=True, help_text="What made this the right call at the time")
+    concerns = models.TextField(blank=True, help_text="What you were worried about")
+    reviews = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="One entry per milestone: [{milestone, completed_on, verdict, notes}]",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-decided_on']
+
+    @property
+    def review_anchor(self):
+        return self.started_on or self.decided_on
+
+    def __str__(self):
+        return f"{self.decision} on {self.decided_on}"

@@ -3,7 +3,7 @@ import datetime
 from django.db import transaction
 from rest_framework import serializers
 
-from ..models import Application, Offer, OfferDecisionSnapshot, StockPrice
+from ..models import Application, Offer, OfferDecisionJournal, OfferDecisionSnapshot, StockPrice
 from ..services.offers import sync_application_status_for_offer_decision
 
 
@@ -194,3 +194,40 @@ class StockPriceSerializer(serializers.ModelSerializer):
             user=user, symbol=symbol, defaults=validated_data
         )
         return instance
+
+
+class OfferDecisionJournalSerializer(serializers.ModelSerializer):
+    company_name = serializers.SerializerMethodField(read_only=True)
+    role_title = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = OfferDecisionJournal
+        fields = [
+            'id', 'offer', 'company_name', 'role_title', 'decision', 'decided_on', 'started_on',
+            'reasons', 'concerns', 'reviews', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'company_name', 'role_title', 'created_at', 'updated_at']
+
+    def get_company_name(self, obj):
+        company = getattr(obj.offer.application, 'company', None)
+        return getattr(company, 'name', '') or obj.offer.application.custom_company_name or ''
+
+    def get_role_title(self, obj):
+        return obj.offer.application.role_title or ''
+
+    def validate_reviews(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Reviews must be a list.')
+        for entry in value:
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError('Each review must be an object.')
+            if not isinstance(entry.get('milestone'), int):
+                raise serializers.ValidationError('Each review needs a milestone in days.')
+        return value
+
+    def validate_offer(self, value):
+        # The journal is one per decision, and an offer belongs to exactly one user.
+        request = self.context.get('request')
+        if request and value.application.user_id != request.user.id:
+            raise serializers.ValidationError('That offer does not belong to you.')
+        return value

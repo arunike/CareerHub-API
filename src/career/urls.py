@@ -13,6 +13,7 @@ from .views import (
     JobBoardImportView,
     OfferViewSet,
     OfferDecisionSnapshotViewSet,
+    OfferDecisionJournalViewSet,
     StockPriceViewSet,
     DocumentViewSet,
     TaskViewSet,
@@ -41,6 +42,7 @@ router.register(r'interview-debriefs', InterviewDebriefViewSet, basename='interv
 router.register(r'offers', OfferViewSet)
 router.register(r'offer-decision-snapshots', OfferDecisionSnapshotViewSet, basename='offer-decision-snapshot')
 router.register(r'stock-prices', StockPriceViewSet, basename='stock-price')
+router.register(r'offer-decision-journal', OfferDecisionJournalViewSet, basename='offer-decision-journal')
 router.register(r'documents', DocumentViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'experiences', ExperienceViewSet)

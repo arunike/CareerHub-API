@@ -10,6 +10,7 @@ from .applications import (  # noqa: F401
 from .offers import (  # noqa: F401
     InterviewDebrief,
     Offer,
+    OfferDecisionJournal,
     OfferDecisionSnapshot,
     StockPrice,
 )
