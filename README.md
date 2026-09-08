@@ -51,6 +51,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
 - 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, review detected application imports, resolve possible duplicates, approve selected changes, inspect last-run change history, run manual syncs, and configure daily cron refreshes
 - 📊 **Timeline Analytics**: Application timeline entries and Google Sheet row provenance power time-to-interview, stage conversion, stale-stage warnings, and offer-rate breakdowns
+- 📄 **Resume Version Analytics**: `Application.submitted_documents` already pins the exact document version sent, so response, interview and offer rates per resume version are derived from records already kept — no new input asked for
 - 👥 **Career Relationship Network**: Canonical contacts connect to Application and Experience contexts, expose company metadata for shared list/network filtering, support direct and person-to-person relationship edges, and preserve one logical career lifecycle from application through employment
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
@@ -122,6 +123,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
 - **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
 - **Decision Snapshots**: Persist point-in-time offer decisions with scorecard rank, frontend-calculated adjusted value and uncapped logarithmic Financial score, totals above the $300k = 100 benchmark, tax/rent/commute assumptions, separate Remote/RTO category scores, offer snapshot, and notes
+- **Decision Journal**: Record why an offer was accepted or declined, and the 30/90-day look-backs that check the call against what actually happened
 - **Negotiation Context API**: Offer and Application data power the frontend negotiation advisor and backend relay flow
 
 ### 🤖 Frontend BYOK AI
@@ -457,6 +459,74 @@ company share one number. `source` marks whether it was typed or fetched, which 
 market-data feed would fill without changing the offer model. `POST` upserts on `(user, symbol)`,
 so re-entering a ticker updates it rather than colliding with the unique constraint.
 
+### Resume version analytics
+
+`GET /career/resume-version-analytics/` (`services/resume_analytics.py`) answers which resume
+actually worked. It is **not** cached, unlike its two neighbours in `views/analytics.py`: attaching
+a resume to an application invalidates it, and `LocMemCache` is private to one serverless instance,
+so the write would never reach the instance serving the next read. Nothing new is collected: `Application.submitted_documents` already pins the exact
+`Document` version that was sent, and a later version does not replace it, so the sample per version
+is already correct on disk.
+
+Rates reuse `application_stats`' definitions so the two dashboards cannot disagree about the same
+application — no response is `APPLIED` / `GHOSTED` / `REMOVED_FROM_SHEET`, an offer is
+`OFFER` / `ACCEPTED` / `OFFER_REJECTED`. Reaching an interview is read from the **timeline as well as
+the status**, because a resume that got you to an onsite and then a rejection did its job, and a
+status-only reading would score it as a failure. An offer implies the interviews behind it whether
+or not they were logged.
+
+Two breakdowns come free of the same records. **Role type** is `employment_type`. **Source** is
+derived from the host of `job_link` against a suffix table (`boards.greenhouse.io` and
+`greenhouse.io` are one board), so a lookalike domain like `notlinkedin.com` is not credited to
+LinkedIn; anything else with a host is `Company site` and a blank link is `No link`.
+
+`MINIMUM_SAMPLE_SIZE = 5` drives `below_minimum_sample` on every row, version and breakdown alike.
+The rate is still returned — hiding it would be its own kind of lie — but the caller is told the
+number rests on fewer than five applications. `untracked_applications` reports how many applications
+name no resume at all, so a small `versions` list cannot be mistaken for a small job search.
+
+### Decision journal
+
+`OfferDecisionJournal` is one row per offer (`OneToOneField`), holding the decision, the dates, the
+reasons and the concerns. A 1-5 `confidence` field shipped with it and was dropped in `0004`: it
+asked how sure you were on a scale, which is the one thing hindsight rewrites most freely, so it
+added a number to the record without adding anything the reasons and concerns did not already say. The look-backs live in a `reviews` JSON list rather
+than a table: a review is a milestone, a completion date, a verdict and a note, always read as a
+whole set, and the milestones themselves (30 and 90 days) are a frontend choice that a schema
+would freeze. `validate_reviews` still enforces the shape, so a malformed entry cannot be stored.
+
+Reviews are counted from `started_on`, falling back to `decided_on` — `review_anchor` on the model
+does the same, since a declined offer has no start date but is still worth looking back on.
+`validate_offer` rejects an offer belonging to another user, because the offer id arrives from the
+client while the queryset filters on the request user; without it a journal could be attached to
+someone else's offer and then be invisible to its own author.
+
+### Decision outcome insights
+
+`GET /career/decision-outcome-insights/` (`services/decision_outcomes.py`) reads the journals back
+as a set rather than one at a time, which is only possible because the journal stores the judgement
+in a shape that can be counted: `concerns` is `[{id, text, outcome}]` with `outcome` in
+`REAL` / `AVOIDED` / `UNCLEAR`, and `criteria` is a list of scorecard category keys, graded per
+look-back through `reviews[].criteria_verdicts` as `BETTER` / `AS_EXPECTED` / `WORSE`. Free prose
+could not be aggregated without an AI call, and the point of the feature is that it works from
+what is already recorded.
+
+Reusing the **scorecard's own category keys** (`financial`, `benefits`, `workLife`, `trajectory`,
+`location`, `brand`, `visa`) is what lets "what mattered most" line up with the weights already set
+on the comparison page, instead of inventing a second vocabulary for the same six things.
+
+Two rules keep the aggregate honest. A review with no `completed_on` is **not** evidence — a
+half-typed look-back would otherwise vote. And where the 30 and 90 day reviews disagree about a
+criterion, **the later one wins**: the 90-day view is revisiting the same question, not answering a
+different one. `MINIMUM_DECISIONS_FOR_PATTERN = 3` flags any criterion judged fewer times.
+
+Migration `0005` turns `concerns` from text into `jsonb` and adds `criteria`. It is written as
+`SeparateDatabaseAndState` with `RunPython` branching on `connection.vendor`, because Django's own
+`AddField` emits the `ALTER COLUMN … DROP DEFAULT` Nile rejects, while sqlite rejects the
+`IF NOT EXISTS` that guards it — the combination that made local tests unrunnable before the squash.
+The `concerns` column was empty in production (checked before writing it), so it is dropped and
+re-added rather than cast through a `USING` clause.
+
 ### Squashed migrations
 
 Each app has exactly one migration, `0001_initial`, generated from the current models: a fresh
@@ -567,6 +637,8 @@ Base prefix: `/api/career/`
 - `DELETE /api/career/application-timeline/{id}/` — Remove a timeline entry while suppressing automatic Google Sheets recreation
 - `GET /api/career/application-stats/` — Return dashboard aggregates (totals, rates, locations, age buckets, daily applied histogram, available years) without the application rows; accepts `?year=`
 - `GET /api/career/application-timeline-analytics/` — Return timeline-driven application analytics, including time-to-interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
+- `GET /api/career/resume-version-analytics/` — Return per-resume-version application counts, response/interview/offer rates, breakdowns by role type and source, and a small-sample flag
+- `GET /api/career/decision-outcome-insights/` — Return which recorded concerns became real, how each decision criterion actually turned out, and how many decisions have been looked back on
 
 #### Offers
 
