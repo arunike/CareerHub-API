@@ -7,7 +7,11 @@ from .applications import (
     JobBoardImportView,
 )
 from .ai_artifacts import AIArtifactGenerationJobViewSet, AIArtifactViewSet
-from .analytics import ApplicationStatsView, ApplicationTimelineAnalyticsView
+from .analytics import (
+    ApplicationStatsView,
+    ApplicationTimelineAnalyticsView,
+    ResumeVersionAnalyticsView,
+)
 from .documents import DocumentViewSet
 from .experiences import ExperienceViewSet, ImportExperiencesView
 from .google_oauth import GoogleOAuthCallbackView, GoogleOAuthViewSet
@@ -29,6 +33,7 @@ __all__ = [
     'ApplicationViewSet',
     'ApplicationStatsView',
     'ApplicationTimelineAnalyticsView',
+    'ResumeVersionAnalyticsView',
     'ApplyImportApplicationsView',
     'ImportApplicationsView',
     'JobBoardImportView',

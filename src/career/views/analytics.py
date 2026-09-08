@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from ..cache import get_applications_cache_key
 from ..services.application_stats import build_application_stats
+from ..services.resume_analytics import build_resume_version_analytics
 from ..services.timeline_analytics import build_application_timeline_analytics
 
 
@@ -45,4 +46,15 @@ class ApplicationTimelineAnalyticsView(APIView):
             
         data = build_application_timeline_analytics(request.user, year=_requested_year(request))
         cache.set(cache_key, data, timeout=300)
+        return Response(data)
+
+
+class ResumeVersionAnalyticsView(APIView):
+    """How each submitted resume version performed, from the versions already on record."""
+
+    permission_classes = [IsAuthenticated]
+
+    # Uncached on purpose: LocMemCache is per instance, so attaching a resume would go stale.
+    def get(self, request):
+        data = build_resume_version_analytics(request.user, year=_requested_year(request))
         return Response(data)

@@ -206,11 +206,21 @@ class OfferDecisionJournal(models.Model):
     # A declined offer has no start, so its reviews count from the decision instead.
     started_on = models.DateField(null=True, blank=True)
     reasons = models.TextField(blank=True, help_text="What made this the right call at the time")
-    concerns = models.TextField(blank=True, help_text="What you were worried about")
+    # Kept as one item per worry, so a look-back can mark each one real or avoided on its own.
+    concerns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="[{id, text, outcome}] where outcome is REAL, AVOIDED, UNCLEAR or null",
+    )
+    criteria = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Scorecard category keys that drove the call, e.g. ['financial', 'trajectory']",
+    )
     reviews = models.JSONField(
         default=list,
         blank=True,
-        help_text="One entry per milestone: [{milestone, completed_on, verdict, notes}]",
+        help_text="[{milestone, completed_on, verdict, notes, criteria_verdicts}]",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
