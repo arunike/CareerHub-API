@@ -9,6 +9,7 @@ from .views import (
     ApplicationStatsView,
     ApplicationTimelineAnalyticsView,
     ResumeVersionAnalyticsView,
+    DecisionOutcomeInsightsView,
     ApplyImportApplicationsView,
     ImportApplicationsView,
     JobBoardImportView,
@@ -64,5 +65,6 @@ urlpatterns = [
     path('application-stats/', ApplicationStatsView.as_view(), name='application-stats'),
     path('application-timeline-analytics/', ApplicationTimelineAnalyticsView.as_view(), name='application-timeline-analytics'),
     path('resume-version-analytics/', ResumeVersionAnalyticsView.as_view(), name='resume-version-analytics'),
+    path('decision-outcome-insights/', DecisionOutcomeInsightsView.as_view(), name='decision-outcome-insights'),
     path('google-oauth/callback/', GoogleOAuthCallbackView.as_view(), name='google-oauth-callback'),
 ] + router.urls

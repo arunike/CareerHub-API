@@ -36,7 +36,7 @@ class OfferDecisionJournalTests(APITestCase):
             'decided_on': '2026-07-01',
             'started_on': '2026-10-01',
             'reasons': 'The team owns the product end to end.',
-            'concerns': 'The on-call rotation is thin.',
+            'concerns': [{'id': 'c1', 'text': 'The on-call rotation is thin.', 'outcome': None}],
             'reviews': [],
         }
         payload.update(overrides)
@@ -148,3 +148,31 @@ class OfferDecisionJournalTests(APITestCase):
         self.assertEqual(journal.review_anchor, date(2026, 10, 1))
         journal.started_on = None
         self.assertEqual(journal.review_anchor, date(2026, 7, 1))
+
+    def test_a_journal_can_be_deleted_again(self):
+        created = self.client.post(
+            '/api/career/offer-decision-journal/', self._payload(), format='json'
+        )
+        response = self.client.delete(
+            f"/api/career/offer-decision-journal/{created.data['id']}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(self.client.get('/api/career/offer-decision-journal/').data, [])
+
+    def test_cannot_delete_someone_elses_journal(self):
+        stranger = get_user_model().objects.create_user(
+            username="stranger-delete@example.com",
+            email="stranger-delete@example.com",
+            password="StrongPassw0rd!",
+        )
+        their_company = Company.objects.create(user=stranger, name="Netflix")
+        their_journal = OfferDecisionJournal.objects.create(
+            offer=self._offer(stranger, their_company, role_title="Software Engineer II"),
+            decision='ACCEPTED',
+            decided_on=date(2026, 7, 1),
+        )
+        response = self.client.delete(
+            f'/api/career/offer-decision-journal/{their_journal.id}/'
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(OfferDecisionJournal.objects.filter(pk=their_journal.pk).exists())

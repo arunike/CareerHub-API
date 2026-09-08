@@ -10,6 +10,7 @@ from .ai_artifacts import AIArtifactGenerationJobViewSet, AIArtifactViewSet
 from .analytics import (
     ApplicationStatsView,
     ApplicationTimelineAnalyticsView,
+    DecisionOutcomeInsightsView,
     ResumeVersionAnalyticsView,
 )
 from .documents import DocumentViewSet
@@ -33,6 +34,7 @@ __all__ = [
     'ApplicationViewSet',
     'ApplicationStatsView',
     'ApplicationTimelineAnalyticsView',
+    'DecisionOutcomeInsightsView',
     'ResumeVersionAnalyticsView',
     'ApplyImportApplicationsView',
     'ImportApplicationsView',

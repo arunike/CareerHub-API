@@ -3,7 +3,16 @@ import datetime
 from django.db import transaction
 from rest_framework import serializers
 
-from ..models import Application, Offer, OfferDecisionJournal, OfferDecisionSnapshot, StockPrice
+from ..models import (
+    Application,
+    CONCERN_OUTCOMES,
+    CRITERION_VERDICTS,
+    DECISION_CRITERIA,
+    Offer,
+    OfferDecisionJournal,
+    OfferDecisionSnapshot,
+    StockPrice,
+)
 from ..services.offers import sync_application_status_for_offer_decision
 
 
@@ -204,7 +213,7 @@ class OfferDecisionJournalSerializer(serializers.ModelSerializer):
         model = OfferDecisionJournal
         fields = [
             'id', 'offer', 'company_name', 'role_title', 'decision', 'decided_on', 'started_on',
-            'reasons', 'concerns', 'reviews', 'created_at', 'updated_at',
+            'reasons', 'concerns', 'criteria', 'reviews', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'company_name', 'role_title', 'created_at', 'updated_at']
 
@@ -215,6 +224,37 @@ class OfferDecisionJournalSerializer(serializers.ModelSerializer):
     def get_role_title(self, obj):
         return obj.offer.application.role_title or ''
 
+    def validate_concerns(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Concerns must be a list.')
+        seen = set()
+        for entry in value:
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError('Each concern must be an object.')
+            concern_id = entry.get('id')
+            if not isinstance(concern_id, str) or not concern_id:
+                raise serializers.ValidationError('Each concern needs an id.')
+            # The id is what a look-back marks real or avoided, so a duplicate would mark two.
+            if concern_id in seen:
+                raise serializers.ValidationError('Two concerns share an id.')
+            seen.add(concern_id)
+            if not isinstance(entry.get('text'), str):
+                raise serializers.ValidationError('Each concern needs its text.')
+            outcome = entry.get('outcome')
+            if outcome is not None and outcome not in CONCERN_OUTCOMES:
+                raise serializers.ValidationError(f'Unknown concern outcome: {outcome}.')
+        return value
+
+    def validate_criteria(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Criteria must be a list.')
+        for key in value:
+            if key not in DECISION_CRITERIA:
+                raise serializers.ValidationError(f'Unknown decision criterion: {key}.')
+        if len(set(value)) != len(value):
+            raise serializers.ValidationError('A criterion is listed twice.')
+        return value
+
     def validate_reviews(self, value):
         if not isinstance(value, list):
             raise serializers.ValidationError('Reviews must be a list.')
@@ -223,6 +263,14 @@ class OfferDecisionJournalSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Each review must be an object.')
             if not isinstance(entry.get('milestone'), int):
                 raise serializers.ValidationError('Each review needs a milestone in days.')
+            verdicts = entry.get('criteria_verdicts', {})
+            if not isinstance(verdicts, dict):
+                raise serializers.ValidationError('Criteria verdicts must be an object.')
+            for key, verdict in verdicts.items():
+                if key not in DECISION_CRITERIA:
+                    raise serializers.ValidationError(f'Unknown decision criterion: {key}.')
+                if verdict is not None and verdict not in CRITERION_VERDICTS:
+                    raise serializers.ValidationError(f'Unknown criterion verdict: {verdict}.')
         return value
 
     def validate_offer(self, value):

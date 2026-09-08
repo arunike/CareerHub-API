@@ -190,6 +190,14 @@ class StockPrice(models.Model):
         return f"{self.symbol} @ {self.price} ({self.as_of})"
 
 
+# The scorecard's own categories, so "what mattered" lines up with the weights already set.
+DECISION_CRITERIA = ('financial', 'benefits', 'workLife', 'trajectory', 'location', 'brand', 'visa')
+
+CONCERN_OUTCOMES = ('REAL', 'AVOIDED', 'UNCLEAR')
+
+CRITERION_VERDICTS = ('BETTER', 'AS_EXPECTED', 'WORSE')
+
+
 class OfferDecisionJournal(models.Model):
     """Why an offer was taken or turned down, and how that judgement held up later."""
 
