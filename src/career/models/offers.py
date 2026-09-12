@@ -52,6 +52,8 @@ class Offer(models.Model):
     is_current = models.BooleanField(default=False, help_text="Is this your current role?")
     raise_history = models.JSONField(default=list, blank=True, help_text="List of raise events [{id, date, type, base_before, base_after, bonus_before, bonus_after, equity_before, equity_after, label, notes}]")
     deadline = models.DateField(null=True, blank=True)
+    # When you would actually start. The first bonus is pro-rated from here, not from today.
+    expected_start_date = models.DateField(null=True, blank=True)
     final_decision_reasoning = models.TextField(blank=True)
     final_decision_status = models.CharField(max_length=20, default='PENDING')
     negotiation_rounds = models.JSONField(default=list, blank=True)

@@ -270,26 +270,6 @@ class ExperienceViewSet(viewsets.ModelViewSet):
             invalidate_experiences_cache(request.user.id)
         return Response({'status': 'reordered'})
 
-    def list(self, request, *args, **kwargs):
-        user_id = getattr(request.user, 'id', None)
-        cache_key = None
-        if user_id:
-            try:
-                cache_key = get_experiences_cache_key(user_id, "list", request.query_params)
-                cached_response = cache.get(cache_key)
-                if cached_response is not None:
-                    return Response(cached_response)
-            except Exception:
-                pass
-            
-        response = super().list(request, *args, **kwargs)
-        if user_id and cache_key:
-            try:
-                cache.set(cache_key, response.data, timeout=300)
-            except Exception:
-                pass
-        return response
-
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
         user_id = getattr(self.request.user, 'id', None)

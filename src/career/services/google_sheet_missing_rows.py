@@ -113,6 +113,20 @@ from .google_sheet_writeback import (
 )
 
 
+# The sheet holds none of this, so a sheet-driven delete leaves nothing to restore from.
+def _sheet_cannot_restore(application):
+    from career.models import Offer, OfferDecisionJournal
+
+    reasons = []
+    if Offer.objects.filter(application=application).exists():
+        reasons.append('a recorded offer')
+    if OfferDecisionJournal.objects.filter(offer__application=application).exists():
+        reasons.append('a decision journal')
+    if application.documents.exists():
+        reasons.append('attached documents')
+    return reasons
+
+
 def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
     result = {
         'archived': 0,
@@ -142,9 +156,22 @@ def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
     else:
         missing_rows = missing_rows.filter(external_key__startswith='identity:')
 
+    # An application matched under any other key this run is present; this tracked row is stale.
+    seen_object_ids = set(
+        GoogleSheetSyncRow.objects.filter(
+            config=config,
+            local_object_type='career.Application',
+            external_key__in=seen_external_keys,
+        ).values_list('local_object_id', flat=True)
+    )
+
     for tracked in missing_rows:
         application = Application.objects.filter(id=tracked.local_object_id, user=config.user).select_related('company').first()
         if not application:
+            tracked.delete()
+            continue
+
+        if application.id in seen_object_ids:
             tracked.delete()
             continue
 
@@ -155,6 +182,18 @@ def _handle_missing_sheet_rows(config, seen_external_keys, mapping):
                         'row': tracked.row_number,
                         'local_object_id': application.id,
                         'message': f'{application.company.name} {application.role_title} is locked and was not permanently deleted.',
+                    })
+                    continue
+                protected = _sheet_cannot_restore(application)
+                if protected:
+                    result['warnings'].append({
+                        'row': tracked.row_number,
+                        'local_object_id': application.id,
+                        'message': (
+                            f'{application.company.name} {application.role_title} holds '
+                            f'{" and ".join(protected)} that the sheet does not, so it was kept '
+                            'rather than permanently deleted. Restore its row or delete it here.'
+                        ),
                     })
                     continue
                 history = _history_entry(

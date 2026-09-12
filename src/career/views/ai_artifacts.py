@@ -27,17 +27,6 @@ class AIArtifactViewSet(viewsets.ModelViewSet):
             )
         return queryset.order_by('-saved_at', '-created_at')
 
-    def list(self, request, *args, **kwargs):
-        user_id = request.user.id
-        cache_key = get_ai_artifacts_cache_key(user_id, "list", request.query_params)
-        
-        cached_response = cache.get(cache_key)
-        if cached_response is not None:
-            return Response(cached_response)
-            
-        response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=300)
-        return response
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

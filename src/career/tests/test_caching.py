@@ -17,47 +17,52 @@ class CareerCachingTests(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
-    def test_task_caching_and_invalidation(self):
-        from django.core.cache import cache
+    def test_task_list_always_reflects_the_database(self):
+        """The five-minute per-instance cache hid a save made on another instance."""
         from ..models import Task
         task = Task.objects.create(user=self.user, title="Task 1", status="TODO", position=0)
-        
-        response1 = self.client.get('/api/career/tasks/')
-        self.assertEqual(response1.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response1.data), 1)
-        
-        Task.objects.filter(id=task.id).update(title="Task 1 Updated")
-        
-        response2 = self.client.get('/api/career/tasks/')
-        self.assertEqual(response2.data[0]['title'], "Task 1")
-        
-        task.title = "Task 1 Updated Save"
-        task.save()
-        
-        response3 = self.client.get('/api/career/tasks/')
-        self.assertEqual(response3.data[0]['title'], "Task 1 Updated Save")
 
-    def test_ai_artifact_caching_and_invalidation(self):
-        from django.core.cache import cache
+        first = self.client.get('/api/career/tasks/')
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(first.data), 1)
+
+        # A queryset update fires no signal, which is exactly what an invalidation hook misses.
+        Task.objects.filter(id=task.id).update(title="Task 1 Updated")
+
+        second = self.client.get('/api/career/tasks/')
+        self.assertEqual(second.data[0]['title'], "Task 1 Updated")
+
+    def test_ai_artifact_list_always_reflects_the_database(self):
         artifact = AIArtifact.objects.create(
             user=self.user,
             artifact_type='JD_REPORT',
             client_id='art-1',
             title='Art 1',
         )
-        
-        response1 = self.client.get('/api/career/ai-artifacts/')
-        self.assertEqual(response1.status_code, status.HTTP_200_OK)
-        
+
+        first = self.client.get('/api/career/ai-artifacts/')
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+
         AIArtifact.objects.filter(id=artifact.id).update(title="Art 1 Updated")
-        
-        response2 = self.client.get('/api/career/ai-artifacts/')
-        self.assertEqual(response2.data[0]['title'], "Art 1")
-        
+
+        second = self.client.get('/api/career/ai-artifacts/')
+        self.assertEqual(second.data[0]['title'], "Art 1 Updated")
+
         self.client.delete('/api/career/ai-artifacts/delete_all/')
-        
-        response3 = self.client.get('/api/career/ai-artifacts/')
-        self.assertEqual(len(response3.data), 0)
+        self.assertEqual(len(self.client.get('/api/career/ai-artifacts/').data), 0)
+
+    def test_experience_list_always_reflects_the_database(self):
+        from ..models import Experience
+        experience = Experience.objects.create(
+            user=self.user, title="Software Engineer", company="Google", is_current=False
+        )
+
+        self.assertEqual(self.client.get('/api/career/experiences/').status_code, status.HTTP_200_OK)
+        Experience.objects.filter(id=experience.id).update(title="Software Engineer II")
+
+        listed = self.client.get('/api/career/experiences/')
+        titles = [row['title'] for row in listed.data]
+        self.assertIn("Software Engineer II", titles)
 
     def test_application_list_ignores_stale_cached_payload(self):
         from django.core.cache import cache
