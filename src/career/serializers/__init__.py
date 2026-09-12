@@ -14,6 +14,7 @@ from .offers import (  # noqa: F401
     OfferDecisionSnapshotSerializer,
     OfferSerializer,
     StockPriceSerializer,
+    StockPriceHistorySerializer,
 )
 from .documents import (  # noqa: F401
     DocumentExportSerializer,

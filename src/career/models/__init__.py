@@ -16,6 +16,7 @@ from .offers import (  # noqa: F401
     OfferDecisionJournal,
     OfferDecisionSnapshot,
     StockPrice,
+    StockPriceHistory,
 )
 from .contacts import (  # noqa: F401
     CareerRecord,

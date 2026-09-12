@@ -12,6 +12,7 @@ from ..models import (
     OfferDecisionJournal,
     OfferDecisionSnapshot,
     StockPrice,
+    StockPriceHistory,
 )
 from ..services.offers import sync_application_status_for_offer_decision
 
@@ -197,12 +198,36 @@ class StockPriceSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Upsert: re-entering a ticker updates the price rather than failing the unique constraint.
-        user = self.context['request'].user
-        symbol = validated_data.pop('symbol')
-        instance, _ = StockPrice.objects.update_or_create(
-            user=user, symbol=symbol, defaults=validated_data
+        from ..services.stock_quotes import record_price
+
+        return record_price(
+            user=self.context['request'].user,
+            symbol=validated_data.pop('symbol'),
+            price=validated_data.get('price'),
+            as_of=validated_data.get('as_of'),
+            source=validated_data.get('source', StockPrice.SOURCE_MANUAL),
+            note=validated_data.get('note', ''),
         )
-        return instance
+
+    def update(self, instance, validated_data):
+        # A hand-corrected price is history too, so it goes through the same recorder.
+        from ..services.stock_quotes import record_price
+
+        return record_price(
+            user=instance.user,
+            symbol=validated_data.get('symbol', instance.symbol),
+            price=validated_data.get('price', instance.price),
+            as_of=validated_data.get('as_of', instance.as_of),
+            source=validated_data.get('source', instance.source),
+            note=validated_data.get('note', instance.note),
+        )
+
+
+class StockPriceHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StockPriceHistory
+        fields = ['id', 'symbol', 'price', 'as_of', 'source', 'note', 'recorded_at']
+        read_only_fields = fields
 
 
 class OfferDecisionJournalSerializer(serializers.ModelSerializer):

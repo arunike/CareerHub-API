@@ -200,6 +200,30 @@ CONCERN_OUTCOMES = ('REAL', 'AVOIDED', 'UNCLEAR')
 CRITERION_VERDICTS = ('BETTER', 'AS_EXPECTED', 'WORSE')
 
 
+class StockPriceHistory(models.Model):
+    """Every price recorded for a ticker, so a grant's value can be traced over time."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='stock_price_history')
+    symbol = models.CharField(max_length=12, help_text="Ticker, stored uppercase")
+    price = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(0)])
+    as_of = models.DateField(help_text="The trading day this price belongs to")
+    source = models.CharField(max_length=10, choices=StockPrice.SOURCE_CHOICES, default=StockPrice.SOURCE_MANUAL)
+    note = models.CharField(max_length=200, blank=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-as_of', 'symbol']
+        constraints = [
+            # One row per trading day: refetching the same day corrects it rather than stacking up.
+            models.UniqueConstraint(
+                fields=['user', 'symbol', 'as_of'], name='unique_stock_price_history_per_day'
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.symbol} @ {self.price} ({self.as_of})"
+
+
 class OfferDecisionJournal(models.Model):
     """Why an offer was taken or turned down, and how that judgement held up later."""
 
