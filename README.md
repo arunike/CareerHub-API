@@ -118,6 +118,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **Offer lifecycle fields**: `deadline` (decision due date), `negotiation_rounds` (JSON log of asked-vs-received per round), `risk_notes` (watch-outs, written by the Negotiation Advisor), and `final_decision_status` / `final_decision_reasoning` are all surfaced in the frontend. `final_decision_status` accepts `PENDING`, `ACCEPTED`, `REJECTED`, `EXPIRED`, and `WITHDRAWN`; the legacy `DECLINED` value is still read and preserved
 - **Removed `counteroffer_history`** (migration `0016`): redundant with `negotiation_rounds`, which models the same asked-and-answered cycle. Nothing read or wrote the field
 - **Private Equity Liquidity**: Classify annual equity as freely tradable, company-buyback, or currently unsellable; store the annual buyback value separately so downstream comparisons count only realizable equity while preserving the full grant amount
+- **Expected start date**: `Offer.expected_start_date` records when you would begin, which is what the first-year bonus pro-ration is measured from rather than the day of the comparison
 - **Simulator Inputs**: Offer and Application records expose tax overrides, monthly rent, commute cost, food perk, PTO, and equity vesting fields used by the frontend compensation simulator
 - **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
 - **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
@@ -500,6 +501,36 @@ does the same, since a declined offer has no start date but is still worth looki
 `validate_offer` rejects an offer belonging to another user, because the offer id arrives from the
 client while the queryset filters on the request user; without it a journal could be attached to
 someone else's offer and then be invisible to its own author.
+
+### Live share prices and their history
+
+`POST /career/stock-prices/refresh/` fetches the latest traded price for a ticker and records it;
+with no `symbol` it sweeps every ticker already tracked, and one bad ticker is reported in `failed`
+rather than failing the sweep. `GET /career/stock-prices/history/` returns the log, newest first,
+optionally narrowed to one symbol.
+
+The source is Yahoo's `query1.finance.yahoo.com/v8/finance/chart/<symbol>` endpoint: free, no key,
+and returning a usable `regularMarketPrice` with the trading timestamp. It is **undocumented** —
+there is no ToS permission for programmatic use and it can rate-limit or change shape without
+notice — which is why a failure never overwrites a stored price and the field stays hand-editable.
+Stooq's CSV endpoint was the other keyless candidate and is dead.
+
+**The symbol is interpolated into a URL, so it is validated before it gets near one.**
+`SYMBOL_PATTERN` allows only `[A-Z0-9][A-Z0-9.-]{0,11}`, which refuses a path traversal, a query
+string, a fragment or a second host; the request then goes through `open_outbound_url` with
+`allow_http=False`, so the SSRF guard applies on top.
+
+`record_price` is the single writer: it updates `StockPrice` (the latest-per-ticker pointer) and
+appends to `StockPriceHistory`. The log records **changes, not checks** — refetching the same
+trading day corrects that day's row, and a new day whose price is unchanged from the row before it
+adds nothing, because a price refreshed on every offer open would otherwise fill the log with
+identical rows. The comparison is against the immediately preceding row, not every row ever
+recorded, so a price that falls back to an earlier value is still a change worth logging. The
+latest pointer still advances its `as_of` either way, so "checked today" and "changed today" stay
+separable. The serializer's
+`create` **and** `update` both go through it, so a hand-corrected price is logged too — history
+that only recorded API fetches would have gaps exactly where you intervened. `StockPrice.source`
+already had an unused `API` choice; this is what finally writes it.
 
 ### Decision outcome insights
 
