@@ -93,7 +93,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertIn('ai_provider_endpoint', response.data)
 
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_uses_stored_secret(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -124,7 +124,7 @@ class AIProviderSettingsTests(APITestCase):
         )
         self.assertTrue(mock_urlopen.called)
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_gemini_native(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'gemini'
@@ -171,7 +171,7 @@ class AIProviderSettingsTests(APITestCase):
         )
         self.assertEqual(_header(call, 'X-goog-api-key'), 'google-key-1234')
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_claude_messages(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'claude'
@@ -213,7 +213,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(_header(call, 'X-api-key'), 'claude-key-1234')
         self.assertEqual(_header(call, 'Anthropic-version'), '2023-06-01')
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_openrouter(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openrouter'
@@ -244,7 +244,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(_header(call, 'Authorization'), 'Bearer openrouter-key-1234')
         self.assertEqual(_header(call, 'X-openrouter-title'), 'CareerHub')
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_supports_custom_openai_compatible_endpoint(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'custom'
@@ -288,7 +288,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('AI provider is not configured', response.data['detail'])
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     @override_settings(AI_PROVIDER_REQUEST_TIMEOUT_SECONDS=60)
     def test_ai_provider_relay_keeps_timeout_below_platform_deadline(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
@@ -313,7 +313,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(mock_urlopen.call_args.kwargs['timeout'], 55)
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_handles_timeout(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -333,7 +333,7 @@ class AIProviderSettingsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
         self.assertIn('AI provider request timed out', response.data['detail'])
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_heals_invalid_json_with_newlines(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -363,7 +363,7 @@ class AIProviderSettingsTests(APITestCase):
         parsed = json.loads(content)
         self.assertEqual(parsed['how_to_strengthen'], '**Critical gap**. Start with:\n        1. Mentorship')
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_heals_invalid_json_with_array_colons(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -404,7 +404,7 @@ class AIProviderSettingsTests(APITestCase):
             ]
         )
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_heals_smart_quotes_and_trailing_bold_quotes(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'openai'
@@ -448,7 +448,7 @@ class AIProviderSettingsTests(APITestCase):
             ]
         )
 
-    @patch('availability.ai_provider.open_outbound_url')
+    @patch('availability.services.ai_provider.open_outbound_url')
     def test_ai_provider_relay_surfaces_nested_provider_error_details(self, mock_urlopen):
         settings, _ = UserSettings.objects.get_or_create(user=self.user)
         settings.ai_provider_adapter = 'gemini'
@@ -492,42 +492,42 @@ class AIProviderSettingsTests(APITestCase):
 
 class JSONHealingTests(APITestCase):
     def test_try_heal_json_valid_json(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         valid_json = '{"a": 1, "b": [1, 2], "c": {"d": "hello"}}'
         self.assertEqual(json.loads(try_heal_json(valid_json)), json.loads(valid_json))
 
     def test_try_heal_json_flat_array_colons(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         malformed_json = '{"strongest_evidence": ["**Impact**": "Drove savings", "**Ownership**": "End-to-end"]}'
         expected_json = '{"strongest_evidence": ["**Impact**: Drove savings", "**Ownership**: End-to-end"]}'
         self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
 
     def test_try_heal_json_unescaped_newlines(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         malformed_json = '{"draft": "Hello\nWorld"}'
         expected_json = '{"draft": "Hello\\nWorld"}'
         self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
 
     def test_try_heal_json_unmatched_brackets(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         malformed_json = '{"draft_message": "Hello [Your Name]"\n    ]}'
         expected_json = '{"draft_message": "Hello [Your Name]"}'
         self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
 
     def test_try_heal_json_brackets_in_string_literal(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         malformed_json = '{"evidence": ["**[Impact]**": "value1"], "nested": "[bracket]"}'
         expected_json = '{"evidence": ["**[Impact]**: value1"], "nested": "[bracket]"}'
         self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
 
     def test_try_heal_json_yaml_block_scalar(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         malformed_json = '{"draft_message": >\n  Line 1\n  Line 2\n}'
         expected_json = '{"draft_message": "Line 1\\nLine 2"}'
         self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))
 
     def test_try_heal_json_array_bold_quotes(self):
-        from availability.ai_provider import try_heal_json
+        from availability.services.ai_provider import try_heal_json
         malformed_json = '{"avoid": [\n  **"‘I think.’** (direct)",\n  **"Assumptions** (ask)"\n]}'
         expected_json = '{"avoid": [\n  "**‘I think.’** (direct)",\n  "**Assumptions** (ask)"\n]}'
         self.assertEqual(json.loads(try_heal_json(malformed_json)), json.loads(expected_json))

@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from ..models import Offer, Experience
 from ..services import normalize_logo_url
-from ..skills_extractor import extract_skills_from_text
+from career.services.skills_extractor import extract_skills_from_text
 
 
 class ExperienceSerializer(serializers.ModelSerializer):

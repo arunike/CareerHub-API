@@ -36,7 +36,7 @@ from career.serializers import (
     TaskSerializer,
 )
 
-from ..ai_provider import AIProviderConfigurationError, AIProviderRequestError, relay_ai_provider_chat_completion
+from availability.services.ai_provider import AIProviderConfigurationError, AIProviderRequestError, relay_ai_provider_chat_completion
 from ..models import (
     AvailabilityOverride,
     AvailabilitySetting,
@@ -48,7 +48,7 @@ from ..models import (
     ShareLink,
     UserSettings,
 )
-from ..timezones import DEFAULT_TIMEZONE
+from availability.services.timezones import DEFAULT_TIMEZONE
 from ..serializers import (
     AIProviderChatCompletionRequestSerializer,
     AvailabilityOverrideSerializer,
@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 
 class ImportViewSet(viewsets.ViewSet):
     def create(self, request):
-        from ..utils import parse_import_file
+        from availability.services.utils import parse_import_file
 
         file_obj = request.FILES.get('file')
         if not file_obj:

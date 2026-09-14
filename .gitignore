@@ -38,3 +38,5 @@ media/
 .vercel
 .env*.local
 _uv/
+.venv/
+.pytest_cache/

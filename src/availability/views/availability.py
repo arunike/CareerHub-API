@@ -6,8 +6,8 @@ from rest_framework.response import Response
 
 from ..models import AvailabilityOverride, AvailabilitySetting, UserSettings
 from ..serializers import AvailabilityOverrideSerializer, AvailabilitySettingSerializer
-from ..timezones import normalize_timezone
-from ..utils import calculate_availability_for_dates, get_availability_dates
+from availability.services.timezones import normalize_timezone
+from availability.services.utils import calculate_availability_for_dates, get_availability_dates
 
 
 class AvailabilityOverrideViewSet(viewsets.ModelViewSet):

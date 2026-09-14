@@ -4,7 +4,7 @@ import posixpath
 from pathlib import Path
 from urllib.parse import urlparse
 
-from config.outbound import open_outbound_url
+from config.security.outbound import open_outbound_url
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.utils.crypto import get_random_string

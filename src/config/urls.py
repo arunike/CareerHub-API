@@ -3,9 +3,9 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from .cron_views import DailyMaintenanceCronView, GoogleSheetSyncCronView
-from .public_redirect_views import redirect_public_booking
-from .security_views import SecurityDashboardView
+from config.views.cron_views import DailyMaintenanceCronView, GoogleSheetSyncCronView
+from config.views.public_redirect_views import redirect_public_booking
+from config.security.security_views import SecurityDashboardView
 
 urlpatterns = [
     path("book/<path:path>", redirect_public_booking, name="public-booking-redirect"),
@@ -24,7 +24,7 @@ urlpatterns = [
         GoogleSheetSyncCronView.as_view(),
         name="google-sheet-sync-cron",
     ),
-    path("api/auth/", include("config.auth_urls")),
+    path("api/auth/", include("config.auth.auth_urls")),
     path('api/', include('availability.urls')),
     path('api/career/', include('career.urls')),
 ]

@@ -2,9 +2,9 @@ from rest_framework import serializers
 from django.conf import settings
 from django.utils import timezone
 
-from .ai_provider import validate_ai_provider_endpoint, AIProviderConfigurationError
+from availability.services.ai_provider import validate_ai_provider_endpoint, AIProviderConfigurationError
 from .models import Event, CustomHoliday, AvailabilityOverride, AvailabilitySetting, EventCategory, UserSettings, ConflictAlert, ShareLink, PublicBooking
-from .timezones import normalize_timezone
+from availability.services.timezones import normalize_timezone
 from career.models import Application
 
 class EventCategorySerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from .cache import (
+from career.services.cache import (
     invalidate_applications_cache,
     invalidate_experiences_cache,
     invalidate_tasks_cache,

@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from .ai_provider_errors import AIProviderConfigurationError
+from availability.services.ai_provider_errors import AIProviderConfigurationError
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 

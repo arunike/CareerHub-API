@@ -29,7 +29,7 @@ class AutoGhostStaleApplicationsTests(TestCase):
             date_applied=timezone.localdate() - timedelta(days=days_old),
         )
 
-    @patch('career.cache.invalidate_applications_cache')
+    @patch('career.services.cache.invalidate_applications_cache')
     def test_ghosts_only_applied_applications_that_reach_the_date_threshold(
         self,
         invalidate_cache,

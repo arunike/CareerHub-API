@@ -182,7 +182,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "config.security_headers.SecurityHeadersMiddleware",
+    "config.security.security_headers.SecurityHeadersMiddleware",
 ]
 
 DEFAULT_FRONTEND_ORIGINS = (
@@ -255,8 +255,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "config.authentication.AccountStatusJWTAuthentication",
-        "config.authentication.AccountStatusSessionAuthentication",
+        "config.auth.authentication.AccountStatusJWTAuthentication",
+        "config.auth.authentication.AccountStatusSessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
@@ -282,7 +282,7 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "SIGNING_KEY": os.environ.get("JWT_SIGNING_KEY", SECRET_KEY),
     "AUTH_HEADER_TYPES": ("Bearer",),
-    "USER_AUTHENTICATION_RULE": "config.authentication.jwt_user_authentication_rule",
+    "USER_AUTHENTICATION_RULE": "config.auth.authentication.jwt_user_authentication_rule",
 }
 
 ALLOW_PUBLIC_SIGNUP = env_bool("ALLOW_PUBLIC_SIGNUP", False)

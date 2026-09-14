@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from availability.ai_provider import decrypt_ai_provider_secret, encrypt_ai_provider_secret
+from availability.services.ai_provider import decrypt_ai_provider_secret, encrypt_ai_provider_secret
 from career.models import GoogleOAuthCredential, GoogleOAuthState
 
 

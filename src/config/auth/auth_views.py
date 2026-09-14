@@ -18,7 +18,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .user_ownership import claim_legacy_records_for_user, ensure_user_settings
+from config.security.user_ownership import claim_legacy_records_for_user, ensure_user_settings
 
 
 def _serialize_user(user):

@@ -4,8 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from availability.models import UserSettings
-from availability.utils import export_data
-from availability.ai_provider import relay_ai_provider_chat_completion
+from availability.services.utils import export_data
+from availability.services.ai_provider import relay_ai_provider_chat_completion
 
 from ..models import Offer
 from ..serializers import OfferExportSerializer, OfferSerializer

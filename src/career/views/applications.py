@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from availability.models import UserSettings
-from availability.utils import export_data
+from availability.services.utils import export_data
 from ..models import AIArtifact, Application, ApplicationTimelineEntry, Company, Document
 from ..serializers import (
     NON_INTERVIEW_STAGES,
@@ -44,10 +44,10 @@ from ..services.application_listing import (
     apply_application_ordering,
     build_application_summary,
 )
-from ..upload_validation import validate_import_row_count, validate_import_upload
+from career.services.upload_validation import validate_import_row_count, validate_import_upload
 
 from availability.pagination import ConditionalPageNumberPagination
-from ..cache import invalidate_applications_cache
+from career.services.cache import invalidate_applications_cache
 
 
 

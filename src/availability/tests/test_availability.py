@@ -49,7 +49,7 @@ class AvailabilityRangeTests(APITestCase):
         self.assertEqual(len(requested_response.data), 7)
 
     @patch(
-        'availability.utils.timezone.now',
+        'availability.services.utils.timezone.now',
         return_value=datetime(2026, 6, 3, 19, 0, tzinfo=dt_timezone.utc),
     )
     def test_generate_hides_elapsed_time_blocks_for_today(self, _mock_now):
@@ -70,7 +70,7 @@ class AvailabilityRangeTests(APITestCase):
         self.assertEqual(today['availability'], '2:00 PM - 5:00 PM')
 
     @patch(
-        'availability.utils.timezone.now',
+        'availability.services.utils.timezone.now',
         return_value=datetime(2026, 6, 3, 21, 0, tzinfo=dt_timezone.utc),
     )
     def test_generate_keeps_future_part_of_active_time_block_for_today(self, _mock_now):
@@ -90,7 +90,7 @@ class AvailabilityRangeTests(APITestCase):
         self.assertEqual(today['availability'], '2:30 PM - 5:00 PM')
 
     @patch(
-        'availability.utils.timezone.now',
+        'availability.services.utils.timezone.now',
         return_value=datetime(2026, 6, 1, 7, 0, tzinfo=dt_timezone.utc),
     )
     def test_generate_uses_day_specific_time_ranges(self, _mock_now):
@@ -114,7 +114,7 @@ class AvailabilityRangeTests(APITestCase):
         self.assertEqual(by_date['2026-06-05'], '1:00 PM - 4:00 PM')
 
     @patch(
-        'availability.utils.timezone.now',
+        'availability.services.utils.timezone.now',
         return_value=datetime(2026, 6, 4, 1, 57, tzinfo=dt_timezone.utc),
     )
     def test_generate_hides_today_when_all_time_blocks_elapsed(self, _mock_now):

@@ -9,7 +9,7 @@ from availability.pagination import ConditionalPageNumberPagination
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
-from availability.utils import export_data
+from availability.services.utils import export_data
 
 from ..models import Application, Document
 from ..serializers import DocumentExportSerializer, DocumentSerializer
@@ -20,7 +20,7 @@ from ..services import (
     read_document_bytes,
     store_document_file,
 )
-from ..upload_validation import validate_document_upload
+from career.services.upload_validation import validate_document_upload
 
 
 class DocumentViewSet(viewsets.ModelViewSet):

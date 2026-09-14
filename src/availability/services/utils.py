@@ -6,9 +6,9 @@ from django.utils import timezone
 import json
 import io
 import holidays
-from .models import UserSettings, AvailabilityOverride, CustomHoliday, Event
-from .holiday_recurrence import project_recurring_holiday_dates
-from .recurrence import generate_recurring_instances
+from availability.models import UserSettings, AvailabilityOverride, CustomHoliday, Event
+from availability.services.holiday_recurrence import project_recurring_holiday_dates
+from availability.services.recurrence import generate_recurring_instances
 
 def get_availability_dates(start_date=None, weeks=2):
     if start_date is None:

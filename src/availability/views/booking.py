@@ -18,8 +18,8 @@ from rest_framework.views import APIView
 from ..models import Event, PublicBooking, ShareLink, UserSettings
 from ..serializers import PublicBookingSerializer, ShareLinkSerializer
 from ..throttling import PublicBookingCreateThrottle, PublicBookingSlotsThrottle
-from ..timezones import DEFAULT_TIMEZONE, normalize_timezone
-from ..utils import calculate_availability_for_dates
+from availability.services.timezones import DEFAULT_TIMEZONE, normalize_timezone
+from availability.services.utils import calculate_availability_for_dates
 from ..signals import get_user_settings_tz_cache_key
 
 from .booking_slots import (

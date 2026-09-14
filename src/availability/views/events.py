@@ -7,11 +7,11 @@ from rest_framework.response import Response
 from availability.pagination import ConditionalPageNumberPagination
 from django.utils import timezone
 
-from ..conflict_detector import check_for_conflicts
+from availability.services.conflict_detector import check_for_conflicts
 from ..models import Event
-from ..recurrence import delete_recurring_series, generate_recurring_instances, update_recurring_series
+from availability.services.recurrence import delete_recurring_series, generate_recurring_instances, update_recurring_series
 from ..serializers import EventCategorySerializer, EventSerializer
-from ..utils import export_data
+from availability.services.utils import export_data
 
 
 
@@ -390,14 +390,14 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def detect_conflicts(self, request):
-        from ..conflict_detector import detect_all_conflicts
+        from availability.services.conflict_detector import detect_all_conflicts
 
         count = detect_all_conflicts(request.user)
         return Response({'message': f'Detected {count} conflicts', 'count': count})
 
     @action(detail=True, methods=['get'])
     def check_conflicts(self, request, pk=None):
-        from ..conflict_detector import detect_conflicts_for_event
+        from availability.services.conflict_detector import detect_conflicts_for_event
 
         event = self.get_object()
         conflicts = detect_conflicts_for_event(event)
@@ -406,7 +406,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
-        from ..conflict_detector import get_upcoming_events
+        from availability.services.conflict_detector import get_upcoming_events
 
         days = int(request.query_params.get('days', 7))
         events = get_upcoming_events(days, request.user)

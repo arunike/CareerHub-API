@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from .ai_provider import (
+from availability.services.ai_provider import (
     AI_PROVIDER_ADAPTER_CHOICES,
     DEFAULT_AI_PROVIDER_ADAPTER,
     DEFAULT_AI_PROVIDER_ENDPOINT,

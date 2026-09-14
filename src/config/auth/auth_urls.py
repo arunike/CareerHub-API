@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .auth_views import (
+from config.auth.auth_views import (
     AuthCsrfView,
     AuthLoginView,
     AuthLogoutView,

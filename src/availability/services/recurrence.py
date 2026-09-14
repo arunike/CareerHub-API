@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from dateutil.rrule import rrule, DAILY, WEEKLY, MONTHLY, YEARLY
-from .models import Event
+from availability.models import Event
 
 def parse_recurrence_rule(rule_dict):
     freq_map = {

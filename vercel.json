@@ -6,7 +6,7 @@
   "functions": {
     "api/wsgi.py": {
       "maxDuration": 60,
-      "excludeFiles": "{venv/**,media/**,backups/**,dist/**,node_modules/**,__pycache__/**,*.sqlite3}"
+      "excludeFiles": "{venv/**,.pytest_cache/**,_uv/**,.venv/**,media/**,backups/**,dist/**,node_modules/**,__pycache__/**,*.sqlite3}"
     }
   },
   "routes": [

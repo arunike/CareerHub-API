@@ -8,8 +8,8 @@ from rest_framework.response import Response
 
 from ..models import CustomHoliday, UserSettings
 from ..serializers import CustomHolidaySerializer
-from ..utils import export_data, get_federal_holidays
-from ..holiday_recurrence import project_recurring_holiday_dates
+from availability.services.utils import export_data, get_federal_holidays
+from availability.services.holiday_recurrence import project_recurring_holiday_dates
 
 
 def _get_requested_holiday_year(request):

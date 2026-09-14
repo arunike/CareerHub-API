@@ -7,7 +7,7 @@ DEFAULT_GHOSTING_THRESHOLD_DAYS = 30
 
 def auto_ghost_stale_applications():
     from career.models import Application
-    from career.cache import invalidate_applications_cache
+    from career.services.cache import invalidate_applications_cache
     from availability.models import UserSettings
 
     count = 0

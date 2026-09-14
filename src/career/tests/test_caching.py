@@ -66,7 +66,7 @@ class CareerCachingTests(APITestCase):
 
     def test_application_list_ignores_stale_cached_payload(self):
         from django.core.cache import cache
-        from ..cache import get_applications_cache_key
+        from career.services.cache import get_applications_cache_key
 
         company = Company.objects.create(user=self.user, name="Current Co")
         application = Application.objects.create(

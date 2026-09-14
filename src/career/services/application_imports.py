@@ -3,7 +3,7 @@ import re
 
 import pandas as pd
 
-from availability.ai_provider import (
+from availability.services.ai_provider import (
     AIProviderConfigurationError,
     AIProviderRequestError,
     relay_ai_provider_chat_completion,

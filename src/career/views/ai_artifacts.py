@@ -6,7 +6,7 @@ from django.core.cache import cache
 
 from ..models import AIArtifact, AIArtifactGenerationJob
 from ..serializers import AIArtifactGenerationJobSerializer, AIArtifactSerializer
-from ..cache import get_ai_artifacts_cache_key, invalidate_ai_artifacts_cache
+from career.services.cache import get_ai_artifacts_cache_key, invalidate_ai_artifacts_cache
 from ..services.ai_artifact_jobs import start_ai_artifact_generation_thread
 
 

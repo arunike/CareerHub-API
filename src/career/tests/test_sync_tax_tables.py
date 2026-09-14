@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from .management.commands.sync_tax_tables import build_tables, declared_years, diff_tables
+from career.management.commands.sync_tax_tables import build_tables, declared_years, diff_tables
 
 
 def _policy(years, exemption=None):

@@ -4,14 +4,14 @@ import threading
 from django.db import transaction
 from django.utils import timezone
 
-from availability.ai_provider import (
+from availability.services.ai_provider import (
     AIProviderConfigurationError,
     AIProviderRequestError,
     relay_ai_provider_chat_completion,
 )
 from availability.models import UserSettings
 
-from ..cache import invalidate_ai_artifacts_cache
+from career.services.cache import invalidate_ai_artifacts_cache
 from ..models import AIArtifact, AIArtifactGenerationJob
 
 

@@ -6,7 +6,7 @@ from urllib.error import HTTPError, URLError
 
 from rest_framework.exceptions import ValidationError
 
-from config.outbound import open_outbound_url
+from config.security.outbound import open_outbound_url
 
 # The symbol is interpolated into a URL, so nothing but a ticker may get through.
 SYMBOL_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.\-]{0,11}$')

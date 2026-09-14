@@ -2,13 +2,13 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from config.outbound import OutboundURLError, validate_outbound_url
+from config.security.outbound import OutboundURLError, validate_outbound_url
 
 
 def _resolves_to(address):
     """Pinned so the test does not depend on the network."""
     return patch(
-        'config.outbound.socket.getaddrinfo',
+        'config.security.outbound.socket.getaddrinfo',
         return_value=[(2, 1, 6, '', (address, 0))],
     )
 
@@ -46,7 +46,7 @@ class ValidateOutboundURLTests(SimpleTestCase):
 
     def test_blocks_a_host_with_one_private_answer_among_public_ones(self):
         infos = [(2, 1, 6, '', ('93.184.216.34', 0)), (2, 1, 6, '', ('10.1.2.3', 0))]
-        with patch('config.outbound.socket.getaddrinfo', return_value=infos):
+        with patch('config.security.outbound.socket.getaddrinfo', return_value=infos):
             with self.assertRaises(OutboundURLError):
                 validate_outbound_url('https://split-horizon.example.com/x')
 
@@ -79,14 +79,14 @@ class ValidateOutboundURLTests(SimpleTestCase):
     def test_reports_a_name_that_does_not_resolve(self):
         import socket as socket_module
 
-        with patch('config.outbound.socket.getaddrinfo', side_effect=socket_module.gaierror()):
+        with patch('config.security.outbound.socket.getaddrinfo', side_effect=socket_module.gaierror()):
             with self.assertRaises(OutboundURLError):
                 validate_outbound_url('https://no-such-host.example/')
 
 
 class RedirectRevalidationTests(SimpleTestCase):
     def test_a_redirect_to_a_private_address_is_refused(self):
-        from config.outbound import _ValidatingRedirectHandler
+        from config.security.outbound import _ValidatingRedirectHandler
 
         handler = _ValidatingRedirectHandler()
         with _resolves_to('169.254.169.254'):

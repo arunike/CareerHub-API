@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import pytz
-from .models import Event, ConflictAlert
-from .timezones import normalize_timezone
+from availability.models import Event, ConflictAlert
+from availability.services.timezones import normalize_timezone
 
 def parse_time(time_str):
     if isinstance(time_str, str):
