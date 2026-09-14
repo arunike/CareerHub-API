@@ -204,6 +204,26 @@ def _find_existing_application_by_sheet_identity(config, company, role_title, pa
     return Application.objects.filter(**filters).order_by('id').first()
 
 
+# A rename changes the identity hash, so the row is matched on its number instead, company willing.
+def _find_renamed_application_by_row(config, row_number, company):
+    from career.models import Application, GoogleSheetSyncRow
+
+    if not row_number or not company:
+        return None
+    tracked_ids = GoogleSheetSyncRow.objects.filter(
+        config=config,
+        row_number=row_number,
+        local_object_type='career.Application',
+    ).values_list('local_object_id', flat=True)
+    if not tracked_ids:
+        return None
+    return (
+        Application.objects.filter(id__in=list(tracked_ids), user=config.user, company=company)
+        .order_by('id')
+        .first()
+    )
+
+
 def _application_defaults_from_payload(payload, apply_create_defaults=False, ensure_stages=True, stage_events=None):
     defaults = {}
     if apply_create_defaults:

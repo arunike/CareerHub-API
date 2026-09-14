@@ -82,7 +82,7 @@ class IncomeYearActualsAPITests(APITestCase):
 
     def test_off_cycle_period_index_is_accepted(self):
         # Off-cycle bonus payments are numbered from OFF_CYCLE_BASE = 1000 on the client.
-        response = self._create([{'period_index': 1007, 'actual_net': '20328.16'}])
+        response = self._create([{'period_index': 1007, 'actual_net': '24750.00'}])
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data['actuals'][0]['period_index'] == 1007)
 

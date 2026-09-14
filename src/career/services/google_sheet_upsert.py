@@ -88,6 +88,7 @@ from .google_sheet_rows import (
     _datetime_in_user_date,
     _external_key,
     _find_existing_application_by_sheet_identity,
+    _find_renamed_application_by_row,
     _mapped_payload,
     _needs_application_date_backfill,
     _needs_application_source_restore,
@@ -255,6 +256,7 @@ def _upsert_application(
     config,
     payload,
     tracked,
+    row_number=None,
     history_context=None,
     duplicate_resolution='merge',
     timeline_repair_cache=None,
@@ -301,6 +303,8 @@ def _upsert_application(
     existing_application = None
     if duplicate_resolution not in {'keep_separate', 'intentional_duplicate'}:
         existing_application = _find_existing_application_by_sheet_identity(config, company, role_title, payload, defaults)
+        if existing_application is None:
+            existing_application = _find_renamed_application_by_row(config, row_number, company)
     if existing_application:
         if not payload.get('date_applied') and not existing_application.date_applied:
             defaults['date_applied'] = _datetime_in_user_date(tracked.created_at, config.user) if tracked else _current_user_date(config.user)

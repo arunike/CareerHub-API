@@ -332,3 +332,101 @@ class SheetSyncNeverDeletesLocalOnlyDataTests(APITestCase):
         self.assertFalse(
             GoogleSheetSyncRow.objects.filter(config=config, external_key='identity:stale0000000000000000').exists()
         )
+
+
+class RenamingARoleInTheSheetTests(APITestCase):
+    """A retitled row is the same application, not a new one plus a deletion."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="sheet-rename@example.com",
+            email="sheet-rename@example.com",
+            password="StrongPassw0rd!",
+        )
+
+    def _config(self):
+        return GoogleSheetSyncConfig.objects.create(
+            user=self.user,
+            name='Applications',
+            sheet_url='https://docs.google.com/spreadsheets/d/rename/edit',
+            spreadsheet_id='rename',
+            target_type=GoogleSheetSyncConfig.TARGET_APPLICATIONS,
+            column_mapping={
+                'company_name': 'Company',
+                'role_title': 'Role',
+                'status': 'Status',
+            },
+            missing_row_delete_after_days=5,
+        )
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_a_renamed_role_updates_the_application_in_place(self, mock_fetch_sheet_rows):
+        config = self._config()
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Google', 'Software Engineer', 'Applied'],
+        ]
+        sync_google_sheet(config)
+        original = Application.objects.get(user=self.user, company__name='Google')
+
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Google', 'Software Engineer II', 'Applied'],
+        ]
+        sync_google_sheet(config)
+
+        self.assertEqual(Application.objects.filter(user=self.user).count(), 1)
+        original.refresh_from_db()
+        self.assertEqual(original.role_title, 'Software Engineer II')
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_the_renamed_row_is_not_archived_for_going_missing(self, mock_fetch_sheet_rows):
+        config = self._config()
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Google', 'Software Engineer', 'Applied'],
+        ]
+        sync_google_sheet(config)
+
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Google', 'Software Engineer II', 'Applied'],
+        ]
+        result = sync_google_sheet(config)
+
+        application = Application.objects.get(user=self.user)
+        self.assertIsNone(application.source_removed_at)
+        self.assertNotEqual(application.status, 'REMOVED_FROM_SHEET')
+        self.assertEqual(result['deleted'], 0)
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_a_different_company_on_that_row_is_a_new_application(self, mock_fetch_sheet_rows):
+        """The guard: a reordered or replaced row must not overwrite the wrong record."""
+        config = self._config()
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Google', 'Software Engineer', 'Applied'],
+        ]
+        sync_google_sheet(config)
+
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Netflix', 'Software Engineer II', 'Applied'],
+        ]
+        sync_google_sheet(config)
+
+        self.assertTrue(Application.objects.filter(user=self.user, company__name='Netflix').exists())
+        self.assertTrue(Application.objects.filter(user=self.user, company__name='Google').exists())
+
+    @patch("career.services.google_sheets.fetch_sheet_rows")
+    def test_two_rows_for_one_company_stay_two_applications(self, mock_fetch_sheet_rows):
+        """Different roles at one company are not duplicates and must not be merged."""
+        config = self._config()
+        mock_fetch_sheet_rows.return_value = [
+            ['Company', 'Role', 'Status'],
+            ['Google', 'Software Engineer', 'Applied'],
+            ['Google', 'Software Engineer II', 'Applied'],
+        ]
+        sync_google_sheet(config)
+
+        self.assertEqual(Application.objects.filter(user=self.user).count(), 2)

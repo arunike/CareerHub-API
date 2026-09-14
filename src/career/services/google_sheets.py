@@ -539,6 +539,7 @@ def _sync_row_with_history(
                 config,
                 payload,
                 tracked,
+                row_number=row_number,
                 history_context=history_context,
                 duplicate_resolution=duplicate_resolution,
                 timeline_repair_cache=timeline_repair_cache,
