@@ -67,7 +67,7 @@ class ApplicationViewSet(viewsets.ModelViewSet):
             Application.objects.filter(user=self.request.user)
             # Without these, a list of 808 applications issued 1623 queries.
             .select_related('company', 'offer')
-            .prefetch_related('submitted_documents', 'offer__experiences')
+            .prefetch_related('submitted_documents', 'offer__experiences', 'timeline_entries')
             .annotate(reached_interview_annotation=reached_interview)
         )
         params = self.request.query_params

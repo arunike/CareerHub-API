@@ -85,9 +85,10 @@ class AvailabilitySettingSerializer(serializers.ModelSerializer):
 class UserSettingsSerializer(serializers.ModelSerializer):
     MOBILE_TOOLBAR_ROUTE_KEYS = {
         '__smart__',
-        # Retired: '/' redirects to '/command-center', but old saved toolbars must still validate.
+        # Retired routes: old saved toolbars still carry them and must keep validating.
         '/',
         '/command-center',
+        '/overview',
         '/availability',
         '/events',
         '/holidays',

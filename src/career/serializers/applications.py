@@ -116,6 +116,7 @@ NON_INTERVIEW_STAGES = {'APPLIED', 'REJECTED', 'GHOSTED', 'REMOVED_FROM_SHEET'}
 class ApplicationSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(write_only=True)
     has_reached_interview = serializers.SerializerMethodField(read_only=True)
+    current_stage_on = serializers.SerializerMethodField(read_only=True)
     company_details = serializers.SerializerMethodField(read_only=True)
     offer = OfferSerializer(read_only=True)
     
@@ -131,7 +132,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'salary_range', 'location', 'office_location',
             'visa_sponsorship', 'day_one_gc', 'flexible_hours_policy', 'travel_frequency', 'growth_score', 'work_life_score', 'brand_score', 'team_score',
             'job_description', 'submitted_documents', 'notes', 'current_round', 'is_locked',
-            'has_reached_interview',
+            'has_reached_interview', 'current_stage_on',
             'source_removed_at', 'source_removed_delete_after',
             'date_applied', 'offer', 'created_at'
         ]
@@ -147,6 +148,16 @@ class ApplicationSerializer(serializers.ModelSerializer):
         if obj.status not in NON_INTERVIEW_STAGES:
             return True
         return obj.timeline_entries.exclude(stage__in=NON_INTERVIEW_STAGES).exists()
+
+    def get_current_stage_on(self, obj):
+        """When the current stage was reached, so a list can say how long it has been waiting."""
+        if not obj.status:
+            return None
+        # A stage is unique per application, and iterating the prefetch keeps a list to one query.
+        for entry in obj.timeline_entries.all():
+            if entry.stage == obj.status and entry.event_date and not entry.deleted_by_user_at:
+                return entry.event_date.isoformat()
+        return None
 
     def get_company_details(self, obj):
         return CompanySerializer(obj.company).data

@@ -29,9 +29,10 @@ class NavigationKeyParityTests(unittest.TestCase):
         self.assertEqual(sorted(registry_keys() - allowed), [])
 
     def test_the_api_accepts_nothing_the_frontend_does_not_offer(self):
-        # __smart__ is a synthetic slot and '/' a retired route; nothing else may be extra.
+        # __smart__ is a synthetic slot; the rest are retired routes old toolbars still carry.
+        retired = {'/', '/command-center'}
         extra = UserSettingsSerializer.MOBILE_TOOLBAR_ROUTE_KEYS - registry_keys()
-        self.assertEqual(sorted(extra), ['/', '__smart__'])
+        self.assertEqual(sorted(extra), sorted(retired | {'__smart__'}))
 
     def test_income_is_accepted(self):
         self.assertIn('/income', UserSettingsSerializer.MOBILE_TOOLBAR_ROUTE_KEYS)
