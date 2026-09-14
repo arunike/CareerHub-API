@@ -460,6 +460,42 @@ company share one number. `source` marks whether it was typed or fetched, which 
 market-data feed would fill without changing the offer model. `POST` upserts on `(user, symbol)`,
 so re-entering a ticker updates it rather than colliding with the unique constraint.
 
+### The sheet sync will not delete what the sheet cannot restore
+
+`missing_row_strategy = ARCHIVE_THEN_DELETE` archives an application whose row left the sheet and
+permanently deletes it `missing_row_delete_after_days` later. `Offer.application` cascades, so that
+delete also destroys the offer, whose compensation is hand-entered and present nowhere in the
+sheet. One was lost this way. `_sheet_cannot_restore` now blocks the permanent delete whenever the
+application carries a recorded offer, a decision journal or attached documents, exactly as
+`is_locked` already did, and warns with the company, the role and what to do instead. Archiving
+still happens: it is a reversible status change and it is how a row's absence gets reported. Only
+the irreversible half is guarded.
+
+A second guard covers the detection itself. A tracked row is judged missing by whether its
+`external_key` appears in the run's seen set, but an application can be tracked under more than one
+key — a `row:` fallback alongside an `identity:` hash — and a match recorded under one leaves the
+other unseen. That orphaned row then reads as missing on every run, archives a live application,
+and deletes it once the grace period lapses. The pass now skips, and clears, any tracked row whose
+application was matched under any other key in the same run.
+
+### Renaming a role in the sheet no longer duplicates the application
+
+A tracked row's key is `identity:sha256(company, role, salary_range, location, office_location,
+job_link)`, so editing **any** of those six fields produces a different key. The row then matched
+no tracked row, `_find_existing_application_by_sheet_identity` filtered on the *new* role title and
+also missed, and the result was a second application plus the original archived and deleted five
+days later, taking its timeline, notes and offer with it. Only `status` and `notes` were safe to
+edit, which is not a property anyone would guess.
+
+`_find_renamed_application_by_row` is the fallback: when the identity misses, the application
+tracked at the **same sheet row number** is adopted and updated in place. The guard is that the
+**company must still match** — a reordered or replaced row is a different application, not a
+rename, and must not be overwritten. Two rows for one company with different roles stay two
+applications, since each has its own row number.
+
+The durable fix is still to map an `external_id` column, which makes the key a stable id rather
+than a hash of the contents; the row-number fallback is what protects a sheet that has none.
+
 ### Resume version analytics
 
 `GET /career/resume-version-analytics/` (`services/resume_analytics.py`) answers which resume
