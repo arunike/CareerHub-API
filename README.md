@@ -6,7 +6,7 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 
 ## Security headers
 
-`config/security_headers.py` adds what Django has no setting for: `Content-Security-Policy:
+`config/security/security_headers.py` adds what Django has no setting for: `Content-Security-Policy:
 default-src 'none'` (the API only returns JSON), `Permissions-Policy`, and the Cross-Origin
 Opener/Resource policies. Django's own settings cover HSTS, SSL redirect, `X-Frame-Options: DENY`,
 nosniff, referrer policy and secure cookies.
@@ -145,7 +145,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - Extracts fallback skills from Experience descriptions using a lightweight keyword + acronym matcher
 - Runs automatically on `Experience` create/update
 - Remains the default when no AI provider key is configured or provider refinement fails
-- Implemented in `career/skills_extractor.py`
+- Implemented in `career/services/skills_extractor.py`
 
 ### 📄 Document Management
 
@@ -207,7 +207,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - **`TaxProfile` is gone, and so is `AIArtifact.source_offer`** (migration `0034`). A sweep of all 338 model fields across 24 models found exactly these unused end to end: the `tax-profiles` route, viewset and serializer existed, and `getTaxProfiles` / `createTaxProfile` / `updateTaxProfile` were exported from `careerMisc.ts`, but **nothing ever called them** — the table held 0 rows in production. `source_offer` was declared in the artifact wire type and set on 0 of 2 rows. Nothing else in the schema is unreferenced: the only other candidate, `GoogleOAuthCredential.connected_at`, is an `auto_now_add` stamp — `created_at` under a different name.
   - The W4 figures the Income page collects (extra withholding, dependents credit, other income, deductions) are **still localStorage-only**: `TaxProfile` had columns for them, but `toPayload` in `useIncomeYear.ts` never sent them and no code path read them back. Dropping the table did not lose anything, because nothing was ever written — but that is the same class of bug as the recorded-paycheck one above, and giving W4 a home in `IncomeYear` is outstanding work.
 - **`PaycheckActual` keeps only the figures people record.** `actual_federal_tax`, `actual_state_tax`, `actual_social_security` and `actual_medicare` were dropped in `0033` after an audit found **0 of 42 production rows** holding a value in any of them — the modal that wrote them was never used. `actual_gross` (24 of 42) and `actual_net` (42 of 42) stayed and are now edited directly in the ledger. Row count and surviving values were re-checked after the migration: 42 rows, 24 gross, 42 net, 24 notes, all intact.
-- **Every user-supplied URL the server fetches goes through `config/outbound.py`.** A company logo, a stored document and the AI provider relay all fetch an address the user chose, and each called `urlopen` on it directly — so a saved logo of `http://169.254.169.254/latest/meta-data/` would have had the server fetch the cloud metadata endpoint and hand the bytes back in an export. `validate_outbound_url` allows only http/https on ports 80/443, resolves the host and refuses any answer that is not a public address, and **re-checks every redirect hop**, since a public URL that 302s to a private one is the obvious way round a one-time check. `open_outbound_url` wraps `urlopen` with it. The AI relay maps the refusal to `AIProviderConfigurationError` so the user sees why. Residual risk: a DNS rebind between the resolve and the connect is not covered — closing that needs connecting to the resolved IP with an explicit Host header.
+- **Every user-supplied URL the server fetches goes through `config/security/outbound.py`.** A company logo, a stored document and the AI provider relay all fetch an address the user chose, and each called `urlopen` on it directly — so a saved logo of `http://169.254.169.254/latest/meta-data/` would have had the server fetch the cloud metadata endpoint and hand the bytes back in an export. `validate_outbound_url` allows only http/https on ports 80/443, resolves the host and refuses any answer that is not a public address, and **re-checks every redirect hop**, since a public URL that 302s to a private one is the obvious way round a one-time check. `open_outbound_url` wraps `urlopen` with it. The AI relay maps the refusal to `AIProviderConfigurationError` so the user sees why. Residual risk: a DNS rebind between the resolve and the connect is not covered — closing that needs connecting to the resolved IP with an explicit Host header.
 - **`GET /api/career/google-sheet-syncs/` used to 500 on any saved config.** `serializers/google_sheets.py` carried `from .services...` inside a function; `serializers` is a package, so it resolved to `career.serializers.services` and raised `ModuleNotFoundError` at call time — the module imported fine and only the request failed. It is `..services` now. Two guards were added: `career/tests/test_endpoint_smoke.py` walks the router and asserts no list endpoint 5xxs, and a targeted test creates a config first, because the broken import sat in a per-row field and an empty list serialised perfectly well.
 - **`hidden_income_roles` and `hidden_income_years` on `UserSettings`** (migration `availability/0014`) hold the Income pickers' visibility choices, so they follow the account rather than the browser. Both are plain JSON lists the client owns outright. The migration follows the shape `0013` established: add each column bare with no default (the hosted Postgres rejects the `DROP DEFAULT` Django's `AddField` emits), then backfill `[]` — every `ALTER` before any `UPDATE`, since an `UPDATE` leaves pending trigger events that make the next `ALTER` fail.
 - **`deferral_base` replaced `exclude_allowances_from_deferral_base`** (migrations `0035` and `0036`). The boolean could only carve allowances out of the 401(k) base; the enum — `ALL`, `NO_ALLOWANCES`, `SALARY_ONLY` — can also exclude the bonus, which is the commoner plan rule. `0035` adds the column and backfills it from the boolean (`true → NO_ALLOWANCES`, `false → ALL`); `0036` drops the old column in a **separate** migration, because an `ALTER` after an `UPDATE` in one transaction is refused for pending trigger events. Production held 3 rows, one of them with the flag set, and read back as `{NO_ALLOWANCES: 1, ALL: 2}` afterwards.
@@ -334,8 +334,8 @@ API: `http://localhost:8000/api`
 2. **Activate virtual environment and install dependencies**
 
    ```bash
-   python -m venv venv && source venv/bin/activate
-   pip install -r requirements.docker.txt
+   uv sync                     # creates .venv from uv.lock, Python 3.12 per requires-python
+   source .venv/bin/activate
    ```
 
 3. **Create your local env file**
@@ -633,41 +633,51 @@ Access at `http://localhost:8000/admin`.
 ```
 api/
 ├── src/                      # Importable Django source packages
+│   │                         # Every app keeps Django's own modules at its root (models, serializers,
+│   │                         # admin, apps, urls, signals, tasks) and everything else in a package
+│   │                         # named for what it is: services/, views/, tests/.
 │   ├── availability/         # Availability calendar & events module
 │   │   ├── models.py         # Event, CustomHoliday, UserSettings, ShareLink, PublicBooking
 │   │   ├── serializers.py    # DRF serializers
-│   │   ├── tests/            # Per-domain test modules (availability, events, booking, settings, AI provider, auth, holidays)
-│   │   ├── views/            # API ViewSets, one module per surface (share links, imports, categories, conflicts, user settings);
-│   │   │                     # booking.py keeps the endpoints plus the slot validation the tests patch, with the rest in booking_{slots,intake,ics,notifications,validation}.py
+│   │   ├── pagination.py     # DRF page-size classes
 │   │   ├── throttling.py     # Redis rate-limit throttle classes
-│   │   ├── tasks.py          # HTTP-triggered maintenance helpers
-│   │   ├── ai_provider.py    # Provider relay; key encryption in provider_secrets.py, JSON repair in json_healing.py, exceptions in ai_provider_errors.py
-│   │   ├── tests/            # Per-domain test modules (availability, events, booking, settings, AI provider, auth, holidays)
 │   │   ├── signals.py        # Cache invalidation signals
-│   │   ├── migrations/       # Database migrations
-│   │   └── utils.py          # Utilities (holiday fetching, export helpers)
+│   │   ├── tasks.py          # HTTP-triggered maintenance helpers
+│   │   ├── services/         # Domain logic: ai_provider (relay), provider_secrets (key encryption),
+│   │   │                     # json_healing (JSON repair), ai_provider_errors, conflict_detector,
+│   │   │                     # recurrence, holiday_recurrence, timezones, utils
+│   │   ├── views/            # API ViewSets, one module per surface (share links, imports, categories,
+│   │   │                     # conflicts, user settings); booking.py keeps the endpoints plus the slot
+│   │   │                     # validation the tests patch, the rest in booking_{slots,intake,ics,…}.py
+│   │   ├── tests/            # Per-domain test modules (availability, events, booking, settings,
+│   │   │                     # AI provider, auth, holidays, hidden income, nav labels)
+│   │   └── migrations/
 │   │
 │   ├── career/               # Job applications, offers & AI tools module
-│   │   ├── models/           # Models by domain (applications, offers, contacts, documents, sheet sync, AI artifacts, experiences, income); `__init__.py` imports all of them, so `from .models import X` and app_label resolution are unchanged
-│   │   ├── serializers/      # DRF serializers by domain; `__init__.py` re-exports every name, so `from .serializers import X` is unchanged
-│   │   ├── tests/            # Per-domain test modules; sheet sync is split again by concern (stages, timeline repair, identity, review, archiving)
+│   │   ├── models/           # Models by domain; `__init__.py` imports all of them, so `from .models
+│   │   │                     # import X` and app_label resolution are unchanged
+│   │   ├── serializers/      # DRF serializers by domain; `__init__.py` re-exports every name
+│   │   ├── services/         # Business logic: career records, reference data, rent, weekly review,
+│   │   │                     # storage, stock quotes, cache, skills_extractor, upload_validation;
+│   │   │                     # google_sheets.py keeps the sync orchestration and the names the tests
+│   │   │                     # patch, the rest in google_sheet_{constants,stages,rows,…}.py
 │   │   ├── views/            # API ViewSets (package)
-│   │   ├── skills_extractor.py
-│   │   ├── services/         # Business logic (career records, reference data, rent, weekly review, Google Sheets, storage)
-│   │   │                     # google_sheets.py keeps the sync orchestration and the names the tests patch; the rest lives in
-│   │   │                     # google_sheet_{constants,stages,history,fetching,rows,timeline,writeback,upsert,missing_rows}.py
-│   │   ├── tasks.py          # Maintenance helper: auto_ghost_stale_applications
-│   │   ├── migrations/       # Database migrations
-│   │   └── urls.py           # URL routing
+│   │   ├── tests/            # Per-domain test modules; sheet sync split again by concern
+│   │   ├── management/       # Django management commands
+│   │   ├── data/             # Bundled reference data
+│   │   └── migrations/
 │   │
 │   ├── analytics/            # Analytics app support
 │   │   └── signals.py        # Cache bust on Event/Application change
 │   │
 │   └── config/               # Django project settings
 │       ├── settings.py       # Configuration (security, environment modes, PostgreSQL/SQLite, cache, CORS)
+│       ├── urls.py           # Root URL configuration
 │       ├── asgi.py           # HTTP-only ASGI entrypoint
-│       ├── cron_views.py     # Secured cron endpoint for background maintenance
-│       └── urls.py           # Root URL configuration
+│       ├── wsgi.py
+│       ├── auth/             # authentication.py (JWT/session account-status rules), auth_urls, auth_views
+│       ├── security/         # security_headers (CSP), security_views, outbound (SSRF guard), user_ownership
+│       └── views/            # cron_views (secured cron endpoint), public_redirect_views
 │
 ├── api/                      # Vercel Python runtime package
 │   └── wsgi.py               # Public `app` entrypoint for Vercel
