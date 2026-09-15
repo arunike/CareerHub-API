@@ -29,7 +29,7 @@ class IncomeYearSerializer(serializers.ModelSerializer):
         model = IncomeYear
         fields = [
             'id', 'tax_year', 'source_key', 'offer', 'experience', 'first_pay_date',
-            'salary_override', 'paychecks_per_year_override',
+            'salary_override', 'paychecks_per_year_override', 'pay_lag_days',
             'pretax_401k_percent', 'roth_401k_percent', 'hsa_per_period', 'fsa_per_period',
             'post_tax_deductions_per_period', 'hsa_family_coverage', 'age_50_plus',
             'medical_premium_override', 'dental_premium_override', 'vision_premium_override',

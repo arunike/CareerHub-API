@@ -16,6 +16,7 @@ class IncomeYear(models.Model):
     first_pay_date = models.DateField(null=True, blank=True, help_text="Anchors pay periods to real dates so vests land in the right one")
     salary_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     paychecks_per_year_override = models.PositiveSmallIntegerField(null=True, blank=True)
+    pay_lag_days = models.PositiveSmallIntegerField(default=0, help_text="Days between a pay period ending and its paycheck, read off a payslip; 0 means paid on the last day of the period")
 
     pretax_401k_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     roth_401k_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
