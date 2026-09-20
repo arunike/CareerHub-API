@@ -16,7 +16,7 @@ from .analytics import (
 from .documents import DocumentViewSet
 from .experiences import ExperienceViewSet, ImportExperiencesView
 from .google_oauth import GoogleOAuthCallbackView, GoogleOAuthViewSet
-from .income import IncomeYearViewSet, PaycheckActualViewSet
+from .income import IncomeYearViewSet
 from .google_sheets import GoogleSheetSyncConfigViewSet
 from .offers import OfferViewSet
 from .offer_decision_snapshots import OfferDecisionSnapshotViewSet
@@ -53,5 +53,4 @@ __all__ = [
     'GoogleOAuthViewSet',
     'GoogleSheetSyncConfigViewSet',
     'IncomeYearViewSet',
-    'PaycheckActualViewSet',
 ]

@@ -4,17 +4,6 @@ from rest_framework import serializers
 from ..models import IncomeYear, PaycheckActual
 
 
-class PaycheckActualSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PaycheckActual
-        fields = [
-            'id', 'income_year', 'period_index', 'pay_date',
-            'actual_gross', 'actual_net', 'note',
-            'created_at', 'updated_at',
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-
 class NestedPaycheckActualSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaycheckActual
@@ -30,10 +19,9 @@ class IncomeYearSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'tax_year', 'source_key', 'offer', 'experience', 'first_pay_date',
             'salary_override', 'paychecks_per_year_override', 'pay_lag_days',
-            'pretax_401k_percent', 'roth_401k_percent', 'hsa_per_period', 'fsa_per_period',
+            'deferral_plan', 'pretax_401k_percent', 'roth_401k_percent', 'hsa_per_period', 'fsa_per_period',
             'post_tax_deductions_per_period', 'hsa_family_coverage', 'age_50_plus',
-            'medical_premium_override', 'dental_premium_override', 'vision_premium_override',
-            'dependent_premium_override', 'custom_deductions', 'period_deductions',
+            'custom_deductions', 'period_deductions',
             'match_tiers', 'match_non_elective_percent', 'match_annual_cap',
             'deferral_base', 'allowances',
             'retirement_starting_balance', 'retirement_current_value',

@@ -17,17 +17,13 @@ class IncomeYear(models.Model):
     salary_override = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     paychecks_per_year_override = models.PositiveSmallIntegerField(null=True, blank=True)
     pay_lag_days = models.PositiveSmallIntegerField(default=0, help_text="Days between a pay period ending and its paycheck, read off a payslip; 0 means paid on the last day of the period")
+    deferral_plan = models.JSONField(default=dict, blank=True, help_text="{steps: [{id, effectiveDate, pretaxPercent, rothPercent}], escalation: {enabled, percentPerYear, capPercent}} 401(k) rate changes by date, plus annual auto-escalation")
 
     pretax_401k_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     roth_401k_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     hsa_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fsa_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     post_tax_deductions_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    # Null means fall back to the linked offer's premium for that line.
-    medical_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    dental_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    vision_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    dependent_premium_override = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     custom_deductions = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment}] where treatment is SECTION_125, PRETAX_INCOME_ONLY or POST_TAX")
     period_deductions = models.JSONField(default=list, blank=True, help_text="[{periodIndex, medical, dental, vision, dependent, pretax401kPercent, roth401kPercent, customAmounts}] overrides for a single paycheck")
     deferral_base = models.CharField(max_length=20, null=True, blank=True, default='ALL', help_text="Pay the 401(k) defers and matches on: ALL, NO_ALLOWANCES or SALARY_ONLY")

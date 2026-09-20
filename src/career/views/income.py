@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 
-from ..models import IncomeYear, PaycheckActual
-from ..serializers import IncomeYearSerializer, PaycheckActualSerializer
+from ..models import IncomeYear
+from ..serializers import IncomeYearSerializer
 
 
 class IncomeYearViewSet(viewsets.ModelViewSet):
@@ -17,11 +17,3 @@ class IncomeYearViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-class PaycheckActualViewSet(viewsets.ModelViewSet):
-    queryset = PaycheckActual.objects.all()
-    serializer_class = PaycheckActualSerializer
-
-    def get_queryset(self):
-        if not self.request.user or not self.request.user.is_authenticated:
-            return PaycheckActual.objects.none()
-        return PaycheckActual.objects.filter(income_year__user=self.request.user)

@@ -29,7 +29,6 @@ from .views import (
     GoogleOAuthViewSet,
     GoogleSheetSyncConfigViewSet,
     IncomeYearViewSet,
-    PaycheckActualViewSet,
 )
 from django.urls import path
 
@@ -37,7 +36,6 @@ router = DefaultRouter()
 router.register(r'ai-artifacts', AIArtifactViewSet, basename='ai-artifact')
 router.register(r'ai-artifact-jobs', AIArtifactGenerationJobViewSet, basename='ai-artifact-job')
 router.register(r'applications', ApplicationViewSet)
-router.register(r'application-contacts', ApplicationContactViewSet, basename='application-contact')
 router.register(r'contacts', ApplicationContactViewSet, basename='contact')
 router.register(r'contact-relationships', ContactRelationshipViewSet, basename='contact-relationship')
 router.register(r'interview-debriefs', InterviewDebriefViewSet, basename='interview-debrief')
@@ -52,7 +50,6 @@ router.register(r'application-timeline', ApplicationTimelineEntryViewSet, basena
 router.register(r'google-oauth', GoogleOAuthViewSet, basename='google-oauth')
 router.register(r'google-sheet-syncs', GoogleSheetSyncConfigViewSet, basename='google-sheet-sync')
 router.register(r'income-years', IncomeYearViewSet, basename='income-year')
-router.register(r'paycheck-actuals', PaycheckActualViewSet, basename='paycheck-actual')
 
 urlpatterns = [
     path('import/', ImportApplicationsView.as_view(), name='import-applications'),
