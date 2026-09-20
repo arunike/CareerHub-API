@@ -15,11 +15,11 @@ class CareerRelationshipNetworkTests(APITestCase):
             password='StrongPassw0rd!',
         )
         self.client.force_authenticate(self.user)
-        self.company = Company.objects.create(user=self.user, name='Northstar Labs')
+        self.company = Company.objects.create(user=self.user, name='Google')
         self.application = Application.objects.create(
             user=self.user,
             company=self.company,
-            role_title='Platform Engineer',
+            role_title='Software Engineer II',
             status='OFFER',
         )
 
@@ -34,7 +34,7 @@ class CareerRelationshipNetworkTests(APITestCase):
             '/api/career/contacts/',
             {
                 'application': self.application.id,
-                'name': 'Avery Morgan',
+                'name': 'San Zhang',
                 'email': 'AVERY@EXAMPLE.COM',
                 'relationship_kind': 'INTERVIEWER',
             },
@@ -61,18 +61,18 @@ class CareerRelationshipNetworkTests(APITestCase):
             '/api/career/contacts/',
             {
                 'application': self.application.id,
-                'name': 'Rowan Patel',
-                'email': 'rowan@example.com',
+                'name': 'Chris Wong',
+                'email': 'chris@example.com',
             },
             format='json',
         )
-        offer = Offer.objects.create(application=self.application, base_salary=180000)
+        offer = Offer.objects.create(application=self.application, base_salary=165000)
 
         experience_response = self.client.post(
             '/api/career/experiences/',
             {
-                'title': 'Platform Engineer',
-                'company': 'Northstar Labs',
+                'title': 'Software Engineer II',
+                'company': 'Google',
                 'offer': offer.id,
                 'is_current': True,
             },
@@ -84,8 +84,8 @@ class CareerRelationshipNetworkTests(APITestCase):
             '/api/career/contacts/',
             {
                 'experience': experience_id,
-                'name': 'Rowan P.',
-                'email': 'ROWAN@example.com',
+                'name': 'Chris W.',
+                'email': 'CHRIS@example.com',
                 'relationship_kind': 'COWORKER',
             },
             format='json',
@@ -133,7 +133,7 @@ class CareerRelationshipNetworkTests(APITestCase):
     def test_scoped_delete_detaches_context_without_deleting_person(self):
         response = self.client.post(
             '/api/career/contacts/',
-            {'application': self.application.id, 'name': 'Taylor Brooks'},
+            {'application': self.application.id, 'name': 'John Smith'},
             format='json',
         )
         contact_id = response.data['id']

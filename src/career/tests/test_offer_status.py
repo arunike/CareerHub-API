@@ -202,13 +202,13 @@ class OfferStatusApplicationAPITests(APITestCase):
         )
 
     def test_offer_list_backfills_legacy_offer_status_applications(self):
-        company = Company.objects.create(user=self.user, name='Plaid')
+        company = Company.objects.create(user=self.user, name='Netflix')
         application = Application.objects.create(
             user=self.user,
             company=company,
             role_title='Software Engineer',
             status='OFFER',
-            salary_range='148800 - 223200',
+            salary_range='165000 - 181500',
         )
         self.assertFalse(Offer.objects.filter(application=application).exists())
 

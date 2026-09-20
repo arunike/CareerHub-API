@@ -31,14 +31,14 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
         )
 
     def test_timeline_analytics_connects_timeline_and_sheet_source(self):
-        company = Company.objects.create(user=self.user, name='Plaid')
+        company = Company.objects.create(user=self.user, name='Stripe')
         application = Application.objects.create(
             user=self.user,
             company=company,
             role_title='Software Engineer',
             status='OFFER',
             date_applied='2026-04-01',
-            salary_range='148800 - 223200',
+            salary_range='165000 - 181500',
             location='New York, NY',
         )
         offer = Offer.objects.create(

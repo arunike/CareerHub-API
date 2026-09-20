@@ -66,8 +66,8 @@ class GoogleSheetSyncReviewTests(APITestCase):
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
             ['netflix-backend', 'Netflix', 'Backend Engineer', 'Offer', '100000 - 120000', 'Remote'],
-            ['', 'Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
-            ['', 'Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+            ['', 'Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
+            ['', 'Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
         ]
 
         review = build_import_review(config)
@@ -81,7 +81,7 @@ class GoogleSheetSyncReviewTests(APITestCase):
     def test_apply_import_review_only_applies_approved_items(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+            ['Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
             ['Stripe', 'Backend Engineer', 'Applied', '150000 - 180000', 'Remote'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
@@ -99,29 +99,29 @@ class GoogleSheetSyncReviewTests(APITestCase):
             },
         )
         review = build_import_review(config)
-        plaid_item = next(item for item in review['items'] if item['company_name'] == 'Plaid')
+        airbnb_item = next(item for item in review['items'] if item['company_name'] == 'Airbnb')
 
-        result = apply_import_review(config, approved_item_ids=[plaid_item['id']])
+        result = apply_import_review(config, approved_item_ids=[airbnb_item['id']])
 
         self.assertEqual(result['created'], 1)
         self.assertEqual(result['rejected'], 1)
-        self.assertTrue(Application.objects.filter(user=self.user, company__name='Plaid').exists())
+        self.assertTrue(Application.objects.filter(user=self.user, company__name='Airbnb').exists())
         self.assertFalse(Application.objects.filter(user=self.user, company__name='Stripe').exists())
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_apply_import_review_can_keep_possible_duplicate_separate(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Plaid')
+        company = Company.objects.create(user=self.user, name='Airbnb')
         Application.objects.create(
             user=self.user,
             company=company,
             role_title='Software Engineer',
             status='APPLIED',
-            salary_range='148800 - 223200',
+            salary_range='165000 - 181500',
             location='New York, NY',
         )
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['Plaid', 'Software Engineer', 'Applied', '148800 - 223200', 'New York, NY'],
+            ['Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -150,9 +150,9 @@ class GoogleSheetSyncReviewTests(APITestCase):
         self.assertEqual(
             Application.objects.filter(
                 user=self.user,
-                company__name='Plaid',
+                company__name='Airbnb',
                 role_title='Software Engineer',
-                salary_range='148800 - 223200',
+                salary_range='165000 - 181500',
             ).count(),
             2,
         )
@@ -160,13 +160,13 @@ class GoogleSheetSyncReviewTests(APITestCase):
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_sync_result_history_records_status_custom_stage_and_duplicate_events(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='Plaid')
+        company = Company.objects.create(user=self.user, name='Airbnb')
         application = Application.objects.create(
             user=self.user,
             company=company,
             role_title='Software Engineer',
             status='APPLIED',
-            salary_range='148800 - 223200',
+            salary_range='165000 - 181500',
             location='New York, NY',
         )
         config = GoogleSheetSyncConfig.objects.create(
@@ -186,7 +186,7 @@ class GoogleSheetSyncReviewTests(APITestCase):
         )
         GoogleSheetSyncRow.objects.create(
             config=config,
-            external_key='plaid-ny',
+            external_key='airbnb-ny',
             row_number=2,
             row_hash='old',
             local_object_type='career.Application',
@@ -194,9 +194,9 @@ class GoogleSheetSyncReviewTests(APITestCase):
         )
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['plaid-ny', 'Plaid', 'Software Engineer', '1st Round', '148800 - 223200', 'New York, NY'],
+            ['airbnb-ny', 'Airbnb', 'Software Engineer', '1st Round', '165000 - 181500', 'New York, NY'],
             ['', 'Netflix', 'Backend Engineer', '10th round (bar raiser)', '120000 - 140000', 'Remote'],
-            ['', 'Plaid', 'Software Engineer', '1st Round', '148800 - 223200', 'New York, NY'],
+            ['', 'Airbnb', 'Software Engineer', '1st Round', '165000 - 181500', 'New York, NY'],
         ]
 
         result = sync_google_sheet(config)

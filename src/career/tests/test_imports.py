@@ -88,15 +88,15 @@ class ApplicationFileImportPreviewTests(APITestCase):
         mock_relay.assert_called_once()
 
     def test_apply_updates_existing_matching_application(self):
-        company = Company.objects.create(user=self.user, name="OpenAI")
+        company = Company.objects.create(user=self.user, name="Netflix")
         Application.objects.create(
             user=self.user,
             company=company,
-            role_title="Product Engineer",
+            role_title="Software Engineer II",
             status="APPLIED",
             salary_range="100k",
         )
-        rows = [{"Company": "OpenAI", "Role": "Product Engineer", "Status": "Offer", "Salary": "200k"}]
+        rows = [{"Company": "Netflix", "Role": "Software Engineer II", "Status": "Offer", "Salary": "200k"}]
         mapping = {
             "company_name": "Company",
             "role_title": "Role",
@@ -113,8 +113,8 @@ class ApplicationFileImportPreviewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["result"]["created"], 0)
         self.assertEqual(response.data["result"]["updated"], 1)
-        self.assertEqual(Application.objects.filter(user=self.user, company__name="OpenAI").count(), 1)
-        application = Application.objects.get(user=self.user, company__name="OpenAI")
+        self.assertEqual(Application.objects.filter(user=self.user, company__name="Netflix").count(), 1)
+        application = Application.objects.get(user=self.user, company__name="Netflix")
         self.assertEqual(application.status, "OFFER")
         self.assertEqual(application.salary_range, "200k")
 

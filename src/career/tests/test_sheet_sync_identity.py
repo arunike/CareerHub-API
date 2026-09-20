@@ -32,8 +32,8 @@ class GoogleSheetSyncIdentityTests(APITestCase):
     def test_same_company_and_role_with_different_locations_create_distinct_applications(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Salary', 'Location'],
-            ['Plaid', 'Software Engineer', '148800 - 223200', 'New York, NY'],
-            ['Plaid', 'Software Engineer', '148800 - 223200', 'San Francisco, CA'],
+            ['Netflix', 'Software Engineer', '165000 - 181500', 'New York, NY'],
+            ['Netflix', 'Software Engineer', '165000 - 181500', 'San Francisco, CA'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -59,7 +59,7 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         self.assertTrue(all(change['local_object_id'] for change in latest_run.changes))
         applications = Application.objects.filter(
             user=self.user,
-            company__name='Plaid',
+            company__name='Netflix',
             role_title='Software Engineer',
         ).order_by('location')
         self.assertEqual(applications.count(), 2)
@@ -71,7 +71,7 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         resync_result = sync_google_sheet(config, force=True)
         self.assertEqual(resync_result['created'], 0)
         self.assertEqual(resync_result['updated'], 2)
-        self.assertEqual(Application.objects.filter(user=self.user, company__name='Plaid').count(), 2)
+        self.assertEqual(Application.objects.filter(user=self.user, company__name='Netflix').count(), 2)
 
         unchanged_result = sync_google_sheet(config)
         self.assertEqual(unchanged_result['skipped'], 2)
@@ -84,7 +84,7 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         UserSettings.objects.create(user=self.user, primary_timezone='America/Los_Angeles')
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role'],
-            ['OpenAI', 'Product Engineer'],
+            ['Stripe', 'Software Engineer II'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -101,14 +101,14 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         result = sync_google_sheet(config)
 
         self.assertEqual(result['errors'], [])
-        application = Application.objects.get(user=self.user, company__name='OpenAI')
+        application = Application.objects.get(user=self.user, company__name='Stripe')
         self.assertEqual(application.date_applied.isoformat(), '2026-05-04')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_sheet_location_maps_to_canonical_us_city_location(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Location', 'Office Location'],
-            ['OpenAI', 'Product Engineer', 'San Francisco, CA', 'New York, NY, United States'],
+            ['Stripe', 'Software Engineer II', 'San Francisco, CA', 'New York, NY, United States'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -127,22 +127,22 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         result = sync_google_sheet(config)
 
         self.assertEqual(result['errors'], [])
-        application = Application.objects.get(user=self.user, company__name='OpenAI')
+        application = Application.objects.get(user=self.user, company__name='Stripe')
         self.assertEqual(application.location, 'San Francisco, CA, United States')
         self.assertEqual(application.office_location, 'New York, NY, United States')
 
     @patch("career.services.google_sheets.fetch_sheet_rows")
     def test_canonical_location_sync_matches_existing_legacy_location(self, mock_fetch_sheet_rows):
-        company = Company.objects.create(user=self.user, name='OpenAI')
+        company = Company.objects.create(user=self.user, name='Stripe')
         application = Application.objects.create(
             user=self.user,
             company=company,
-            role_title='Product Engineer',
+            role_title='Software Engineer II',
             location='San Francisco, CA',
         )
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Location'],
-            ['OpenAI', 'Product Engineer', 'San Francisco, CA'],
+            ['Stripe', 'Software Engineer II', 'San Francisco, CA'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -169,8 +169,8 @@ class GoogleSheetSyncIdentityTests(APITestCase):
     def test_identical_company_role_salary_and_location_dedupes_application(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Salary', 'Location'],
-            ['Plaid', 'Software Engineer', '148800 - 223200', 'New York, NY'],
-            ['Plaid', 'Software Engineer', '148800 - 223200', 'New York, NY'],
+            ['Netflix', 'Software Engineer', '165000 - 181500', 'New York, NY'],
+            ['Netflix', 'Software Engineer', '165000 - 181500', 'New York, NY'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -193,9 +193,9 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         self.assertEqual(
             Application.objects.filter(
                 user=self.user,
-                company__name='Plaid',
+                company__name='Netflix',
                 role_title='Software Engineer',
-                salary_range='148800 - 223200',
+                salary_range='165000 - 181500',
                 location='New York, NY, United States',
             ).count(),
             1,
