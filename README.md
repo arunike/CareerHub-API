@@ -200,7 +200,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ### 💵 Income & Recorded Paychecks
 
-- **`IncomeYear`** holds one role's pay plan for one tax year (`tax_year` + `source_key`): salary and paycheck-count overrides, 401(k)/HSA/FSA elections, premium overrides, custom deductions, per-period overrides, match tiers, allowances, bonus and vesting settings, and `income_events`.
+- **`IncomeYear`** holds one role's pay plan for one tax year (`tax_year` + `source_key`): salary and paycheck-count overrides, 401(k)/HSA/FSA elections, custom deductions, per-period overrides, match tiers, allowances, bonus and vesting settings, and `income_events`.
 - **`PaycheckActual`** is one real paycheck recorded against that year — gross, federal/state/FICA, take-home, an optional note, and a `pay_date` that overrides the schedule when payday moves. `unique_together (income_year, period_index)`; off-cycle bonus payments are numbered from 1000 by the client.
 - **Recorded paychecks round-trip through `IncomeYear`**, not through separate requests: `actuals` is a writable nested collection on `IncomeYearSerializer`, so the page's single Save writes the plan and the recorded figures in one atomic request.
 - `/api/career/paycheck-actuals/` remains for per-row access; the app does not use it for saving.
