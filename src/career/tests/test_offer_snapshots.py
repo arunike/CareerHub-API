@@ -104,8 +104,8 @@ class OfferDecisionSnapshotAPITests(APITestCase):
             company=company,
             role_title="Backend Engineer",
             status="OFFER",
-            location="San Francisco, CA",
-            office_location="San Francisco, CA",
+            location="Mountain View, CA",
+            office_location="Mountain View, CA",
             rto_policy="HYBRID",
             rto_days_per_week=3,
             commute_cost_value=20,
@@ -171,7 +171,7 @@ class OfferDecisionSnapshotAPITests(APITestCase):
             },
             "adjustment_snapshot": {
                 "marital_status": "SINGLE",
-                "reference_location": "San Francisco, CA",
+                "reference_location": "Mountain View, CA",
             },
         }
         payload.update(overrides)

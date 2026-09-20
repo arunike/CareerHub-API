@@ -29,7 +29,7 @@ class OfferStatusApplicationAPITests(APITestCase):
                 'role_title': 'Backend Engineer',
                 'status': 'OFFER',
                 'salary_range': '120000 - 150000',
-                'location': 'New York, NY',
+                'location': 'Mountain View, CA',
             },
             format='json',
         )
@@ -90,7 +90,7 @@ class OfferStatusApplicationAPITests(APITestCase):
         application = Application.objects.create(
             user=self.user,
             company=company,
-            role_title='Platform Engineer',
+            role_title='Software Engineer II',
             status='ACCEPTED',
         )
         offer = Offer.objects.create(
@@ -182,7 +182,7 @@ class OfferStatusApplicationAPITests(APITestCase):
         Application.objects.create(
             user=self.user,
             company=used_company,
-            role_title='Platform Engineer',
+            role_title='Software Engineer II',
         )
         Application.objects.create(
             user=self.user,

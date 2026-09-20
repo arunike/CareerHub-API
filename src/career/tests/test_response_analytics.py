@@ -186,7 +186,7 @@ class FieldCompletenessTests(APITestCase):
             status='APPLIED',
             date_applied=timezone.localdate(),
             level='L4',
-            office_location='New York, NY',
+            office_location='Mountain View, CA',
             salary_range='100000 - 150000',
             job_link='https://example.com/job',
             job_description='Build things.',

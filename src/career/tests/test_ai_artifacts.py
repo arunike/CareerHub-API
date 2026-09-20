@@ -218,7 +218,7 @@ class AIArtifactAPITests(APITestCase):
             payload={
                 'score': 84,
                 'summary': 'Good fit',
-                'best_experiences': [{'title': 'Platform Engineer', 'company': 'OldCo'}],
+                'best_experiences': [{'title': 'Software Engineer II', 'company': 'OldCo'}],
                 'tailored_bullets': [{'revised': 'Built Django services', 'reason': 'Maps to backend work'}],
             },
             saved_at=timezone.now(),
@@ -256,7 +256,7 @@ class AIArtifactAPITests(APITestCase):
         self.assertEqual(response.data['jd_reports'][0]['title'], 'Google JD Match')
         self.assertEqual(response.data['cover_letters'][0]['title'], 'Google Cover Letter')
         self.assertEqual(response.data['latest_jd_report']['payload']['score'], 84)
-        self.assertEqual(response.data['evidence']['best_experiences'][0]['title'], 'Platform Engineer')
+        self.assertEqual(response.data['evidence']['best_experiences'][0]['title'], 'Software Engineer II')
         self.assertNotIn('Hidden JD', json.dumps(response.data))
 
     def test_account_export_and_restore_include_ai_artifacts(self):

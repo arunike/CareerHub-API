@@ -227,7 +227,7 @@ class CareerCachingTests(APITestCase):
             role_title="Global IT Software Engineer",
             status="APPLIED",
             employment_type="full_time",
-            location="Houston, TX, United States",
+            location="Mountain View, CA, United States",
             date_applied="2026-05-03",
         )
         Application.objects.create(
@@ -236,7 +236,7 @@ class CareerCachingTests(APITestCase):
             role_title="Backend Engineer",
             status="ROUND_1",
             employment_type="internship",
-            location="New York, NY, United States",
+            location="Mountain View, NY, United States",
             date_applied="2025-05-03",
         )
 
@@ -248,7 +248,7 @@ class CareerCachingTests(APITestCase):
                 'search': 'jereh software',
                 'status': 'APPLIED',
                 'employment_type': 'full_time',
-                'location': 'Houston, TX, United States',
+                'location': 'Mountain View, CA, United States',
                 'year': '2026',
             },
         )

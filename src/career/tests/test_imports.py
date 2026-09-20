@@ -195,7 +195,7 @@ class JobBoardImportTests(APITestCase):
               <head><title>Careers | Google</title></head>
               <body>
                 <nav>About Google Products Teams</nav>
-                <main>Senior Backend Engineer Location: New York Build APIs for our payments platform.</main>
+                <main>Senior Backend Engineer Location: Mountain View Build APIs for our payments platform.</main>
               </body>
             </html>
             """,
@@ -209,7 +209,7 @@ class JobBoardImportTests(APITestCase):
                             {
                                 "company": "Google",
                                 "role_title": "Senior Backend Engineer",
-                                "location": "New York",
+                                "location": "Mountain View",
                                 "employment_type": "contract",
                                 "salary_range": "$80 - $100/hour",
                                 "job_description": "Build APIs for our payments platform.",
@@ -229,7 +229,7 @@ class JobBoardImportTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["company"], "Google")
         self.assertEqual(response.data["role_title"], "Senior Backend Engineer")
-        self.assertEqual(response.data["location"], "New York")
+        self.assertEqual(response.data["location"], "Mountain View")
         self.assertEqual(response.data["employment_type"], "contract")
         self.assertEqual(response.data["salary_range"], "$80 - $100/hour")
         self.assertEqual(response.data["extraction_method"], "ai")

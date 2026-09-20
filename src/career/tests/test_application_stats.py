@@ -64,8 +64,8 @@ class ApplicationStatsAPITests(APITestCase):
         self.assertEqual(data['offer_rate'], '37.5')
 
     def test_locations_group_to_city_and_collapse_remote(self):
-        self._application('APPLIED', applied=self.today, office='New York, NY')
-        self._application('APPLIED', applied=self.today, office='New York, NY')
+        self._application('APPLIED', applied=self.today, office='Mountain View, CA')
+        self._application('APPLIED', applied=self.today, office='Mountain View, CA')
         self._application('APPLIED', applied=self.today, location='Remote - US')
         self._application('APPLIED', applied=self.today, location='fully remote')
         self._application('APPLIED', applied=self.today)
@@ -73,7 +73,7 @@ class ApplicationStatsAPITests(APITestCase):
         data = self.client.get('/api/career/application-stats/').json()
         self.assertEqual(
             {row['name']: row['count'] for row in data['locations']},
-            {'New York': 2, 'Remote': 2, 'Unknown': 1},
+            {'Mountain View': 2, 'Remote': 2, 'Unknown': 1},
         )
         # Sorted by count, so the dashboard's "top locations" list needs no client sort.
         self.assertGreaterEqual(data['locations'][0]['count'], data['locations'][-1]['count'])

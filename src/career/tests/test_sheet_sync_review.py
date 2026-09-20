@@ -66,8 +66,8 @@ class GoogleSheetSyncReviewTests(APITestCase):
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
             ['netflix-backend', 'Netflix', 'Backend Engineer', 'Offer', '100000 - 120000', 'Remote'],
-            ['', 'Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
-            ['', 'Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
+            ['', 'Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'Mountain View, CA'],
+            ['', 'Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'Mountain View, CA'],
         ]
 
         review = build_import_review(config)
@@ -81,7 +81,7 @@ class GoogleSheetSyncReviewTests(APITestCase):
     def test_apply_import_review_only_applies_approved_items(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
+            ['Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'Mountain View, CA'],
             ['Stripe', 'Backend Engineer', 'Applied', '150000 - 180000', 'Remote'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
@@ -117,11 +117,11 @@ class GoogleSheetSyncReviewTests(APITestCase):
             role_title='Software Engineer',
             status='APPLIED',
             salary_range='165000 - 181500',
-            location='New York, NY',
+            location='Mountain View, CA',
         )
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'New York, NY'],
+            ['Airbnb', 'Software Engineer', 'Applied', '165000 - 181500', 'Mountain View, CA'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -167,7 +167,7 @@ class GoogleSheetSyncReviewTests(APITestCase):
             role_title='Software Engineer',
             status='APPLIED',
             salary_range='165000 - 181500',
-            location='New York, NY',
+            location='Mountain View, CA',
         )
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -194,9 +194,9 @@ class GoogleSheetSyncReviewTests(APITestCase):
         )
         mock_fetch_sheet_rows.return_value = [
             ['External ID', 'Company', 'Role', 'Status', 'Salary', 'Location'],
-            ['airbnb-ny', 'Airbnb', 'Software Engineer', '1st Round', '165000 - 181500', 'New York, NY'],
+            ['airbnb-ny', 'Airbnb', 'Software Engineer', '1st Round', '165000 - 181500', 'Mountain View, CA'],
             ['', 'Netflix', 'Backend Engineer', '10th round (bar raiser)', '120000 - 140000', 'Remote'],
-            ['', 'Airbnb', 'Software Engineer', '1st Round', '165000 - 181500', 'New York, NY'],
+            ['', 'Airbnb', 'Software Engineer', '1st Round', '165000 - 181500', 'Mountain View, CA'],
         ]
 
         result = sync_google_sheet(config)

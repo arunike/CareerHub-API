@@ -115,7 +115,7 @@ class GoogleSheetSyncStagesTests(APITestCase):
             payload={
                 '_user': self.user,
                 'company_name': 'Netflix',
-                'role_title': 'Platform Engineer',
+                'role_title': 'Software Engineer II',
                 'status': '7th round',
             },
             tracked=None,
@@ -141,7 +141,7 @@ class GoogleSheetSyncStagesTests(APITestCase):
             payload={
                 '_user': self.user,
                 'company_name': 'Netflix',
-                'role_title': 'Product Engineer',
+                'role_title': 'Software Engineer III',
                 'status': 'Final Round',
             },
             tracked=None,

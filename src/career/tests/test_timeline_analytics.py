@@ -39,7 +39,7 @@ class ApplicationTimelineAnalyticsTests(APITestCase):
             status='OFFER',
             date_applied='2026-04-01',
             salary_range='165000 - 181500',
-            location='New York, NY',
+            location='Mountain View, CA',
         )
         offer = Offer.objects.create(
             application=application,
@@ -248,15 +248,15 @@ class TimelineAnalyticsInsightTests(APITestCase):
 
     def test_response_segments_report_rate_with_sample_size(self):
         applied = self.today - timedelta(days=60)
-        # Palo Alto: 1 of 2 replied. Remote: 0 of 1.
-        self._app('A', 'SCREEN', applied, entries=[('APPLIED', applied), ('SCREEN', applied)], location='Palo Alto, CA')
-        self._app('B', 'APPLIED', applied, entries=[('APPLIED', applied)], location='Palo Alto, CA')
+        # Seattle: 1 of 2 replied. Remote: 0 of 1.
+        self._app('A', 'SCREEN', applied, entries=[('APPLIED', applied), ('SCREEN', applied)], location='Seattle, WA')
+        self._app('B', 'APPLIED', applied, entries=[('APPLIED', applied)], location='Seattle, WA')
         self._app('C', 'APPLIED', applied, entries=[('APPLIED', applied)], location='Remote - US')
 
         rows = {row['name']: row for row in self._analytics()['response_rate_by_location']}
-        self.assertEqual(rows['Palo Alto']['total'], 2)
-        self.assertEqual(rows['Palo Alto']['responded'], 1)
-        self.assertAlmostEqual(rows['Palo Alto']['response_rate'], 0.5)
+        self.assertEqual(rows['Seattle']['total'], 2)
+        self.assertEqual(rows['Seattle']['responded'], 1)
+        self.assertAlmostEqual(rows['Seattle']['response_rate'], 0.5)
         self.assertEqual(rows['Remote']['responded'], 0)
         # The sample size travels with the rate so a caller can refuse to show n=1.
         self.assertEqual(rows['Remote']['total'], 1)
