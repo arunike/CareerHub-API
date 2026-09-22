@@ -40,6 +40,9 @@ class CustomHoliday(models.Model):
     is_recurring = models.BooleanField(default=False)
     is_locked = models.BooleanField(default=False, help_text="Locked holidays cannot be deleted")
     tab = models.CharField(max_length=100, blank=True, null=True, help_text="Custom tab id this holiday belongs to")
+    # Plain ids rather than a relation: Nile rejects the constraint DDL, and the link is advisory.
+    pto_experience_ids = models.JSONField(default=list, blank=True, help_text="Roles this day is charged to. Empty falls back to whichever roles were running that day.")
+    counts_as_pto = models.BooleanField(default=True, help_text="Off for a day that is marked but not actually taken as leave")
 
     def __str__(self):
         return f"{self.date} - {self.description or 'Holiday'}"

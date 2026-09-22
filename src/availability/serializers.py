@@ -69,7 +69,7 @@ class EventSerializer(serializers.ModelSerializer):
 class CustomHolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomHoliday
-        fields = ['id', 'date', 'group_id', 'description', 'holiday_type', 'is_recurring', 'is_locked', 'tab']
+        fields = ['id', 'date', 'group_id', 'description', 'holiday_type', 'is_recurring', 'is_locked', 'tab', 'pto_experience_ids', 'counts_as_pto']
 
 class AvailabilityOverrideSerializer(serializers.ModelSerializer):
     class Meta:
