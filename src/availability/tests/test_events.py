@@ -119,7 +119,7 @@ class EventEndDateValidationTests(APITestCase):
 
         # Only the start moves, so the check has to fall back to the stored end date.
         response = self.client.patch(
-            f'/api/events/{created.data["id"]}/', {'date': '2026-03-20'}, format='json'
+            f'/api/events/{created.data["id"]}/', {'date': '2026-03-16'}, format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('end_date', response.data)
