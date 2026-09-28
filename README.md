@@ -620,6 +620,25 @@ python manage.py migrate
 python manage.py check
 ```
 
+### Optional: Local Privacy Gate
+
+This is a single-maintainer deployment, so the repo must never carry the maintainer's own
+employers, contacts, pay figures or dates — fixtures and docs use the substitutes published in
+`AGENTS.md`. Two gates enforce that:
+
+- `career/tests/test_fixture_vocabulary.py` runs with the suite and fails when a fixture names an
+  employer or person outside the published substitutes. It needs no database access.
+- An optional `.git/hooks/pre-commit` greps staged lines against a locally generated list:
+
+  ```bash
+  DJANGO_ENV=production python manage.py export_leakcheck_values --email <your-account>
+  ```
+
+  The command prints only a count, writes to a directory outside every git repo, and is checked in
+  two tiers: unambiguous values (emails, multi-word names, amounts with non-zero cents) against
+  every file, and premium-sized amounts against fixtures and docs only. `LEAKCHECK=off git commit`
+  bypasses it for a genuine coincidence.
+
 ### Optional: Django Admin
 
 ```bash
