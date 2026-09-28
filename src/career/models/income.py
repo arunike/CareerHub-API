@@ -24,6 +24,7 @@ class IncomeYear(models.Model):
     hsa_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fsa_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     post_tax_deductions_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    imputed_income_per_period = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Employer-paid cover the IRS taxes as income, e.g. group term life; raises taxable gross without reaching take-home")
     custom_deductions = models.JSONField(default=list, blank=True, help_text="[{id, label, amount, treatment}] where treatment is SECTION_125, PRETAX_INCOME_ONLY or POST_TAX")
     period_deductions = models.JSONField(default=list, blank=True, help_text="[{periodIndex, medical, dental, vision, dependent, pretax401kPercent, roth401kPercent, customAmounts}] overrides for a single paycheck")
     deferral_base = models.CharField(max_length=20, null=True, blank=True, default='ALL', help_text="Pay the 401(k) defers and matches on: ALL, NO_ALLOWANCES or SALARY_ONLY")
