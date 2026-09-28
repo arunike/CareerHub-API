@@ -9,9 +9,8 @@ from availability.models import CustomHoliday
 from career.models import Application, Company, Contact, Experience, IncomeYear, Offer
 
 REFERENCE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))))))),
-    '.claude', 'reference', 'substitutes.json',
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'data', 'substitutes.json',
 )
 
 with open(REFERENCE, encoding='utf-8') as _handle:

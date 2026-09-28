@@ -1,0 +1,34 @@
+{
+  "_": "Canonical substitute vocabulary. Every value here is public-safe by construction, which is why it can be committed and a denylist cannot. AGENTS.md's Substitutes table is the prose view of this file; the gates read this one. Keep the two in step.",
+  "companies": ["Google", "Netflix", "Stripe", "Airbnb"],
+  "people": ["San Zhang", "Chris Wong", "John Smith", "Alex Kim", "Chris W.", "San Z."],
+  "emails": ["@example.com", "@example.org"],
+  "titles": ["Software Engineer", "Software Engineer II", "Software Engineer III"],
+  "locations": ["Mountain View, CA, United States", "Mountain View, CA", "Seattle, WA, United States", "Seattle, WA"],
+  "dates": {
+    "date": "2026-07-01",
+    "secondDate": "2026-10-01",
+    "leavingDate": "2026-11-01",
+    "startDate": "2025-07-01",
+    "payAnchorDefault": "2026-01-02",
+    "payAnchorExplicit": "2026-01-15",
+    "yearEndNotified": "2026-12-20",
+    "yearEndEffective": "2027-01-04"
+  },
+  "figures": {
+    "baseSalary": 165000,
+    "raisedSalary": 181500,
+    "bonus": 24750,
+    "rsuGrant": 200000,
+    "rsuPerYear": 50000,
+    "secondCompanyBase": 336000,
+    "hoursPerYear": 2080,
+    "genericRoundAmounts": [1000, 1500, 2500, 3000, 5000, 10000, 20000]
+  },
+  "scaffoldSuffixPattern": "(Co|Company|Corp|Inc)\\.?$",
+  "notes": [
+    "A throwaway entity in a fixture ends in Co/Company rather than borrowing a real name.",
+    "A figure not listed here must be derivable from one that is, or it came off a screen.",
+    "A date not listed here must be stepped from one that is, and the step must be stated."
+  ]
+}

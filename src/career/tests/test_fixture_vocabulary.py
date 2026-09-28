@@ -4,9 +4,7 @@ import re
 import unittest
 
 REFERENCE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__)))))),
-    '.claude', 'reference', 'substitutes.json',
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'substitutes.json',
 )
 
 
