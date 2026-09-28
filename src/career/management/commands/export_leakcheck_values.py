@@ -99,7 +99,7 @@ class Command(BaseCommand):
             for inner in value:
                 found.extend(self.strings_in(inner))
         elif isinstance(value, str):
-            found.append(value.strip())
+            found.extend(self.lines_of(value))
         elif isinstance(value, (int, float, Decimal)):
             found.extend(self.money(value))
         return found
@@ -133,6 +133,9 @@ class Command(BaseCommand):
         elif isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
             found.extend(self.cents_money(value))
         return found
+
+    def lines_of(self, value):
+        return [line.strip() for line in str(value).splitlines() if line.strip()]
 
     def tier(self, value, strong):
         """Repo-wide only for a value with no honest reason to appear in any file."""
@@ -169,7 +172,8 @@ class Command(BaseCommand):
                 kind = field.get_internal_type()
                 strong = field.attname in STRONG_FIELDS or field.attname.endswith('_name')
                 if kind in {'CharField', 'TextField', 'EmailField', 'URLField'}:
-                    (strong_values if strong else values).append(str(value).strip())
+                    # A notes field spans lines, and each line has to be judged on its own.
+                    (strong_values if strong else values).extend(self.lines_of(value))
                 elif kind in {'DecimalField', 'IntegerField', 'FloatField', 'PositiveSmallIntegerField',
                               'PositiveIntegerField', 'SmallIntegerField', 'BigIntegerField'}:
                     values.extend(self.money(value))
