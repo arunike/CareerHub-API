@@ -24,19 +24,19 @@ class FakeApplication:
 
 class MatchCompanyTests(SimpleTestCase):
     def setUp(self):
-        self.companies = build_company_index([(1, 'Google'), (2, 'Sony Interactive'), (3, 'Sony')])
+        self.companies = build_company_index([(1, 'Google'), (2, 'Netflix Games'), (3, 'Netflix')])
 
     def test_matches_a_company_named_in_the_title(self):
         self.assertEqual(match_company('Interview with Google', self.companies), (1, 'Google'))
 
     def test_prefers_the_longer_name(self):
         self.assertEqual(
-            match_company('Interview with Sony Interactive Entertainment', self.companies),
-            (2, 'Sony Interactive'),
+            match_company('Interview with Netflix Games Studio', self.companies),
+            (2, 'Netflix Games'),
         )
 
     def test_ignores_a_meeting_platform(self):
-        self.assertIsNone(match_company('Wisk Google Meet Interview', self.companies))
+        self.assertIsNone(match_company('Acme Co Google Meet Interview', self.companies))
 
     def test_drops_names_too_short_to_match_on(self):
         self.assertEqual(build_company_index([(1, 'AI'), (2, 'Eve')]), [(2, 'Eve')])
@@ -91,10 +91,10 @@ class PickApplicationTests(SimpleTestCase):
 
 class ConfidenceTests(SimpleTestCase):
     def test_a_single_candidate_is_high(self):
-        self.assertEqual(confidence_for('Robinhood', 1), 'high')
+        self.assertEqual(confidence_for('Netflix', 1), 'high')
 
     def test_several_candidates_at_a_long_named_company_is_medium(self):
-        self.assertEqual(confidence_for('Pinterest', 3), 'medium')
+        self.assertEqual(confidence_for('Netflix', 3), 'medium')
 
     def test_several_candidates_at_a_short_named_company_is_low(self):
-        self.assertEqual(confidence_for('Uber', 4), 'low')
+        self.assertEqual(confidence_for('NewCo', 4), 'low')

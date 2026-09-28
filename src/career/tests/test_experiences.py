@@ -22,7 +22,7 @@ class ExperienceLogoUploadTests(APITestCase):
         self.experience = Experience.objects.create(
             user=self.user,
             title="Software Engineer Intern",
-            company="CareerHub",
+            company="Google",
             is_current=False,
         )
 

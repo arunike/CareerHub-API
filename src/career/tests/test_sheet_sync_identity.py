@@ -205,7 +205,7 @@ class GoogleSheetSyncIdentityTests(APITestCase):
     def test_unchanged_tracked_row_backfills_missing_date_applied(self, mock_fetch_sheet_rows):
         mock_fetch_sheet_rows.return_value = [
             ['Company', 'Role', 'Location'],
-            ['1Password', 'Developer, Backend', 'Remote'],
+            ['Airbnb', 'Software Engineer II', 'Remote'],
         ]
         config = GoogleSheetSyncConfig.objects.create(
             user=self.user,
@@ -221,7 +221,7 @@ class GoogleSheetSyncIdentityTests(APITestCase):
         )
 
         sync_google_sheet(config)
-        application = Application.objects.get(user=self.user, company__name='1Password')
+        application = Application.objects.get(user=self.user, company__name='Airbnb')
         original_date = application.date_applied
         application.date_applied = None
         application.save(update_fields=['date_applied'])

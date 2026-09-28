@@ -7,7 +7,7 @@ DECIDED_STATUSES = {'ACCEPTED', 'OFFER', 'OFFER_REJECTED'}
 MIN_COMPANY_NAME = 3
 
 
-# Meeting tools, not employers: without this "Wisk Google Meet Interview" links to Google.
+# Meeting tools, not employers: without this "Acme Co Google Meet Interview" links to Google.
 PLATFORM_SUFFIXES = ('meet', 'teams', 'meets', 'hangout', 'hangouts')
 
 
@@ -36,7 +36,7 @@ def match_company(title, companies):
 
 
 def build_company_index(companies):
-    """Longest name first, so "Sony Interactive" wins over "Sony"."""
+    """Longest name first, so "Netflix Games" wins over "Netflix"."""
     return sorted(
         ((cid, name) for cid, name in companies if name and len(name.strip()) >= MIN_COMPANY_NAME),
         key=lambda row: -len(row[1]),

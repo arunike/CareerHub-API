@@ -219,12 +219,12 @@ class CareerCachingTests(APITestCase):
         )
 
     def test_application_list_filters_before_paginating(self):
-        houston_company = Company.objects.create(user=self.user, name="Jereh NAG")
+        matching_company = Company.objects.create(user=self.user, name="Netflix")
         other_company = Company.objects.create(user=self.user, name="Other Co")
         match = Application.objects.create(
             user=self.user,
-            company=houston_company,
-            role_title="Global IT Software Engineer",
+            company=matching_company,
+            role_title="Software Engineer II",
             status="APPLIED",
             employment_type="full_time",
             location="Mountain View, CA, United States",
@@ -236,7 +236,7 @@ class CareerCachingTests(APITestCase):
             role_title="Backend Engineer",
             status="ROUND_1",
             employment_type="internship",
-            location="Mountain View, NY, United States",
+            location="Seattle, WA, United States",
             date_applied="2025-05-03",
         )
 
@@ -245,7 +245,7 @@ class CareerCachingTests(APITestCase):
             {
                 'page': 1,
                 'page_size': 10,
-                'search': 'jereh software',
+                'search': 'netflix engineer',
                 'status': 'APPLIED',
                 'employment_type': 'full_time',
                 'location': 'Mountain View, CA, United States',
