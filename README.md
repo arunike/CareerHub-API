@@ -6,25 +6,11 @@ A robust Django REST Framework API powering the CareerHub job search platform.
 
 ## Security headers
 
-`config/security/security_headers.py` adds what Django has no setting for: `Content-Security-Policy:
-default-src 'none'` (the API only returns JSON), `Permissions-Policy`, and the Cross-Origin
-Opener/Resource policies. Django's own settings cover HSTS, SSL redirect, `X-Frame-Options: DENY`,
-nosniff, referrer policy and secure cookies.
+`config/security/security_headers.py` sends `Content-Security-Policy: default-src 'none'` — the API
+only returns JSON — plus `Permissions-Policy` and the Cross-Origin Opener/Resource policies.
+Django's own settings cover HSTS, SSL redirect, `X-Frame-Options: DENY`, nosniff, referrer policy
+and secure cookies.
 
-## Navigation keys
-
-`UserSettingsSerializer.MOBILE_TOOLBAR_ROUTE_KEYS` is the API's allow-list for
-`mobile_toolbar_items`, and it mirrors the frontend's `NAV_REGISTRY`. A tab present in one and not
-the other fails the settings save with "One or more mobile toolbar items are invalid".
-`availability/tests/test_navigation_keys.py` parses the TS registry and asserts parity both ways.
-
-## Response caching
-
-Event and holiday list responses are **not cached**. The cache backend is `LocMemCache`, which is
-private to a single serverless instance, so the write that invalidates it and the read that follows
-are usually served by different instances — a newly created event stayed invisible until the TTL
-lapsed. Redis would fix that but costs more than the query it saves, so the dependency was removed
-rather than left half-wired. `cache` is still used for values no other instance invalidates.
 
 ## 📋 Table of Contents
 
@@ -62,191 +48,108 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 
 ## ✨ Features
 
-### 🏢 Application Management
+### 🏢 Applications
 
-- **CRUD API**: Full create, read, update, delete operations for job applications
-- **Status Tracking**: Default pipeline stages use the shared blue-to-purple palette for Applied, rounds 1–4, Final Round, Onsite, Offer, Rejected, Ghosted, and Removed without overwriting saved per-user stage settings
-- **Company Auto-Creation**: Serializer automatically creates `Company` objects from `company_name`
-- **Bulk Import**: Upload CSV/XLSX files to import multiple applications at once
-- **Google Sheets Sync**: Link a Google Sheet, auto-map columns from headers, optionally adjust fields, and import changed rows into Applications from the Settings integration UI; newly encountered numbered rounds automatically append deterministic, algorithmically generated blue-to-purple stage colors to that user's pipeline
-- **Job Board URL Import**: Extract company, role, location, and job description from public HTTPS job pages, using the user's AI provider when configured and falling back to deterministic parsing
-- **Export Options**: Download data as CSV, JSON, or XLSX
-- **Optional Decision Signals**: Store advanced visa sponsorship, Day 1 GC, growth, work-life, brand, and manager/team scores only when users provide them
-- **Detail Aggregation Ready**: Application records expose linked timeline, event, document, AI artifact, and notes data consumed by the frontend detail drawer
-- **Application Prep Workspace**: Aggregates one application's JD reports, cover letters, linked documents, notes, timeline, and resume evidence for the frontend prep drawer
-- **Company Timeline**: Persist editable per-application stage titles, dates, notes, and attached documents; user overrides and removals are protected from Google Sheets repair, while manually authored later-round history is hidden instead of destroyed when a synced status moves backward
-- **Timeline Analytics**: Aggregate timeline and sheet sync history into average time from applied to interview, stage conversion, stale in-stage warnings, and offer rates by source/sheet/company
-- **Locking**: Locked applications cannot be deleted
-- **Delete All**: Bulk delete endpoint respects lock status
+- **CRUD, locking and delete-all** over `/api/career/applications/`, with a lock that protects a row from bulk actions.
+- **Status tracking** across the default pipeline — Applied, rounds 1–4, Final Round, Onsite, Offer, Rejected, Ghosted, Removed — without overwriting per-user stage settings.
+- **Company auto-creation** when an application names a company that does not exist yet.
+- **Bulk import** from CSV or XLSX, **job-board URL import** over public HTTPS with AI-assisted extraction when configured, and **Google Sheets sync** from a linked sheet.
+- **Export** to CSV, JSON or XLSX.
+- **Prep workspace** (`/prep_workspace/`) aggregating JD fit, resume evidence, linked documents, cover letters and notes for one application.
+- **Company timeline** and **timeline analytics** for the stages an application passed through.
+- **`job_description`** stores the full posting, so it survives the listing being taken down; **`has_reached_interview`** records that a round actually happened; **interview debriefs** attach per round.
+- **`submitted_documents`** pins the exact document versions that were sent.
+- **`free_food_meals`** itemises office meals as `[{meal, value, provided}]` rather than one averaged figure.
+- **`unlocked_count`** ships on paginated application, document and offer lists so a caller knows how many rows a bulk action would touch.
 
-### 💎 Offer Management
+### 🤝 Contacts
 
-- **Compensation Tracking**: Store Base Salary, Bonus, Equity (annual + optional total grant/vesting %), Sign-On, Benefits, PTO Days, and Holiday Days
-- **`Application.job_description`**: the full posting text. Postings are routinely taken down while you are still interviewing, so the link alone is not a record. The URL importer already extracted this text but the frontend was folding it into `notes`; it now has its own column and is exposed by `ApplicationSerializer`
-- **`Application.has_reached_interview`** (read-only): true once the timeline shows a stage past screening. Annotated with a single `Exists` subquery on the list endpoint rather than a query per row, and falls back to a direct check for single objects. Drives whether the Debriefs tab appears
-- **Interview debriefs**: `/api/career/interview-debriefs/` (CRUD, `?application=<id>`) stores one `InterviewDebrief` per application round — questions asked, what went well, weak areas, interviewer notes, confidence (1-5), and next steps. The serializer enforces one debrief per round, the confidence range, and application ownership
-- **`Application.submitted_documents`** (M2M to `Document`): the exact document versions sent with an application. Because each version is its own `Document` row, uploading a new version never changes what is pinned
-- **Canonical Contacts**: `/api/career/contacts/` stores each person once per user with optional email, job title, company, and notes; obsolete phone and LinkedIn fields are not part of the model or API, Application and Experience associations are retained as contexts, normalized non-empty email matches are reused, and same-name records remain separate for manual review
-- **`Offer.linked_experience`** (read-only): the role an offer turned into, taken from the existing `Experience.offer` reverse relation — `id`, `title`, `company`, `start_date`, `end_date`, and `is_current`.
-- **Sign-On Schedule**: `Offer.sign_on_schedule` holds per-year sign-on amounts (e.g. `[30000, 20000]`); an empty list means the whole sign-on lands in year 1, so projections can model an uneven split rather than assuming it is paid up front
-- **Multi-Day Events**: `Event.end_date` is null for a single-day event and otherwise the last day it spans; `EventSerializer.validate` rejects an end date before the start, falling back to the stored value so a PATCH sending only one of the two is still checked
-- **Event Link Suggestions**: `GET /api/events/link-suggestions/` pairs unlinked events with a likely application by word-boundary company match (skipping meeting-tool phrases such as "Google Meet"), `GET /api/events/suggest-link/?title=` does the same for one title, and `POST /api/events/apply-links/` attaches them in bulk, silently skipping ids the caller does not own.
-- **All-Day Events**: `Event.is_all_day` marks an event as spanning the whole day; times are still stored (`00:00`–`23:59`) so ordering, conflict checks, and ICS export keep working unchanged
-- **Relationship Network**: `/api/career/contact-relationships/` stores optional direct-to-user and person-to-person edges with standard or custom labels and optional career-record context; the legacy `/application-contacts/` route remains an API alias during migration
-- **`Experience.work_email`**: the work email address you had at that job
-- **Application stats**: `GET /career/application-stats/` returns the dashboard's counts — totals, offer/response rates, location and application-age groupings, a `daily_applied` date histogram, and `years` — without serialising the applications themselves.
-- **Application list query count**: `ApplicationSerializer` nests the offer, the offer's experiences, and submitted documents, so the list view `select_related`s `company`/`offer` and prefetches `submitted_documents`/`offer__experiences`.
-- **Food on office days**: `Application.free_food_meals` holds one entry per meal — `[{meal, value, provided}]` — because a $6 breakfast and a $20 dinner should not average into one figure, and because a meal the office does **not** provide is money you spend rather than a zero.
-- **Response trend**: `response_trend` compares two 30-day cohorts of applications, both ending at today minus the p90 reply time so each has had the same chance to answer.
-- **Interview links**: `interview_links` reports how many calendar events are attached to an application. `Event.application` exists and the Events page can propose matches, but nothing forces the link, so a calendar of interviews can sit entirely disconnected from the pipeline. `interviews_per_offer` stays `null` until something is linked rather than reporting 0
-- **Field completeness**: `/career/application-stats/` returns `field_completeness` — the fields the dashboard depends on that are blank, worst first, each with what filling it would unlock. Fully-populated fields are omitted. One aggregate query, not one per field
-- **Reply timing**: `/career/application-timeline-analytics/` returns `response_time_buckets` (0-7 / 8-14 / 15-30 / 31-60 / 60+ days with cumulative share), `median_days_to_response`, `p90_days_to_response`, and `suggested_followup_days`.
-- **Response rate by segment**: `response_rate_by_source`, `response_rate_by_location` and `response_rate_by_level` report replies rather than offers, because with a handful of offers every offer-rate breakdown is small-sample noise. Each row carries `total` alongside `response_rate` so a caller can refuse to render a rate its sample cannot support
-- **Stage durations**: `stage_durations` gives the median and p90 days each stage takes before moving on, with `sample_size`. Rows below `min_duration_sample` are returned but not used as a comparison — one transition is an anecdote. Each `stale_in_stage` row gains `typical_days` and `days_over_typical`, so staleness can be judged per stage instead of against one flat threshold
-- **Days-to-offer provenance**: `average_days_to_offer` measures from the timeline's OFFER/ACCEPTED entry, falling back to the Offer row's `created_at` only when no entry exists. It previously always used `created_at` — when the offer was typed into CareerHub — so backfilling two 2024 offers in 2026 reported 545- and 513-day waits and inflated the average roughly sevenfold
-- **Funnel rate precision**: `stage_conversion.conversion_rate` is rounded to 6 decimals, not 4. At the bottom of a large funnel the meaningful digits sit past the fourth — 2 offers in 806 is 0.002481, which 4dp flattened to 0.0025 and left the client a rounding step away from displaying a real count as 0%. Pinned by `FunnelConversionPrecisionTests`
-- **Application timeline analytics**: `GET /career/application-timeline-analytics/` is the single source for funnel data. Alongside the existing `stage_conversion` (per-stage `reached_count` / `current_count` from the timeline), it now also returns `total_applications`, `outcomes`, `response_rate`, `ghost_rate`, and `biggest_drop`
-- **`unlocked_count` on paginated lists**: applications, documents, and events return how many rows across the _whole_ filtered set are unlocked, not just the current page. A "Delete All" control needs this — `count` alone cannot tell it whether anything is deletable. Provided by the shared `availability.pagination.ConditionalPageNumberPagination`, which replaced three byte-identical copies
-- **Offer export**: `GET /career/offers/export/?fmt=csv|json|xlsx`
-- **Document filtering**: `GET /career/documents/?application=<id>` restricts documents to one application, used by the offer modal's attachment list
-- **Offer validation**: `refresh_starts_year` must be 1-4 and `annual_refresh_value` cannot be negative, enforced in `OfferSerializer` because the DB column carries no CHECK constraint
-- **`UserSettings.offer_adjustment_settings`** (JSONField): stores offer comparison scenarios and adjustment assumptions `{maritalStatus, simulatedOffers, savedAt}` per user, replacing browser-only storage
-- **Equity refresh fields**: `annual_refresh_value` and `refresh_starts_year` on Offer, both optional (0 disables refresh modelling)
-- **Offer Letter document type**: `OFFER_LETTER` added to `Document.DOCUMENT_TYPES`
-- **Migration replay**: `availability/0001_initial` used to create `PublicBooking` with a composite `unique_together` and then drop it later in the same migration.
-- **Migration note**: this Postgres engine rejects `ALTER COLUMN ... DROP DEFAULT`, which Django emits after every `AddField` with a default. Migration `0017` uses `SeparateDatabaseAndState` with raw `ADD COLUMN` SQL to work around it; follow the same pattern for future defaulted fields
-- **Offer lifecycle fields**: `deadline` (decision due date), `negotiation_rounds` (JSON log of asked-vs-received per round), `risk_notes` (watch-outs, written by the Negotiation Advisor), and `final_decision_status` / `final_decision_reasoning` are all surfaced in the frontend.
-- **Removed `counteroffer_history`** (migration `0016`): redundant with `negotiation_rounds`, which models the same asked-and-answered cycle. Nothing read or wrote the field
-- **Private Equity Liquidity**: Classify annual equity as freely tradable, company-buyback, or currently unsellable; store the annual buyback value separately so downstream comparisons count only realizable equity while preserving the full grant amount
-- **Expected start date**: `Offer.expected_start_date` records when you would begin, which is what the first-year bonus pro-ration is measured from rather than the day of the comparison
-- **Simulator Inputs**: Offer and Application records expose tax overrides, monthly rent, commute cost, food perk, PTO, and equity vesting fields used by the frontend compensation simulator
-- **Auto-Creation**: When an application's status becomes "OFFER", a placeholder offer is automatically created
-- **Is Current Flag**: Mark one offer as your baseline "Current Role" for comparisons
-- **Benefit Item Persistence**: Offer-level benefit item breakdown is persisted (JSON) alongside annualized `benefits_value`
-- **Decision Snapshots**: Persist point-in-time offer decisions with scorecard rank, frontend-calculated adjusted value and uncapped logarithmic Financial score, totals above the $300k = 100 benchmark, tax/rent/commute assumptions, separate Remote/RTO category scores, offer snapshot, and notes
-- **Decision Journal**: Record why an offer was accepted or declined, and the 30/90-day look-backs that check the call against what actually happened
-- **Negotiation Context API**: Offer and Application data power the frontend negotiation advisor and backend relay flow
+- **Canonical contacts** shared by Applications, Experience and Offers, with duplicate detection and merge.
+- **Relationship network**: directed contact-to-contact edges with standard or custom labels, several edges per pair, and people not connected to the account holder.
+
+### 💎 Offers
+
+- **Compensation tracking**: base, bonus, equity, sign-on and benefits, with a per-year **sign-on schedule** and **equity refresh** fields.
+- **Offer lifecycle**: `is_current` marks the baseline every comparison measures against; accepted, declined, expired and withdrawn are recorded.
+- **`linked_experience`** ties an accepted offer to the role it became; **expected start date** and **Offer Letter** document type sit alongside it.
+- **Private equity liquidity**: freely tradable, company buyback, or currently unsellable.
+- **Simulator inputs** and **`UserSettings.offer_adjustment_settings`** hold the rent, commute and tax assumptions a comparison is priced under.
+- **Decision snapshots** store a point-in-time comparison; the **decision journal** stores the judgement behind it.
+- **Negotiation context API** returns the figures an advisor needs for one offer.
+- **Benefit items** persist per offer, and **offer validation** rejects a payload outside the whitelisted fields.
+- **Export** to CSV, JSON or XLSX.
+
+### 📊 Analytics
+
+- **Application stats** (`/api/career/application-stats/`) and the **funnel** are computed server-side across every page, not from the rows a client happens to hold.
+- **Response trend**, **reply timing** and **response rate by source, location and level** — each row carrying `total` beside the rate so a caller can refuse to render a small sample.
+- **Stage durations** and **days-to-offer** report how long your rounds actually take, with the provenance of each figure.
+- **Field completeness** reports what is missing from your records.
+- **Interview links** pairs events with applications.
 
 ### 🤖 Frontend BYOK AI
 
-> AI provider configuration now lives in the frontend Settings page, while the API key is stored encrypted on the backend.
+Bring your own provider key; every call is relayed through the API and the key is stored encrypted.
 
-- **JD Matcher**: the frontend fetches Experience data from the API, builds the prompt in the browser, and sends it through the authenticated backend relay for fit scoring, gap analysis, and resume tailoring suggestions
-- **Cover Letter Generator**: the frontend combines Application + Experience context in the browser and routes provider requests through the encrypted backend relay
-- **Offer Negotiation Advisor**: the frontend uses Offer/Application/Experience APIs as context while the backend relay handles the provider call
-- **Career Transition Advisor**: the frontend sends current job pain points, custom sentiments, promotion outlook, and simulated offers to the `/api/career/offers/transition-advisor/` action, which queries active offers and calls the configured AI provider to analyze tradeoffs, decide the optimal move (Stay vs. Hop vs. Job Hunt), suggest company search criteria, and generate side-by-side path comparisons
-- **Skill Refinement**: the frontend can refine Experience skills through the backend relay when the user's provider key is configured
-- **Promotion Readiness Review**: the frontend evaluates saved Experience evidence plus optional context through the backend relay, then stores the review as a `PROMOTION_REVIEW` artifact linked to the source Experience
-- **Analytics Custom Widgets**: deterministic queries run in the frontend; free-form queries use the authenticated backend relay with the user's stored provider config
-- **AI Artifact Library**: generated JD reports, cover letters, negotiation results, and promotion reviews are persisted as authenticated `AIArtifact` records so they sync across browsers/devices, keep lock/delete semantics, and participate in account export/restore
+- **JD matcher**, **cover letter generator**, **offer negotiation advisor**, **career transition advisor**, **skill refinement**, **promotion readiness review** and **custom analytics widgets**.
+- **AI artifact library** (`AIArtifact`) keeps every generated output, so a result survives the session that produced it.
 
-#### Skill Extraction (NLP, background)
+### 📄 Documents
 
-- Extracts fallback skills from Experience descriptions using a lightweight keyword + acronym matcher
-- Runs automatically on `Experience` create/update
-- Remains the default when no AI provider key is configured or provider refinement fails
-- Implemented in `career/services/skills_extractor.py`
-
-### 📄 Document Management
-
-- **Upload & CRUD**: Store resumes, cover letters, portfolios, and other docs
-- **Versioning**: `version_number` + `is_current`; upload new versions while keeping version history
-- **Hosted private storage**: when `DOCUMENT_BLOB_READ_WRITE_TOKEN` is configured, documents are stored as private Vercel Blob assets and opened through an authenticated download endpoint
-- **Linking**: Documents can optionally link to an application
-- **Locking Rules**: Locked versions preserve the whole document chain from delete-all and single-delete operations
-- **Export**: Export documents in csv/json/xlsx formats
+- **Upload, CRUD and versioning**, each version its own row, in hosted private storage.
+- **Linking** to applications and experiences, **locking rules** that protect a version, **filtering** by type, and **export**.
 
 ### 👤 Experience
 
-- Full CRUD for work experience entries (title, company, location, start/end dates, description, skills, employment type)
-- **Application → Experience lifecycle**: every application and experience belongs to a shared `CareerRecord`; linking an offer to Experience reuses the application's record and atomically marks the application `ACCEPTED` while leaving it visible in Applications
-- Skills are auto-extracted from descriptions and can be AI-refined after save when a provider key is configured
-- Experience data is the shared context for all AI features
-- **Company logo upload**: `POST /api/career/experiences/{id}/upload-logo/` (multipart) and `DELETE /api/career/experiences/{id}/remove-logo/`; logos are stored as URL-backed assets and use Vercel Blob automatically when `BLOB_READ_WRITE_TOKEN` is configured
-- **Raise History**: each experience can link to an Offer; raise events (date, optional `effective_date` for a raise payroll applied late, `type` (one of the suggested reason keys, or whatever the user typed — there is no server-side enum), before/after base/bonus/equity, label, notes) are stored as a JSON array on the linked Offer's `raise_history` field.
-- **Structured team history**: `team_history` JSON stores named team entries and norms metadata for use in the frontend Team History modal
-- **Internship compensation model**: hourly roles support `hourly_rate`, `hours_per_day`, `working_days_per_week`, `total_hours_worked`, `overtime_hours`, `overtime_rate`, `overtime_multiplier`, and `total_earnings_override`
-- **Multi-phase internship schedules**: `schedule_phases` JSON stores phase-by-phase internship schedule and compensation overrides
-- **Experience import/export**: export all experiences in CSV/JSON/XLSX; JSON preserves the richest payload including `schedule_phases`, `team_history`, linked `offer` snapshots, linked `application` snapshots, and logo data
-- **Atomic import pipeline**: experience import reconstructs related `Company`, `Application`, and `Offer` records when present, then restores logo files and Experience records inside a DB transaction
-- **AI artifact backup**: account exports include backend-saved JD reports, cover letters, and negotiation results, and backup restore can recreate them in merge or replace mode
-- **Offer decision history backup**: account exports include offer decision snapshots; restore can recreate snapshots and their linked offers from exported point-in-time offer data when needed
+- **Application → Experience lifecycle**: an accepted offer becomes a role.
+- **Raise history** drives pay over time; **structured team history** records who you worked with.
+- **Internship compensation model** with **multi-phase schedules** for a role whose hours change partway.
+- **Company logo upload** and **`work_email`**.
+- **Import and export** in CSV, JSON or XLSX through an **atomic pipeline** that reconstructs the related company, application and offer rows inside one transaction, including **AI artifacts** and **offer decision history**.
 
 ### 📅 Availability & Events
 
-- **Event Scheduling**: Create interview events with start/end times, company linkage, and timezone support
-- **Unified Calendar Operations**: Standard Events and Holidays endpoints support create/edit flows from the Availability, Events, and Holiday Manager calendars
-- **Holiday Detection & Management**: Auto-populate U.S. federal holidays; add custom and custom-federal holidays; ignore specific holidays dynamically; group multi-day collections; assign holidays to user-defined **custom tabs** (e.g., "Company Holidays") via the `tab` field
-- **Availability Generation**: Generate user-defined week-long availability text blocks from work settings, holidays, and event conflicts; today's active ranges are clipped to the next 30-minute boundary instead of removed wholesale
-- **Public Booking Links**: Generate/deactivate share links with branded page copy, slot duration, buffer rules, max meetings/day, reschedule/cancel cutoff hours, cancel reasons, per-link booking analytics, and locked internal events
-- **Conflict Detection APIs**: conflicts are surfaced through the standard REST endpoints and the frontend notification polling flow
+- **Event scheduling** with **multi-day** (`end_date`) and **all-day** events, validated so an end date cannot precede a start even on a partial `PATCH`.
+- **Unified calendar operations** over events, time off and federal holidays.
+- **Holiday detection and management**, including ignoring a specific federal holiday.
+- **Availability generation** for a chosen range and timezone.
+- **Public booking links**, several per account, throttled per IP.
+- **Conflict detection** APIs behind the notification bell.
+- **Event link suggestions** (`/api/events/link-suggestions/`) pair unlinked events with a likely application by word-boundary company match, skipping meeting-tool phrases such as "Google Meet"; `/suggest-link/` does one title and `/apply-links/` attaches in bulk.
 
 ### ⚙️ Settings
 
-- **User Preferences**: Singleton settings model (`id=1`) for ghosting threshold, timezone, work hours, work days, buffer time, default event duration, default event category used by new event forms, and notification preferences
-- **Mobile Toolbar Preferences** (`mobile_toolbar_items` JSONField): Persist an ordered, validated set of up to four mobile navigation slots per user, including one optional `__smart__` slot; empty values retain the default Home, Applications, Offers, and Insights toolbar
-- **Event date range validation**: `EventSerializer.validate` rejects an `end_date` earlier than `date`, falling back to the stored value so a PATCH that moves only one side is still checked. Covered by `EventEndDateValidationTests`
-- **Driving Defaults** (`default_mpg`, `default_gas_price_per_gallon`, migration `0011`): Your car's mileage and your pump price, stored once per user because they do not change per offer.
-- **Sidebar Order** (`nav_item_order` JSONField, migration `0008`): Ordered list of sidebar route keys. Keys missing from the list keep their built-in position, so shipping a new page does not hide it from users who have already reordered. Added with the same `SeparateDatabaseAndState` + idempotent `ADD COLUMN` pattern as the other defaulted JSON fields
-- **Profile Identity**: Stores `display_name` (for public booking links) and `profile_picture` (Vercel Blob backed) as part of the user's core identity.
-- **Privacy Export Center APIs**: Account-level export, backup restore, and confirmed account deletion endpoints live under `user-settings`.
-- **Multiple Availability Time Ranges** (`work_time_ranges` JSONField): Define multiple non-contiguous availability windows with optional `days` lists for day-specific schedules (e.g., Mon–Thu 10am–3pm, Fri 1pm–4pm); overrides the legacy single `work_start_time`/`work_end_time` fields when non-empty; availability generation merges matching ranges after subtracting event conflicts
-- **Employment Types** (`employment_types` JSONField): User-configurable list of `{value, label, color}` employment type definitions — consumed by the Experience page; supports add/edit/delete with 10 color options
-- **Holiday Tabs** (`holiday_tabs` JSONField): User-defined tab definitions `{id, name}` for organizing holidays in the Holiday Manager beyond the default Custom/Federal split
-- **Ignored Federal Holidays** (`ignored_federal_holidays`): List of federal holiday names to suppress from the calendar
-- **Event Categories** (`EventCategory` model): Named + colored + icon-tagged categories; supports `is_locked` to prevent accidental deletion via the UI; PATCH endpoint for partial updates
-- **Auto-Ghosted Logic**: Configurable threshold; a secured cron endpoint runs daily maintenance to mark stale applications as GHOSTED and expire stale share links
-- **Google Sheets Integrations**: Per-user sync configs store sheet links, target type, worksheet/tab metadata, generated column mappings, preferred daily sync time/timezone, row hashes, last run status, import results, and last-run change history
+- **User preferences**: working hours, timezone, event reminders, job-hunt thresholds and driving defaults.
+- **Multiple availability time ranges** per day pattern, with **event date range validation**.
+- **Organisation**: employment types, event categories, holiday tabs and pipeline stages.
+- **Auto-ghosted logic** moves an application on once it has been silent past your threshold.
+- **Navigation**: sidebar order, hidden entries and **mobile toolbar** preferences.
+- **Profile identity** and the **privacy export centre** APIs for exporting or deleting an account.
+- **Google Sheets integrations**: link a sheet, schedule a sync, and review each run.
 
 ### 💵 Income & Recorded Paychecks
 
-- **`IncomeYear`** holds one role's pay plan for one tax year (`tax_year` + `source_key`): salary and paycheck-count overrides, 401(k)/HSA/FSA elections, custom deductions, per-period overrides, match tiers, allowances, bonus and vesting settings, and `income_events`.
-- **`PaycheckActual`** is one real paycheck recorded against that year — gross, federal/state/FICA, take-home, an optional note, and a `pay_date` that overrides the schedule when payday moves. `unique_together (income_year, period_index)`; off-cycle bonus payments are numbered from 1000 by the client.
-- **Recorded paychecks round-trip through `IncomeYear`**, not through separate requests: `actuals` is a writable nested collection on `IncomeYearSerializer`, so the page's single Save writes the plan and the recorded figures in one atomic request.
-- `/api/career/paycheck-actuals/` remains for per-row access; the app does not use it for saving.
-- **`TaxProfile` is gone, and so is `AIArtifact.source_offer`** (migration `0034`). A sweep of all 338 model fields across 24 models found exactly these unused end to end: the `tax-profiles` route, viewset and serializer existed, and `getTaxProfiles` / `createTaxProfile` / `updateTaxProfile` were exported from `careerMisc.ts`, but **nothing ever called them** — the table held 0 rows in production.
-  - The W4 figures the Income page collects (extra withholding, dependents credit, other income, deductions) are **still localStorage-only**: `TaxProfile` had columns for them, but `toPayload` in `useIncomeYear.ts` never sent them and no code path read them back.
-- **`PaycheckActual` keeps only the figures people record.** `actual_federal_tax`, `actual_state_tax`, `actual_social_security` and `actual_medicare` were dropped in `0033` after an audit found **0 of 42 production rows** holding a value in any of them — the modal that wrote them was never used.
-- **Every user-supplied URL the server fetches goes through `config/security/outbound.py`.** A company logo, a stored document and the AI provider relay all fetch an address the user chose, and each called `urlopen` on it directly — so a saved logo of `http://169.254.169.254/latest/meta-data/` would have had the server fetch the cloud metadata endpoint and hand the bytes back in an export.
-- **`GET /api/career/google-sheet-syncs/` used to 500 on any saved config.** `serializers/google_sheets.py` carried `from .services...` inside a function; `serializers` is a package, so it resolved to `career.serializers.services` and raised `ModuleNotFoundError` at call time — the module imported fine and only the request failed.
-- **`hidden_income_roles` and `hidden_income_years` on `UserSettings`** (migration `availability/0014`) hold the Income pickers' visibility choices, so they follow the account rather than the browser.
-- **`deferral_base` replaced `exclude_allowances_from_deferral_base`** (migrations `0035` and `0036`).
-  - `0035` also drops the old column's `NOT NULL`. It had no database default and the new code never writes it, so between the two migrations every `IncomeYear` insert would otherwise fail.
-- **`allowances` accepts a `ONCE` unit.** `validate_allowances` rejects any unit outside `PAYCHECK`, `MONTH`, `YEAR` and `ONCE`, so a one-time allowance was a 400 until the set was widened — the frontend can add a shape the API silently refuses, and the only symptom is a failed save.
-
+- **`IncomeYear`** holds one year's elections — pay cadence, allowances, deductions, 401(k) rates and `deferral_base` — as JSON columns, so its shape changes without a migration.
+- **`PaycheckActual`** keeps only the figures a person records, and round-trips through `IncomeYear` rather than a separate write path.
+- **`allowances`** accepts a `ONCE` unit for a one-off payment on a nominated pay period.
+- **`hidden_income_roles`** and **`hidden_income_years`** on `UserSettings` drive which sources the Income pickers offer.
 
 ### 📊 Account-Backed Layout
 
-- `UserSettings` also stores what used to live only in the browser, so a second device sees it: **`custom_analytics_widgets`** (the AI widgets you authored), **`analytics_widget_order`** and **`analytics_widgets_enabled`** (keyed by dashboard — `jobHunt`, `availability`), and **`contact_network_positions`** (the hand-dragged contact graph, `{nodes, labels}`).
-- All four are `JSONField`s saved through the existing `PUT /api/user-settings/current/`, which is `partial=True`, so a scoped save cannot wipe a neighbouring field.
-- The migration adds them without a column default (`SeparateDatabaseAndState` + `RunPython`): the hosted Postgres rejects the `DROP DEFAULT` Django emits after `ADD COLUMN ... DEFAULT`, and every `ALTER` has to run before any backfill `UPDATE` or the next `ALTER` hits pending trigger events.
+`UserSettings` stores what used to live only in the browser, so a second device sees it: the custom widget definitions and both analytics dashboard layouts, saved as `JSONField`s through `PUT /api/user-settings/current/`.
 
 ### 🔐 Authentication & Security
 
-- **JWT login flow**: `/api/auth/login/` issues access + refresh tokens, `/api/auth/refresh/` rotates both tokens, and used refresh tokens are blacklisted
-- **Account Management**: Supports updating user `first_name` and `last_name` via `PATCH /api/auth/me/`.
-- **Password Security**: `/api/auth/password-change/` handles secure password updates with old-password verification. Passwords are never stored in plain text; they are encrypted using industry-standard hashing algorithms.
-- **Bearer-protected API access**: authenticated API routes accept `Authorization: Bearer <access-token>` while session auth remains available for local admin/test workflows
+- **JWT login flow**: `/api/auth/login/` issues access and refresh tokens, `/api/auth/refresh/` rotates them.
+- **Bearer-protected API access**, so the frontend can sit on another origin.
+- **Account management** via `PATCH /api/auth/me/`, and **password change** with old-password verification. Passwords are hashed, never stored in plain text.
+- **Every user-supplied URL the server fetches** goes through `config/security/outbound.py`, which refuses non-HTTP(S) schemes, odd ports and hosts resolving to private addresses, re-validating each redirect hop.
 
 ### ⚡ Runtime & Background Work
 
-- **Optional Redis Cache** (`django-redis`)
-  - Analytics widget query results cached with MD5 keys (5 min TTL)
-  - `UserSettings` primary timezone cached per booking session (10 min TTL)
-  - Cache auto-invalidated via `post_save`/`post_delete` signals on `Event` and `Application`
-  - Graceful fallback to in-memory cache when Redis is unavailable or intentionally omitted
-
-- **Secured Cron Endpoint**
-  - `GET /api/internal/cron/daily-maintenance/`
-  - `GET /api/internal/cron/google-sheet-syncs/`
-  - guarded by `CRON_SECRET` via the `Authorization: Bearer ...` header that Vercel automatically sends for cron invocations
-  - Hobby-safe Vercel deploys run one daily cron at `0 8 * * *`; daily maintenance handles stale applications, share links, account deletion purges, and enabled Google Sheets syncs
-
-- **Rate Limiting**
-  - `PublicBookingSlotsThrottle`: 20 GET requests/minute per IP
-  - `PublicBookingCreateThrottle`: 5 POST requests/minute per IP
-  - Vercel edge mitigation denies common scanner paths such as `.env`, `.git`, WordPress probes, and phpMyAdmin probes before they reach Django
-  - `vercel-firewall-actions.json` contains the Hobby-compatible Vercel Firewall actions for bot logging, AI bot blocking, and one sensitive API flood-limit rule
+- **In-process cache** (`LocMemCache`), used for booking flows, the timezone lookup and AI artifact jobs. Response caching for list endpoints is deliberately not used: a serverless instance cannot invalidate another instance's cache.
+- **Secured cron endpoints**: `/api/internal/cron/daily-maintenance/` and `/api/internal/cron/google-sheet-syncs/`, guarded by `CRON_SECRET` through the `Authorization: Bearer` header Vercel sends. Hobby-safe deploys run one daily cron at `0 8 * * *`.
+- **Rate limiting**: 20 GET/min per IP on public booking slots, 5 POST/min on booking creation. Vercel edge mitigation denies common scanner paths, and `vercel-firewall-actions.json` holds the Hobby-compatible firewall actions.
 
 ## 🛠 Tech Stack
 
@@ -447,152 +350,36 @@ Current AI features are configured in the frontend, with the provider key stored
 3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
-### Stock prices
+### Share prices
 
 `Offer.equity_current_price` holds a price per share for a company with no ticker, which is how a
-private buyback is valued; `StockPrice` covers listed symbols, where one quote serves every offer.
-`equity_buyback_value` is retained but no longer read: a buyback realises the annual equity figure
-at the internal price, so keeping a second annual number invited the two to disagree.
-
-
-`StockPrice` holds the latest price per ticker per user, not per offer, so two offers at the same
-company share one number. `source` marks whether it was typed or fetched, which is the seam a
-market-data feed would fill without changing the offer model. `POST` upserts on `(user, symbol)`,
-so re-entering a ticker updates it rather than colliding with the unique constraint.
-
-### The sheet sync will not delete what the sheet cannot restore
-
-`missing_row_strategy = ARCHIVE_THEN_DELETE` archives an application whose row left the sheet and
-permanently deletes it `missing_row_delete_after_days` later. `Offer.application` cascades, so that
-delete also destroys the offer, whose compensation is hand-entered and present nowhere in the
-sheet. One was lost this way. `_sheet_cannot_restore` now blocks the permanent delete whenever the
-application carries a recorded offer, a decision journal or attached documents, exactly as
-`is_locked` already did, and warns with the company, the role and what to do instead. Archiving
-still happens: it is a reversible status change and it is how a row's absence gets reported. Only
-the irreversible half is guarded.
-
-A second guard covers the detection itself. A tracked row is judged missing by whether its
-`external_key` appears in the run's seen set, but an application can be tracked under more than one
-key — a `row:` fallback alongside an `identity:` hash — and a match recorded under one leaves the
-other unseen. That orphaned row then reads as missing on every run, archives a live application,
-and deletes it once the grace period lapses. The pass now skips, and clears, any tracked row whose
-application was matched under any other key in the same run.
-
-### Renaming a role in the sheet no longer duplicates the application
-
-A tracked row's key is `identity:sha256(company, role, salary_range, location, office_location,
-job_link)`, so editing **any** of those six fields produces a different key. The row then matched
-no tracked row, `_find_existing_application_by_sheet_identity` filtered on the *new* role title and
-also missed, and the result was a second application plus the original archived and deleted five
-days later, taking its timeline, notes and offer with it. Only `status` and `notes` were safe to
-edit, which is not a property anyone would guess.
-
-`_find_renamed_application_by_row` is the fallback: when the identity misses, the application
-tracked at the **same sheet row number** is adopted and updated in place. The guard is that the
-**company must still match** — a reordered or replaced row is a different application, not a
-rename, and must not be overwritten. Two rows for one company with different roles stay two
-applications, since each has its own row number.
-
-The durable fix is still to map an `external_id` column, which makes the key a stable id rather
-than a hash of the contents; the row-number fallback is what protects a sheet that has none.
-
-### Resume version analytics
-
-`GET /career/resume-version-analytics/` (`services/resume_analytics.py`) answers which resume
-actually worked. It is **not** cached, unlike its two neighbours in `views/analytics.py`: attaching
-a resume to an application invalidates it, and `LocMemCache` is private to one serverless instance,
-so the write would never reach the instance serving the next read. Nothing new is collected: `Application.submitted_documents` already pins the exact
-`Document` version that was sent, and a later version does not replace it, so the sample per version
-is already correct on disk.
-
-Rates reuse `application_stats`' definitions so the two dashboards cannot disagree about the same
-application — no response is `APPLIED` / `GHOSTED` / `REMOVED_FROM_SHEET`, an offer is
-`OFFER` / `ACCEPTED` / `OFFER_REJECTED`. Reaching an interview is read from the **timeline as well as
-the status**, because a resume that got you to an onsite and then a rejection did its job, and a
-status-only reading would score it as a failure. An offer implies the interviews behind it whether
-or not they were logged.
-
-Two breakdowns come free of the same records. **Role type** is `employment_type`. **Source** is
-derived from the host of `job_link` against a suffix table (`boards.greenhouse.io` and
-`greenhouse.io` are one board), so a lookalike domain like `notlinkedin.com` is not credited to
-LinkedIn; anything else with a host is `Company site` and a blank link is `No link`.
-
-`MINIMUM_SAMPLE_SIZE = 5` drives `below_minimum_sample` on every row, version and breakdown alike.
-The rate is still returned — hiding it would be its own kind of lie — but the caller is told the
-number rests on fewer than five applications. `untracked_applications` reports how many applications
-name no resume at all, so a small `versions` list cannot be mistaken for a small job search.
-
-### Decision journal
-
-`OfferDecisionJournal` is one row per offer (`OneToOneField`), holding the decision, the dates, the
-reasons and the concerns. A 1-5 `confidence` field shipped with it and was dropped in `0004`: it
-asked how sure you were on a scale, which is the one thing hindsight rewrites most freely, so it
-added a number to the record without adding anything the reasons and concerns did not already say. The look-backs live in a `reviews` JSON list rather
-than a table: a review is a milestone, a completion date, a verdict and a note, always read as a
-whole set, and the milestones themselves (30 and 90 days) are a frontend choice that a schema
-would freeze. `validate_reviews` still enforces the shape, so a malformed entry cannot be stored.
-
-Reviews are counted from `started_on`, falling back to `decided_on` — `review_anchor` on the model
-does the same, since a declined offer has no start date but is still worth looking back on.
-`validate_offer` rejects an offer belonging to another user, because the offer id arrives from the
-client while the queryset filters on the request user; without it a journal could be attached to
-someone else's offer and then be invisible to its own author.
-
-### Live share prices and their history
+private buyback is valued. `StockPrice` covers listed symbols, holding the latest price per ticker
+per user rather than per offer, so two offers at the same company share one number; `source` marks
+whether it was typed or fetched, and `POST` upserts on `(user, symbol)`.
 
 `POST /career/stock-prices/refresh/` fetches the latest traded price for a ticker and records it;
-with no `symbol` it sweeps every ticker already tracked, and one bad ticker is reported in `failed`
-rather than failing the sweep. `GET /career/stock-prices/history/` returns the log, newest first,
-optionally narrowed to one symbol.
+with no `symbol` it sweeps every tracked ticker and reports a bad one in `failed`. History is kept
+so a grant can be repriced over time. The source is Yahoo's chart endpoint — free, no key, and
+undocumented, so it refuses a request without a browser-shaped user agent.
 
-The source is Yahoo's `query1.finance.yahoo.com/v8/finance/chart/<symbol>` endpoint: free, no key,
-and returning a usable `regularMarketPrice` with the trading timestamp. It is **undocumented** —
-there is no ToS permission for programmatic use and it can rate-limit or change shape without
-notice — which is why a failure never overwrites a stored price and the field stays hand-editable.
-Stooq's CSV endpoint was the other keyless candidate and is dead.
 
-**The symbol is interpolated into a URL, so it is validated before it gets near one.**
-`SYMBOL_PATTERN` allows only `[A-Z0-9][A-Z0-9.-]{0,11}`, which refuses a path traversal, a query
-string, a fragment or a second host; the request then goes through `open_outbound_url` with
-`allow_http=False`, so the SSRF guard applies on top.
+### Google Sheets sync behaviour
 
-`record_price` is the single writer: it updates `StockPrice` (the latest-per-ticker pointer) and
-appends to `StockPriceHistory`. The log records **changes, not checks** — refetching the same
-trading day corrects that day's row, and a new day whose price is unchanged from the row before it
-adds nothing, because a price refreshed on every offer open would otherwise fill the log with
-identical rows. The comparison is against the immediately preceding row, not every row ever
-recorded, so a price that falls back to an earlier value is still a change worth logging. The
-latest pointer still advances its `as_of` either way, so "checked today" and "changed today" stay
-separable. The serializer's
-`create` **and** `update` both go through it, so a hand-corrected price is logged too — history
-that only recorded API fetches would have gaps exactly where you intervened. `StockPrice.source`
-already had an unused `API` choice; this is what finally writes it.
+A tracked row is matched by `identity:sha256(company, role, salary_range, location,
+office_location, job_link)`, with the sheet row number as a fallback when a field is edited, so
+renaming a role updates the application in place rather than creating a second one. A row that
+leaves the sheet is archived; the permanent delete that follows is refused when the application
+carries a recorded offer, a decision journal or attached documents. Mapping an `external_id`
+column makes the key a stable id and avoids the hash entirely.
 
-### Decision outcome insights
+### Analytics endpoints
 
-`GET /career/decision-outcome-insights/` (`services/decision_outcomes.py`) reads the journals back
-as a set rather than one at a time, which is only possible because the journal stores the judgement
-in a shape that can be counted: `concerns` is `[{id, text, outcome}]` with `outcome` in
-`REAL` / `AVOIDED` / `UNCLEAR`, and `criteria` is a list of scorecard category keys, graded per
-look-back through `reviews[].criteria_verdicts` as `BETTER` / `AS_EXPECTED` / `WORSE`. Free prose
-could not be aggregated without an AI call, and the point of the feature is that it works from
-what is already recorded.
-
-Reusing the **scorecard's own category keys** (`financial`, `benefits`, `workLife`, `trajectory`,
-`location`, `brand`, `visa`) is what lets "what mattered most" line up with the weights already set
-on the comparison page, instead of inventing a second vocabulary for the same six things.
-
-Two rules keep the aggregate honest. A review with no `completed_on` is **not** evidence — a
-half-typed look-back would otherwise vote. And where the 30 and 90 day reviews disagree about a
-criterion, **the later one wins**: the 90-day view is revisiting the same question, not answering a
-different one. `MINIMUM_DECISIONS_FOR_PATTERN = 3` flags any criterion judged fewer times.
-
-Migration `0005` turns `concerns` from text into `jsonb` and adds `criteria`. It is written as
-`SeparateDatabaseAndState` with `RunPython` branching on `connection.vendor`, because Django's own
-`AddField` emits the `ALTER COLUMN … DROP DEFAULT` Nile rejects, while sqlite rejects the
-`IF NOT EXISTS` that guards it — the combination that made local tests unrunnable before the squash.
-The `concerns` column was empty in production (checked before writing it), so it is dropped and
-re-added rather than cast through a `USING` clause.
+- **Resume version analytics** report which document version went out with each application and how
+  each performed, counting replies rather than offers.
+- **Decision journal** records the concerns and assumptions behind an offer decision, each later
+  marked became real, never happened or still unclear.
+- **Decision outcome insights** read the journal back across decisions: which concerns became real,
+  which assumptions were wrong, and which criteria have historically mattered.
 
 ### Squashed migrations
 
@@ -736,6 +523,11 @@ Base prefix: `/api/career/`
 - `GET /api/career/resume-version-analytics/` — Return per-resume-version application counts, response/interview/offer rates, breakdowns by role type and source, and a small-sample flag
 - `GET /api/career/decision-outcome-insights/` — Return which recorded concerns became real, how each decision criterion actually turned out, and how many decisions have been looked back on
 
+#### Interviews
+
+- `GET /api/career/interview-debriefs/` — List debriefs for the authenticated user's applications
+- `POST /api/career/interview-debriefs/` — Record a debrief against one interview round
+
 #### Offers
 
 - `GET /api/career/offers/` — List all offers
@@ -743,8 +535,14 @@ Base prefix: `/api/career/`
 - `GET /api/career/offers/{id}/` — Retrieve offer details
 - `PUT /api/career/offers/{id}/` — Update offer
 - `DELETE /api/career/offers/{id}/` — Delete offer
+- `POST /api/career/offers/transition-advisor/` — Career transition advice for a role you want to leave
 
 Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) and `equity_buyback_value`. Existing offers default to `LIQUID` for backward-compatible calculations.
+
+#### Income
+
+- `GET /api/career/paycheck-actuals/` — List recorded paychecks
+- `POST /api/career/paycheck-actuals/` — Record what a paycheck actually paid
 
 #### Experience
 
