@@ -43,7 +43,7 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
 - 🌐 **CORS Enabled**: Ready for frontend integration
 - ☁️ **Vercel-Compatible HTTP API**: Django runs as a pure HTTP app with a WSGI entrypoint, external PostgreSQL, and a secured cron endpoint for maintenance jobs
-- ⚡ **Optional Shared Cache**: Redis can still be attached for shared caching/throttling, but local development and Vercel deployments no longer depend on it
+- ⚡ **In-process cache**: `LocMemCache` only, used where no other instance needs to invalidate it. List responses are deliberately uncached, since a serverless instance cannot invalidate another's cache.
 - 🐳 **Docker Ready (Local Dev)**: One-command local startup with Docker Compose bound to localhost
 
 ## ✨ Features
@@ -164,10 +164,6 @@ Bring your own provider key; every call is relayed through the API and the key i
 
 - **User-provided AI provider** - Encrypted backend relay with Claude, Gemini, OpenAI, OpenRouter, and custom adapters for JD matching, cover letters, job URL import, negotiation advice, and analytics widget fallback
 - **Lightweight keyword/acronym extractor** - Skill extraction from free-text experience descriptions without heavyweight runtime NLP dependencies
-
-### Distributed Systems
-
-- **django-redis** - Optional Redis cache backend for shared caching/throttling
 
 ### Data Processing
 
@@ -446,7 +442,7 @@ api/
 │   │   ├── models.py         # Event, CustomHoliday, UserSettings, ShareLink, PublicBooking
 │   │   ├── serializers.py    # DRF serializers
 │   │   ├── pagination.py     # DRF page-size classes
-│   │   ├── throttling.py     # Redis rate-limit throttle classes
+│   │   ├── throttling.py     # DRF rate-limit throttle classes
 │   │   ├── signals.py        # Cache invalidation signals
 │   │   ├── tasks.py          # HTTP-triggered maintenance helpers
 │   │   ├── services/         # Domain logic: ai_provider (relay), provider_secrets (key encryption),
