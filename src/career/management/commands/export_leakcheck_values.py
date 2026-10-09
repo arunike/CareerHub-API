@@ -196,8 +196,7 @@ class Command(BaseCommand):
             Application.objects.filter(user__email=email),
             Offer.objects.filter(application__user__email=email),
             IncomeYear.objects.filter(user__email=email),
-            # A label the user typed is personal data wherever it is stored, and these three
-            # hold the ones a screenshot shows: a holiday tab, a category, an event title.
+            # A holiday tab, a category and an event title are typed by the user too.
             UserSettings.objects.filter(user__email=email),
             EventCategory.objects.filter(user__email=email),
             Event.objects.filter(user__email=email),
