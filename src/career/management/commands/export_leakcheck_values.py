@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.management.base import BaseCommand
 
-from availability.models import CustomHoliday
+from availability.models import CustomHoliday, Event, EventCategory, UserSettings
 from career.models import Application, Company, Contact, Experience, IncomeYear, Offer
 
 REFERENCE = os.path.join(
@@ -196,6 +196,11 @@ class Command(BaseCommand):
             Application.objects.filter(user__email=email),
             Offer.objects.filter(application__user__email=email),
             IncomeYear.objects.filter(user__email=email),
+            # A label the user typed is personal data wherever it is stored, and these three
+            # hold the ones a screenshot shows: a holiday tab, a category, an event title.
+            UserSettings.objects.filter(user__email=email),
+            EventCategory.objects.filter(user__email=email),
+            Event.objects.filter(user__email=email),
         ):
             from_names, from_rest = self.sweep(queryset)
             strong.update(from_names)

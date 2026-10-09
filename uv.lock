@@ -38,7 +38,6 @@ dependencies = [
     { name = "django" },
     { name = "django-cors-headers" },
     { name = "django-filter" },
-    { name = "django-redis" },
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
     { name = "google-api-python-client" },
@@ -52,7 +51,6 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pytz" },
     { name = "recurring-ical-events" },
-    { name = "redis" },
     { name = "vercel" },
 ]
 
@@ -62,7 +60,6 @@ requires-dist = [
     { name = "django", specifier = "==5.0.3" },
     { name = "django-cors-headers", specifier = "==4.3.1" },
     { name = "django-filter", specifier = "==24.1" },
-    { name = "django-redis", specifier = "==6.0.0" },
     { name = "djangorestframework", specifier = "==3.14.0" },
     { name = "djangorestframework-simplejwt", specifier = "==5.5.1" },
     { name = "google-api-python-client", specifier = ">=2.170,<3" },
@@ -76,7 +73,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = "==1.0.1" },
     { name = "pytz", specifier = "==2024.1" },
     { name = "recurring-ical-events", specifier = "==3.3.2" },
-    { name = "redis", specifier = "==7.3.0" },
     { name = "vercel", specifier = "==0.5.8" },
 ]
 
@@ -233,19 +229,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/57/26/17d8bd1ea93b899857caf0283f6b8fa737bebe280738b9d4fb54be01b010/django-filter-24.1.tar.gz", hash = "sha256:65cb43ce272077e5ac6aae1054d76c121cd6b552e296a82a13921e9371baf8c1", size = 141809, upload-time = "2024-03-08T16:00:58.267Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/93/96/8a973c1f45232ce3051ca0c7f40762ed61b1d67e337ae27825b2e53cf57f/django_filter-24.1-py3-none-any.whl", hash = "sha256:335bcae6cbd3e984b024841070f567b22faea57594f27d37c52f8f131f8d8621", size = 94502, upload-time = "2024-03-08T16:00:53.637Z" },
-]
-
-[[package]]
-name = "django-redis"
-version = "6.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "redis" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/08/53/dbcfa1e528e0d6c39947092625b2c89274b5d88f14d357cee53c4d6dbbd4/django_redis-6.0.0.tar.gz", hash = "sha256:2d9cb12a20424a4c4dde082c6122f486628bae2d9c2bee4c0126a4de7fda00dd", size = 56904, upload-time = "2025-06-17T18:15:46.376Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/79/055dfcc508cfe9f439d9f453741188d633efa9eab90fc78a67b0ab50b137/django_redis-6.0.0-py3-none-any.whl", hash = "sha256:20bf0063a8abee567eb5f77f375143c32810c8700c0674ced34737f8de4e36c0", size = 33687, upload-time = "2025-06-17T18:15:34.165Z" },
 ]
 
 [[package]]
@@ -707,15 +690,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4a/15/fe2a2d440180c82cbb5eb16de0fa0477bc72b49a0a41e1fe3eac28e9fc56/recurring_ical_events-3.3.2.tar.gz", hash = "sha256:d3d6252af41a6f2dc39de45b8481030b6fca5d371da775b0b22a6aef12b0075c", size = 49840, upload-time = "2024-09-30T03:35:52.028Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/60/1cc5532fd79d4c83d20083af9e8510d2a94c51e4197022c17a4d2113937c/recurring_ical_events-3.3.2-py3-none-any.whl", hash = "sha256:c1f5a97d354571f431ae5dfd8cf15ec2bb13564c9214b3db3bf377793b8a1831", size = 28559, upload-time = "2024-09-30T03:35:50.697Z" },
-]
-
-[[package]]
-name = "redis"
-version = "7.3.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/da/82/4d1a5279f6c1251d3d2a603a798a1137c657de9b12cfc1fba4858232c4d2/redis-7.3.0.tar.gz", hash = "sha256:4d1b768aafcf41b01022410b3cc4f15a07d9b3d6fe0c66fc967da2c88e551034", size = 4928081, upload-time = "2026-03-06T18:18:16.287Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f0/28/84e57fce7819e81ec5aa1bd31c42b89607241f4fb1a3ea5b0d2dbeaea26c/redis-7.3.0-py3-none-any.whl", hash = "sha256:9d4fcb002a12a5e3c3fbe005d59c48a2cc231f87fbb2f6b70c2d89bb64fec364", size = 404379, upload-time = "2026-03-06T18:18:14.583Z" },
 ]
 
 [[package]]
