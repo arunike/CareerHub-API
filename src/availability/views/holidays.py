@@ -34,7 +34,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = CustomHoliday.objects.filter(user=self.request.user)
         if self.action == 'list':
-            return queryset.exclude(holiday_type='federal')
+            return queryset.exclude(holiday_type='observed')
         return queryset
 
     def perform_create(self, serializer):
@@ -50,12 +50,12 @@ class HolidayViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'])
-    def federal(self, request):
+    def observed(self, request):
         year = _get_requested_holiday_year(request)
         holidays_dict = get_federal_holidays(year)
         
         user_settings = UserSettings.objects.filter(user=request.user).first()
-        ignored_holidays = user_settings.ignored_federal_holidays if user_settings else []
+        ignored_holidays = user_settings.ignored_observed_holidays if user_settings else []
         
         data = []
         for d, name in sorted(holidays_dict.items()):
@@ -64,19 +64,19 @@ class HolidayViewSet(viewsets.ModelViewSet):
             data.append({
                 'date': date_str, 
                 'description': name,
-                'holiday_type': 'federal_native',
+                'holiday_type': 'observed_native',
                 'is_ignored': is_ignored
             })
             
-        custom_federal = list(
+        custom_observed = list(
             CustomHoliday.objects.filter(
                 Q(date__year=year) | Q(is_recurring=True),
                 user=request.user,
-                holiday_type='federal',
+                holiday_type='observed',
             )
         )
-        projected_dates = project_recurring_holiday_dates(custom_federal, year)
-        for custom in custom_federal:
+        projected_dates = project_recurring_holiday_dates(custom_observed, year)
+        for custom in custom_observed:
             date_str = projected_dates[custom.id].strftime('%Y-%m-%d')
             is_ignored = custom.description in ignored_holidays or date_str in ignored_holidays
             data.append({
@@ -84,7 +84,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
                 'date': date_str,
                 'group_id': custom.group_id,
                 'description': custom.description,
-                'holiday_type': 'federal',
+                'holiday_type': 'observed',
                 'is_recurring': custom.is_recurring,
                 'is_locked': custom.is_locked,
                 'is_ignored': is_ignored
@@ -95,6 +95,11 @@ class HolidayViewSet(viewsets.ModelViewSet):
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    def federal(self, request):
+        """Kept so a frontend deployed before the observed-holiday rename keeps loading."""
+        return self.observed(request)
+
+    @action(detail=False, methods=['get'])
     def export(self, request):
         fmt = request.query_params.get('fmt', 'csv')
         return export_data(self.get_queryset(), self.get_serializer_class(), fmt, 'holidays')
@@ -102,7 +107,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
         count, _ = self.get_queryset().exclude(
-            holiday_type='federal'
+            holiday_type='observed'
         ).filter(is_locked=False).delete()
         return Response(
             {'message': f'Deleted {count} holidays. Locked holidays were preserved.'},

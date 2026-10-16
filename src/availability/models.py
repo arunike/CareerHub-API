@@ -132,7 +132,7 @@ class UserSettings(models.Model):
         max_digits=6, decimal_places=2, default=4, help_text="Pump price used for commute cost"
     )
     default_event_category = models.ForeignKey(EventCategory, on_delete=models.SET_NULL, null=True, blank=True)
-    ignored_federal_holidays = models.JSONField(default=list, help_text="List of federal holiday names or dates to ignore")
+    ignored_observed_holidays = models.JSONField(default=list, help_text="Observed holiday names or dates to ignore")
     employment_types = models.JSONField(default=list, blank=True, help_text="Custom employment type definitions [{value, label, color}]")
     holiday_tabs = models.JSONField(default=list, blank=True, help_text="User-defined holiday tab definitions [{id, name}]")
     default_holiday_color = models.CharField(
@@ -140,10 +140,10 @@ class UserSettings(models.Model):
         default="green",
         help_text="Colour for time off that has no holiday tab (the My Time Off bucket)",
     )
-    federal_holiday_color = models.CharField(
+    observed_holiday_color = models.CharField(
         max_length=32,
         default="gray",
-        help_text="Colour for observed federal holidays",
+        help_text="Colour for the observed holidays tab",
     )
     offer_adjustment_settings = models.JSONField(
         default=dict,
