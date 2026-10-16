@@ -35,12 +35,12 @@ The **Backend** is a Django REST Framework-powered API that provides all the dat
 - 🔐 **JWT Auth for Split Deployments**: Login, refresh, logout, and `me` flows now use Bearer tokens so separate `*.vercel.app` frontend/backend projects work without a shared cookie domain
 - 🤖 **Encrypted AI Provider Relay**: Frontend BYOK flows pull context from standard APIs while provider keys stay encrypted on the backend and provider adapters relay requests server-side
 - 📥 **Import/Export**: Bulk CSV/XLSX import plus multi-format export (CSV, JSON, XLSX), including full-fidelity Experience import/export with linked offer/application snapshots
-- 🔄 **Google Sheets Sync**: Authenticated users can link Google Sheets to one-way sync Applications or Events, review detected application imports, resolve possible duplicates, approve selected changes, inspect last-run change history, run manual syncs, and configure daily cron refreshes
+- 🔄 **Google Sheets Sync**: link a Google Sheet to one-way sync Applications or Events, with duplicate resolution, per-change approval, run history, manual syncs and a daily cron refresh
 - 📊 **Timeline Analytics**: Application timeline entries and Google Sheet row provenance power time-to-interview, stage conversion, stale-stage warnings, and offer-rate breakdowns
 - 📄 **Resume Version Analytics**: `Application.submitted_documents` already pins the exact document version sent, so response, interview and offer rates per resume version are derived from records already kept — no new input asked for
-- 👥 **Career Relationship Network**: Canonical contacts connect to Application and Experience contexts, expose company metadata for shared list/network filtering, support direct and person-to-person relationship edges, and preserve one logical career lifecycle from application through employment
+- 👥 **Career Relationship Network**: canonical contacts connect to Application and Experience contexts and carry company metadata for shared list and network filtering, with direct and person-to-person relationship edges
 - 🏢 **Company Deduplication**: Intelligent `get_or_create` logic to prevent duplicate companies
-- 📅 **Federal Holidays**: Automatic U.S. holiday detection using the `holidays` library
+- 📅 **Observed Holidays**: Automatic U.S. federal holiday detection using the `holidays` library, plus the days you add yourself
 - 🌐 **CORS Enabled**: Ready for frontend integration
 - ☁️ **Vercel-Compatible HTTP API**: Django runs as a pure HTTP app with a WSGI entrypoint, external PostgreSQL, and a secured cron endpoint for maintenance jobs
 - ⚡ **In-process cache**: `LocMemCache` only, used where no other instance needs to invalidate it. List responses are deliberately uncached, since a serverless instance cannot invalidate another's cache.
@@ -110,12 +110,12 @@ Bring your own provider key; every call is relayed through the API and the key i
 ### 📅 Availability & Events
 
 - **Event scheduling** with **multi-day** (`end_date`) and **all-day** events, validated so an end date cannot precede a start even on a partial `PATCH`.
-- **Unified calendar operations** over events, time off and federal holidays.
-- **Holiday detection and management**, including ignoring a specific federal holiday.
+- **Unified calendar operations** over events, time off and observed holidays.
+- **Holiday detection and management**, including ignoring a specific observed holiday so it leaves the calendar.
 - **Availability generation** for a chosen range and timezone.
 - **Public booking links**, several per account, throttled per IP.
 - **Conflict detection** APIs behind the notification bell.
-- **Event link suggestions** (`/api/events/link-suggestions/`) pair unlinked events with a likely application by word-boundary company match, skipping meeting-tool phrases such as "Google Meet"; `/suggest-link/` does one title and `/apply-links/` attaches in bulk.
+- **Event link suggestions** (`/api/events/link-suggestions/`) pair unlinked events with a likely application by word-boundary company match, skipping meeting-tool phrases; `/suggest-link/` does one title and `/apply-links/` attaches in bulk.
 
 ### ⚙️ Settings
 
@@ -174,7 +174,7 @@ Bring your own provider key; every call is relayed through the API and the key i
 ### Utilities
 
 - **django-cors-headers** - CORS middleware for frontend integration
-- **holidays** - Federal holiday detection library
+- **holidays** - U.S. federal holiday detection library
 
 ### Infrastructure
 
@@ -403,6 +403,13 @@ python manage.py migrate
 python manage.py check
 ```
 
+`show_columns <table>` prints a table's columns, nullability and defaults and reads no row data,
+which is how to check what a migration actually did to the deployed schema.
+
+```bash
+python manage.py show_columns availability_usersettings --like holiday
+```
+
 ### Optional: Local Privacy Gate
 
 This is a single-maintainer deployment, so the repo must never carry the maintainer's own
@@ -622,7 +629,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 - `POST /api/holidays/` — Create a custom holiday (supports `tab` assignment + grouped multi-day collections)
 - `PUT /api/holidays/{id}/` — Update holiday (full replace)
 - `PATCH /api/holidays/{id}/` — Partial update (e.g., tab or description only)
-- `GET /api/holidays/federal/` — List native federal + user-defined federal holidays
+- `GET /api/holidays/observed/` — List the computed U.S. federal days plus the observed holidays you added
 - `GET /api/holidays/export/?fmt=csv` — Export holidays
 
 #### Event Categories
