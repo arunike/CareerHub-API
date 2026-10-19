@@ -40,15 +40,6 @@ class HolidayViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance.is_locked:
-            return Response(
-                {'error': 'This holiday is locked and cannot be deleted. Unlock it first.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        return super().destroy(request, *args, **kwargs)
-
     @action(detail=False, methods=['get'])
     def observed(self, request):
         year = _get_requested_holiday_year(request)
@@ -106,10 +97,8 @@ class HolidayViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'])
     def delete_all(self, request):
-        count, _ = self.get_queryset().exclude(
-            holiday_type='observed'
-        ).filter(is_locked=False).delete()
+        count, _ = self.get_queryset().exclude(holiday_type='observed').delete()
         return Response(
-            {'message': f'Deleted {count} holidays. Locked holidays were preserved.'},
+            {'message': f'Deleted {count} holidays.'},
             status=status.HTTP_200_OK,
         )
