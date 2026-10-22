@@ -355,8 +355,13 @@ whether it was typed or fetched, and `POST` upserts on `(user, symbol)`.
 
 `POST /career/stock-prices/refresh/` fetches the latest traded price for a ticker and records it;
 with no `symbol` it sweeps every tracked ticker and reports a bad one in `failed`. History is kept
-so a grant can be repriced over time. The source is Yahoo's chart endpoint — free, no key, and
-undocumented, so it refuses a request without a browser-shaped user agent.
+so a grant can be repriced over time, one row per trading day. The source is Yahoo's chart endpoint
+— free, no key, and undocumented, so it refuses a request without a browser-shaped user agent.
+
+`POST /career/stock-prices/backfill/` fills that daily log from the same endpoint's multi-day
+series, taking an optional `symbol` and a `period` out of `1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, max`. A
+day already recorded is left alone, so a hand-typed price outranks a fetched close.
+`GET /career/stock-prices/history/` takes `symbol` and `since` and returns up to 1500 rows.
 
 
 ### Google Sheets sync behaviour
@@ -666,7 +671,7 @@ Offer payloads expose `equity_liquidity` (`LIQUID`, `BUYBACK`, or `ILLIQUID`) an
 
 #### Internal Maintenance
 
-- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, and purges account deletions whose 14-day grace period has elapsed
+- `GET /api/internal/cron/daily-maintenance/` — Secured daily maintenance hook for Vercel Cron Jobs; expires share links, ghosts stale applications, purges account deletions whose 14-day grace period has elapsed, and refreshes every tracked ticker price
 - `GET /api/internal/cron/google-sheet-syncs/` — Secured Google Sheets cron hook kept for future Pro/custom-worker scheduling; Hobby deploys use the single daily cron in `vercel.json`
 
 #### Authentication
