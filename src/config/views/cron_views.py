@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from availability.tasks import expire_stale_share_links, purge_expired_account_deletions
-from career.tasks import auto_ghost_stale_applications
+from career.tasks import auto_ghost_stale_applications, refresh_tracked_stock_prices
 from career.services.google_sheets import sync_enabled_google_sheets
 
 
@@ -33,6 +33,7 @@ class DailyMaintenanceCronView(AuthenticatedCronView):
             "share_links": expire_stale_share_links(),
             "account_deletions": purge_expired_account_deletions(),
             "google_sheet_syncs": sync_enabled_google_sheets(),
+            "stock_prices": refresh_tracked_stock_prices(),
         }
         return Response({"ok": True, "results": results}, status=status.HTTP_200_OK)
 

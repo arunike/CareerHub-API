@@ -1,6 +1,5 @@
 import json
 import re
-from decimal import Decimal
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 
@@ -13,10 +12,18 @@ SYMBOL_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9.\-]{0,11}$')
 
 QUOTE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d'
 
+SERIES_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range={period}'
+
+# Interpolated into the URL beside the ticker, so only Yahoo's own range words may get through.
+SERIES_PERIODS = ('1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'max')
+
 # Yahoo's chart endpoint is undocumented and refuses a request with no browser-shaped agent.
 QUOTE_HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; CareerHub)'}
 
 QUOTE_TIMEOUT_SECONDS = 8
+
+# A multi-year series is a far bigger payload than one quote.
+SERIES_TIMEOUT_SECONDS = 20
 
 
 def normalize_symbol(value):
@@ -86,7 +93,7 @@ def record_price(*, user, symbol, price, as_of, source, note=''):
 
 
 def _append_history(*, user, symbol, price, as_of, source, note):
-    """A log of changes, not of checks: an unchanged price adds nothing worth reading."""
+    """One row per trading day, including a flat one: the day chart plots a point per day."""
     from career.models import StockPriceHistory
 
     rows = StockPriceHistory.objects.filter(user=user, symbol=symbol)
@@ -96,10 +103,6 @@ def _append_history(*, user, symbol, price, as_of, source, note):
         StockPriceHistory.objects.filter(pk=same_day.pk).update(
             price=price, source=source, note=note
         )
-        return
-
-    newest = rows.order_by('-as_of').first()
-    if newest and Decimal(str(price)) == newest.price:
         return
 
     StockPriceHistory.objects.create(
@@ -120,3 +123,92 @@ def refresh_price(*, user, symbol):
         source='API',
         note=f"Fetched at {quote['currency']}",
     )
+
+
+def _series_from_payload(payload):
+    chart = (payload or {}).get('chart') or {}
+    if chart.get('error'):
+        raise ValidationError({'symbol': 'No price history was found for that symbol.'})
+    results = chart.get('result') or []
+    result = results[0] if results else None
+    if not result:
+        raise ValidationError({'symbol': 'No price history was found for that symbol.'})
+    stamps = result.get('timestamp') or []
+    quotes = ((result.get('indicators') or {}).get('quote') or [{}])[0] or {}
+    closes = quotes.get('close') or []
+    days = {}
+    for stamp, close in zip(stamps, closes):
+        if not isinstance(stamp, (int, float)) or not isinstance(close, (int, float)):
+            continue
+        if close <= 0:
+            continue
+        # A halted or part-traded session can repeat a date, and the later row is the settled one.
+        days[datetime.fromtimestamp(stamp, tz=timezone.utc).date()] = float(close)
+    if not days:
+        raise ValidationError({'symbol': 'That symbol returned no usable price history.'})
+    return [{'as_of': day, 'price': price} for day, price in sorted(days.items())]
+
+
+def fetch_price_series(symbol, period='2y'):
+    """Every daily close Yahoo holds for a ticker over a range, oldest first."""
+    ticker = normalize_symbol(symbol)
+    if period not in SERIES_PERIODS:
+        raise ValidationError({'period': 'That is not a range this service can fetch.'})
+    try:
+        with open_outbound_url(
+            SERIES_URL.format(symbol=ticker, period=period),
+            timeout=SERIES_TIMEOUT_SECONDS,
+            headers=QUOTE_HEADERS,
+            allow_http=False,
+        ) as response:
+            payload = json.loads(response.read().decode('utf-8'))
+    except HTTPError as error:
+        if error.code == 404:
+            raise ValidationError({'symbol': 'No price history was found for that symbol.'})
+        raise ValidationError({'symbol': 'The price service is unavailable right now.'})
+    except (URLError, TimeoutError, ValueError):
+        raise ValidationError({'symbol': 'The price service could not be reached.'})
+    return _series_from_payload(payload)
+
+
+def backfill_history(*, user, symbol, period='2y'):
+    """Fill the daily log from the provider, leaving every day already recorded alone."""
+    from career.models import StockPrice, StockPriceHistory
+
+    ticker = normalize_symbol(symbol)
+    series = fetch_price_series(ticker, period)
+    known = set(
+        StockPriceHistory.objects.filter(user=user, symbol=ticker).values_list('as_of', flat=True)
+    )
+    # A day already logged may have been typed by hand, which outranks a provider's close.
+    missing = [day for day in series if day['as_of'] not in known]
+    StockPriceHistory.objects.bulk_create(
+        [
+            StockPriceHistory(
+                user=user,
+                symbol=ticker,
+                price=round(day['price'], 4),
+                as_of=day['as_of'],
+                source=StockPrice.SOURCE_API,
+            )
+            for day in missing
+        ],
+        ignore_conflicts=True,
+    )
+    newest = series[-1]
+    latest = StockPrice.objects.filter(user=user, symbol=ticker).first()
+    # Only a genuinely newer day moves the pointer: a price already recorded for today was chosen.
+    if latest is None or latest.as_of < newest['as_of']:
+        record_price(
+            user=user,
+            symbol=ticker,
+            price=round(newest['price'], 4),
+            as_of=newest['as_of'],
+            source=StockPrice.SOURCE_API,
+        )
+    return {
+        'symbol': ticker,
+        'added': len(missing),
+        'first': series[0]['as_of'],
+        'last': newest['as_of'],
+    }
