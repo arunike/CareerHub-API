@@ -346,6 +346,14 @@ Current AI features are configured in the frontend, with the provider key stored
 3. Save the provider to your authenticated account.
 4. Run JD Matcher, Cover Letter generation, Negotiation Advisor, or Analytics custom widgets from the UI.
 
+### Vest dates
+
+`Offer.equity_vest_overrides` holds the vest dates that differ from the generated cadence, as
+`[{"months": 12, "date": "2026-07-01"}]`, where `months` names the occasion by its distance from
+the grant date. The serializer rejects any other shape. An entry whose occasion the current cadence
+no longer has is ignored rather than removed, so changing the cliff or the vests per year does not
+discard dates that may apply again.
+
 ### Share prices
 
 `Offer.equity_current_price` holds a price per share for a company with no ticker, which is how a
