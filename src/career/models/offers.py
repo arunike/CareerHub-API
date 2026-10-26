@@ -25,6 +25,10 @@ class Offer(models.Model):
     equity_cliff_months = models.PositiveSmallIntegerField(default=12, db_default=12, help_text="Months before the first equity vests")
     equity_vests_per_year = models.PositiveSmallIntegerField(default=4, db_default=4, help_text="Vest occasions per year, e.g. 2 for twice a year")
     equity_vesting_years = models.PositiveSmallIntegerField(default=4, db_default=4, help_text="Years over which the initial grant vests")
+    equity_vest_overrides = models.JSONField(
+        default=list, blank=True,
+        help_text='Vest dates that differ from the generated cadence, [{"months": 12, "date": "2026-07-01"}]',
+    )
     annual_refresh_value = models.DecimalField(
         max_digits=12, decimal_places=2, default=0,
         help_text="Optional annual equity refresh grant value. 0 disables refresh modelling.",

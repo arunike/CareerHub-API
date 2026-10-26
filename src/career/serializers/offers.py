@@ -65,6 +65,22 @@ class OfferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Cannot be negative.')
         return value
 
+    def validate_equity_vest_overrides(self, value):
+        """Reject a shape the vest resolver would silently drop, rather than storing it."""
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Vest date overrides must be a list.')
+        for entry in value:
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError('Each override must be an object.')
+            months = entry.get('months')
+            if not isinstance(months, int) or isinstance(months, bool) or months < 0:
+                raise serializers.ValidationError('Each override needs months as a whole number of months from the grant.')
+            try:
+                datetime.date.fromisoformat(str(entry.get('date')))
+            except ValueError:
+                raise serializers.ValidationError('Each override needs a date as YYYY-MM-DD.')
+        return value
+
     def validate(self, attrs):
         application = attrs.get('application')
         if application and not self.instance:
