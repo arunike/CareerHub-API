@@ -354,12 +354,23 @@ the grant date. The serializer rejects any other shape. An entry whose occasion 
 no longer has is ignored rather than removed, so changing the cliff or the vests per year does not
 discard dates that may apply again.
 
+`Offer.equity_vesting_stopped_on` is the day the grant stopped vesting, for a role left before the
+schedule finished. It is optional: with no date the role's own `end_date` is used, and a date here
+outranks it, for a grant that stopped on a different day from the last day on the payroll. Every
+vest after it is forfeited, which drops it from the vesting chart, the schedule, the earnings
+totals and the Income ledger.
+
 ### Share prices
 
 `Offer.equity_current_price` holds a price per share for a company with no ticker, which is how a
-private buyback is valued. `StockPrice` covers listed symbols, holding the latest price per ticker
-per user rather than per offer, so two offers at the same company share one number; `source` marks
-whether it was typed or fetched, and `POST` upserts on `(user, symbol)`.
+private buyback is valued. `Offer.equity_price_points` holds the same figure with the day it applied
+from, as `[{"date": "2026-07-01", "price": "125.00"}]`; the serializer rejects any other shape and
+refuses two prices on one date. The newest entry outranks `equity_current_price`, and the list is
+the only price series a grant with no ticker can have.
+
+`StockPrice` covers listed symbols, holding the latest price per ticker per user rather than per
+offer, so two offers at the same company share one number; `source` marks whether it was typed or
+fetched, and `POST` upserts on `(user, symbol)`.
 
 `POST /career/stock-prices/refresh/` fetches the latest traded price for a ticker and records it;
 with no `symbol` it sweeps every tracked ticker and reports a bad one in `failed`. History is kept
