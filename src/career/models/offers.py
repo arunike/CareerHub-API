@@ -42,6 +42,14 @@ class Offer(models.Model):
     equity_shares = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True, help_text="Total shares in the grant, if known")
     equity_grant_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, help_text="Price per share when the grant was made")
     equity_current_price = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, help_text="Latest price per share for a company with no ticker, e.g. a private buyback")
+    equity_price_points = models.JSONField(
+        default=list, blank=True,
+        help_text='Prices typed for a grant with no ticker, [{"date": "2026-07-01", "price": "125.00"}]',
+    )
+    equity_vesting_stopped_on = models.DateField(
+        null=True, blank=True,
+        help_text="Day the grant stopped vesting, when it is not the role's own last day",
+    )
     sign_on = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="One-time Sign On Bonus")
     # Per-year sign-on amounts, e.g. [30000, 20000]. Empty means it is all paid in year 1.
     sign_on_schedule = models.JSONField(default=list, blank=True)

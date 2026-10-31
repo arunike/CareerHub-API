@@ -1,4 +1,5 @@
 import datetime
+import decimal
 
 from django.db import transaction
 from rest_framework import serializers
@@ -79,6 +80,29 @@ class OfferSerializer(serializers.ModelSerializer):
                 datetime.date.fromisoformat(str(entry.get('date')))
             except ValueError:
                 raise serializers.ValidationError('Each override needs a date as YYYY-MM-DD.')
+        return value
+
+    def validate_equity_price_points(self, value):
+        """Reject a shape the price resolver would silently drop, rather than storing it."""
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Prices must be a list.')
+        seen = set()
+        for entry in value:
+            if not isinstance(entry, dict):
+                raise serializers.ValidationError('Each price must be an object.')
+            try:
+                date = datetime.date.fromisoformat(str(entry.get('date')))
+            except ValueError:
+                raise serializers.ValidationError('Each price needs a date as YYYY-MM-DD.')
+            if date in seen:
+                raise serializers.ValidationError(f'{date} carries two prices; keep one.')
+            seen.add(date)
+            try:
+                price = decimal.Decimal(str(entry.get('price')))
+            except decimal.InvalidOperation:
+                raise serializers.ValidationError('Each price needs a price per share.')
+            if not price.is_finite() or price <= 0:
+                raise serializers.ValidationError('A price per share must be above zero.')
         return value
 
     def validate(self, attrs):
